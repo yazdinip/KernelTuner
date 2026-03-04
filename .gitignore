@@ -16,7 +16,8 @@ htmlcov/
 .env.*
 
 # Generated experiment outputs
-artifacts/
+artifacts/*
+!artifacts/.gitkeep
 
 # OS/editor noise
 .DS_Store

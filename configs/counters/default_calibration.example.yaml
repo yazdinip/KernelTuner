@@ -1,0 +1,7 @@
+counter_set_id: default_calibration
+description: Example calibration counter set for Triton GEMM experiments.
+tool: ncu
+counters:
+  - smsp__average_warps_issue_stalled_long_scoreboard_per_issue_active.avg
+  - sm__warps_active.avg.pct_of_peak_sustained_active
+  - smsp__inst_executed.sum

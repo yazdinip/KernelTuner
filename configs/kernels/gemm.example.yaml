@@ -1,0 +1,28 @@
+kernel_id: gemm
+family: gemm
+description: Example GEMM kernel specification for KernelTuner v1.
+shape_schema:
+  required_dims:
+    - m
+    - n
+    - k
+  required_metadata:
+    - dtype
+    - layout
+dtype_support:
+  - fp16
+  - bf16
+config_parameters:
+  block_m: [64, 128]
+  block_n: [64, 128]
+  block_k: [32]
+  num_warps: [4, 8]
+  num_stages: [2, 4]
+reference_impl: torch.matmul
+supports_profiling: true
+default_config:
+  block_m: 128
+  block_n: 128
+  block_k: 32
+  num_warps: 4
+  num_stages: 2

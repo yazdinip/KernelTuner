@@ -1,0 +1,26 @@
+experiment_id: gemm_smoke
+kernels:
+  - gemm
+shapes:
+  - shape_id: gemm_m128_n128_k128_fp16_rowmajor
+    m: 128
+    n: 128
+    k: 128
+    dtype: fp16
+    layout: row_major
+selector_modes:
+  - prune_only
+  - prune_rank
+baselines:
+  - default_config
+  - naive_random_search
+budgets:
+  max_candidates: 32
+  max_benchmarks: 8
+  max_profiles: 4
+  wall_clock_limit_s: 300
+calibration_split: 0.7
+held_out_split: 0.3
+artifact_root: artifacts
+counter_set_id: default_calibration
+seed: 7
