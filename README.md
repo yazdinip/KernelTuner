@@ -69,6 +69,54 @@ The initial workflow is document-driven:
 3. Implement modules against the specs in `docs/specs/`.
 4. Keep deviations explicit through ADRs rather than ad hoc code changes.
 
+## Slurm Submission Helpers
+
+For cluster execution, the repo includes reusable Slurm scripts:
+
+- `scripts/slurm/run_kerneltuner_array.sbatch`: array worker that maps one array task to one experiment YAML.
+- `scripts/slurm/submit_kerneltuner.sh`: submit wrapper that computes array size from a list file.
+
+Example list file:
+
+- `configs/experiments/slurm_experiment_list.example.txt`
+
+Basic usage:
+
+```bash
+chmod +x scripts/slurm/submit_kerneltuner.sh
+cp configs/experiments/slurm_experiment_list.example.txt configs/experiments/slurm_experiment_list.txt
+scripts/slurm/submit_kerneltuner.sh \
+  --list configs/experiments/slurm_experiment_list.txt \
+  --partition gpunodes \
+  --gpu-type rtx_a2000 \
+  --gpus 1 \
+  --time 0-04:00 \
+  --cpus 4 \
+  --mem 24GB \
+  --log-dir /scratch/scratch-space/expires-xxxx/$USER/kerneltuner_logs \
+  --scratch-root /scratch/scratch-space/expires-xxxx/$USER/kerneltuner \
+  --artifact-root /scratch/scratch-space/expires-xxxx/$USER/kerneltuner_artifacts \
+  --mail-user you@example.com \
+  --mail-type BEGIN,END,FAIL \
+  --alert-email you@example.com \
+  --alert-on-start
+```
+
+Useful environment overrides:
+
+- `RUN_COMMAND_TEMPLATE` (default: `ktune run-experiment --experiment "{experiment}"`)
+- `INSTALL_PACKAGES` (`0` to skip pip install in jobs)
+- `EXTRA_PIP_PACKAGES` (space-separated extra pip packages)
+- `SKIP_IF_ARTIFACTS_EXIST` (`0` to force reruns)
+- `DRY_RUN=1` (worker-level dry run)
+- `ALERT_EMAIL`, `ALERT_ON_START`, `ALERT_ON_END`, `ALERT_ON_FAIL` for worker-level alerts
+
+Notes:
+
+- `--artifact-root` overrides `artifact_root` in experiment YAML at submission time.
+- If no scratch path exists on the node, jobs fall back to `<workspace>/.scratch/$USER`.
+- Slurm native email (`--mail-user/--mail-type`) and worker-level alerts can be used together.
+
 ## What This Repo Is Not
 
 - It is not a Triton compiler redesign effort.
