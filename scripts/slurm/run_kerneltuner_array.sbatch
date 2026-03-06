@@ -56,7 +56,7 @@ if [[ $# -lt 1 ]]; then
 fi
 
 EXPERIMENT_LIST_FILE="$1"
-WORKSPACE_ROOT="${2:-$SLURM_SUBMIT_DIR}"
+WORKSPACE_ROOT="${2:-${SLURM_SUBMIT_DIR:-$(pwd)}}"
 VENV_NAME="${3:-kerneltuner_env}"
 
 if [[ ! -f "$EXPERIMENT_LIST_FILE" ]]; then
@@ -79,7 +79,12 @@ if (( TASK_ID < 0 || TASK_ID >= ${#EXPERIMENTS[@]} )); then
   exit 1
 fi
 
-EXPERIMENT_CFG="${EXPERIMENTS[$TASK_ID]}"
+EXPERIMENT_CFG_RAW="${EXPERIMENTS[$TASK_ID]}"
+if [[ "$EXPERIMENT_CFG_RAW" = /* ]]; then
+  EXPERIMENT_CFG="$EXPERIMENT_CFG_RAW"
+else
+  EXPERIMENT_CFG="$WORKSPACE_ROOT/$EXPERIMENT_CFG_RAW"
+fi
 if [[ ! -f "$EXPERIMENT_CFG" ]]; then
   echo "ERROR: Experiment config not found: $EXPERIMENT_CFG" >&2
   exit 1
