@@ -25,12 +25,14 @@ Deliverables:
 - config directory skeleton
 - shared type definitions matching the data-model doc
 - manifest writer and artifact-path utilities
+- environment provenance capture and host qualification checks
+- Slurm dry-run workflow validation for the designated cluster path
 
 Gate to exit:
 
 - package layout exists
 - typed config loading works
-- a no-op experiment can write a valid manifest
+- a no-op experiment can write a valid manifest with environment provenance
 
 ### Milestone 1: Primary Kernel and Candidate Pipeline
 
@@ -62,6 +64,7 @@ Deliverables:
 - benchmark harness with warmup and timed-run semantics
 - compile-time signal collection
 - runtime and compile artifact writing
+- explicit timing-backend recording and raw-sample references when enabled
 
 Gate to exit:
 
@@ -82,6 +85,7 @@ Deliverables:
 - heuristic pruning policy
 - heuristic ranking policy
 - selection decision artifact writing
+- profiler metadata capture including tool version and replay settings
 
 Gate to exit:
 
@@ -101,6 +105,8 @@ Deliverables:
 - held-out evaluation path
 - summary generation and analysis outputs
 - negative-result reporting support
+- comparability and reportability flags in summaries
+- uncertainty estimates for aggregate held-out results
 
 Gate to exit:
 

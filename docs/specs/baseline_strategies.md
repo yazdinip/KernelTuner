@@ -26,10 +26,11 @@ Inputs:
 - optional runtime measurements
 - `SelectionBudget`
 - baseline mode
+- orchestrator-owned measurement request interface for calibration-time runtime requests
 
 Outputs:
 
-- `SelectionDecision` records using the same output shape as the selector
+- `SelectionDecision` records using the same output shape as the selector, including comparison class and budget-consumption fields
 
 v1 baseline modes:
 
@@ -50,7 +51,7 @@ v1 baseline modes:
 
 1. Consume the same shared candidate pool as the selector.
 2. Traverse candidates using the chosen naive strategy.
-3. Request runtime measurements within `max_benchmarks`.
+3. Request runtime measurements only through the orchestrator-owned interface and only within `max_benchmarks`.
 4. Pick the best measured config under the baseline's rules.
 5. Emit a `SelectionDecision`.
 
@@ -76,6 +77,7 @@ v1 baseline modes:
 - log baseline mode and candidate counts
 - log measurement counts consumed by naive search
 - log when the optional oracle path is used and why it is not budget-comparable
+- log the emitted `comparison_class`
 
 ## Test Cases
 
@@ -83,6 +85,7 @@ v1 baseline modes:
 - naive baselines use the same candidate pool and `SelectionBudget` semantics as the selector
 - oracle path is marked as offline analysis only
 - empty candidate pool produces a failure decision rather than a crash
+- runtime measurements for baselines are requested only through the orchestrator-owned interface
 
 ## Extension Points
 
@@ -97,6 +100,7 @@ Stable contract:
 - baselines emit the same `SelectionDecision` shape as the selector
 - naive baselines operate under matched budget semantics
 - oracle mode is optional and not treated as budget-comparable
+- oracle or development-only outputs must be marked explicitly in the decision record
 
 Exploratory areas:
 

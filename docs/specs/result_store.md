@@ -10,6 +10,7 @@ Define how run artifacts are laid out, written atomically, versioned, indexed, a
 - write manifests, YAML, JSON, and Parquet artifacts
 - enforce schema version metadata
 - provide typed artifact readback
+- persist environment and invocation provenance in the manifest
 - finalize run status in the manifest
 
 ## Non-Responsibilities
@@ -53,7 +54,8 @@ artifacts/<experiment_id>/<run_id>/
 2. Write artifacts via temporary files.
 3. Atomically move completed files into place.
 4. Update manifest entries with schema version, row count, and file metadata.
-5. Finalize terminal run status after orchestration completes.
+5. Persist references to raw sample files, profiler stdout/stderr, or archived diffs under `logs/` when those references are present in typed records.
+6. Finalize terminal run status after orchestration completes.
 
 ## Persisted Artifacts Touched
 
@@ -70,6 +72,7 @@ artifacts/<experiment_id>/<run_id>/
 - log artifact path, schema version, and row count on successful writes
 - log atomic write failures with the target artifact name
 - log manifest finalization with terminal status
+- log whether environment provenance was captured completely or partially
 
 ## Test Cases
 
@@ -77,6 +80,7 @@ artifacts/<experiment_id>/<run_id>/
 - Parquet artifact round-trip preserves schema and row count
 - partial failure still leaves a readable manifest
 - unsupported schema version fails fast on readback
+- manifest captures git-dirty and Slurm metadata when provided by the orchestrator
 
 ## Extension Points
 
@@ -91,6 +95,7 @@ Stable contract:
 - artifact layout is fixed for v1
 - writes must be atomic at the file level
 - `manifest.json` is the canonical run index
+- environment and invocation provenance live in the manifest, not in ad hoc side files
 
 Exploratory areas:
 

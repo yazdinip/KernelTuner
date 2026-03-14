@@ -24,6 +24,8 @@ Per [03_execution_environment.md](03_execution_environment.md), authoritative ru
 - PyTorch and Triton in the same environment
 - Nsight Compute CLI (`ncu`) on `PATH`
 
+For reportable runs, stay on one designated host or one explicitly homogeneous Slurm node class.
+
 Native Windows is not a supported benchmark platform for this repo.
 
 ## Repo status on `main`
@@ -147,6 +149,8 @@ These files define:
 - the named Nsight Compute counter set,
 - the list of experiments for Slurm array submission.
 
+`gemm_smoke.example.yaml` is a smoke-only config for wiring and tool validation. It is not a reportable study config.
+
 ## Planned workflow once implementation lands
 
 The documented command surface is:
@@ -177,6 +181,8 @@ These are useful now for:
 - validating the environment,
 - setting up a repeatable job wrapper,
 - preparing for future `ktune run-experiment` runs.
+
+For reportable runs, make sure the submission path also captures node name, Slurm job metadata, and an environment export such as `pip freeze`.
 
 Basic dry-run submission example:
 

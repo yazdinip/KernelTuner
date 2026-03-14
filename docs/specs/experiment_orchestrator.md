@@ -11,6 +11,8 @@ Define the end-to-end controller that executes experiments, enforces phase bound
 - coordinate module execution across experiment phases
 - enforce calibration and held-out separation
 - enforce budget accounting
+- act as the sole broker for selection-time benchmark and profile requests
+- capture environment provenance, including Slurm metadata when present
 - trigger artifact writes through the storage layer
 
 ## Non-Responsibilities
@@ -38,27 +40,31 @@ Outputs:
 
 1. Load `ExperimentSpec`.
 2. Resolve one or more `KernelSpec` entries.
-3. Generate candidate configs for each shape.
-4. Run compile-time signal collection for the broad candidate set.
-5. Benchmark or sample benchmark candidates under the experiment budget.
-6. Run selective profiling on the calibration subset only.
-7. Fit or calibrate selector logic if needed.
-8. Apply selector and baselines under matched budgets.
-9. Evaluate on held-out shapes.
-10. Write artifacts and summary outputs.
-11. Generate analysis tables and plots.
+3. Partition shapes into calibration and held-out scopes.
+4. Generate candidate configs for each shape.
+5. Run compile-time signal collection for the broad candidate set.
+6. Broker calibration-time runtime measurements under the experiment budget.
+7. Broker calibration-time profile measurements under the profile budget.
+8. Fit or calibrate selector logic if needed.
+9. Apply selector and baselines under matched budgets.
+10. Evaluate on held-out shapes.
+11. Optionally run analysis-only exhaustive or oracle phases after decision freeze.
+12. Write artifacts and summary outputs.
+13. Generate analysis tables and plots.
 
 ## Run Lifecycle
 
 1. create run directory and initial manifest
-2. resolve kernels and shapes
-3. partition calibration and held-out scopes
-4. execute candidate generation
-5. execute measurement and profiling phases
-6. execute selection and baseline phases
-7. execute held-out evaluation
-8. finalize artifacts and summary outputs
-9. mark terminal status in the manifest
+2. capture environment provenance and scheduler metadata
+3. resolve kernels and shapes
+4. partition calibration and held-out scopes
+5. execute candidate generation
+6. execute measurement and profiling phases
+7. execute selection and baseline phases
+8. execute held-out evaluation
+9. optionally execute analysis-only exhaustive phases
+10. finalize artifacts and summary outputs
+11. mark terminal status in the manifest
 
 ## Checkpoint Behavior
 
@@ -76,6 +82,7 @@ Outputs:
 - one kernel-scope failure may terminate only that scope if the experiment is configured to continue
 - manifest finalization must happen even for partial failure
 - unrecoverable schema or environment mismatch should fail the run early and clearly
+- cluster timeout or preemption should produce the best available partial manifest and terminal status when signal handling is available
 
 ## Logging and Observability Requirements
 
@@ -83,6 +90,7 @@ Outputs:
 - log phase boundaries and durations
 - log per-scope failure counts
 - log whether the run completed fully or partially
+- log authoritative host, GPU, and Slurm job identifiers when available
 
 ## Test Cases
 
@@ -90,6 +98,7 @@ Outputs:
 - held-out data is not consumed during calibration
 - partial failures still produce complete artifact metadata
 - rerun with the same seed produces the same split assignment
+- benchmark and profile requests from strategies are budgeted centrally by the orchestrator
 
 ## Extension Points
 
@@ -104,6 +113,7 @@ Stable contract:
 - the workflow above is fixed for v1
 - calibration and held-out separation is enforced centrally
 - storage writes are coordinated through the orchestrator and storage layer
+- selection-time measurement access is mediated centrally by the orchestrator
 
 Exploratory areas:
 

@@ -25,6 +25,7 @@ Inputs:
 
 - profile request containing `run_id`, `strategy_id`, `kernel_id`, `shape_id`, `config_id`, and `counter_set_id`
 - named counter set config
+- profiling settings from `ExperimentSpec`
 - resolved kernel object and inputs
 
 Outputs:
@@ -52,10 +53,12 @@ Profile status values:
 
 1. Validate that the request belongs to the calibration subset.
 2. Load the named counter set config.
-3. Assemble the profiler command for the target kernel execution.
-4. Execute the profiler with one isolated measurement request.
-5. Parse the profiler output into normalized counter names and values.
-6. Emit a `ProfileMeasurement` record regardless of success or failure.
+3. Validate that the target config compiled successfully and passed correctness checks unless the experiment explicitly profiles failing paths.
+4. Assemble the profiler command for the target kernel execution.
+5. Execute the profiler with one isolated measurement request.
+6. Capture profiler version, invocation options, replay mode, and any kernel filter metadata.
+7. Parse the profiler output into normalized counter names and values.
+8. Emit a `ProfileMeasurement` record regardless of success or failure.
 
 ## Persisted Artifacts Touched
 
@@ -70,6 +73,7 @@ Profile status values:
 - budget exhaustion: emit `skipped_budget`
 
 Profiling failure must not invalidate the whole experiment unless profiling is the only subject of the run.
+Profiler runs are never authoritative replacements for benchmark-harness timing measurements.
 
 ## Logging and Observability Requirements
 
@@ -77,6 +81,7 @@ Profiling failure must not invalidate the whole experiment unless profiling is t
 - log the profiler tool version when available
 - keep stdout or stderr references when the profiler fails
 - log profiling duration for each request
+- log replay mode and any profiler-side kernel filter used
 
 ## Test Cases
 
@@ -84,6 +89,7 @@ Profiling failure must not invalidate the whole experiment unless profiling is t
 - unsupported counters are marked explicitly
 - missing profiler binary yields `tool_unavailable`
 - non-calibration profile request is rejected or skipped before invocation
+- profiler metadata includes tool version and invocation settings
 
 ## Extension Points
 
@@ -98,6 +104,7 @@ Stable contract:
 - profiling is restricted to the calibration subset in v1
 - named counter sets are required
 - a profile record must be emitted for every attempted request
+- profiling runs are isolated from benchmark timing runs
 
 Exploratory areas:
 

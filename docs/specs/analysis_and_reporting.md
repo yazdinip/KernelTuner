@@ -40,15 +40,18 @@ Required summary sections:
 - held-out evaluation metrics
 - failure counts
 - interpretation notes
+- reportability and comparability status
+- uncertainty metrics
 
 ## Internal Workflow
 
 1. Read the manifest and validate referenced artifact versions.
 2. Load candidate, signal, runtime, profile, and decision artifacts.
 3. Compute per-strategy and per-scope aggregates.
-4. Compare selector results with baselines under the recorded budgets.
-5. Generate canonical summary output.
-6. Generate optional plots and tables from the same normalized data.
+4. Verify comparability and reportability from the recorded metadata and decision records.
+5. Compare selector results with baselines under the recorded budgets.
+6. Generate canonical summary output.
+7. Generate optional plots and tables from the same normalized data.
 
 ## Persisted Artifacts Touched
 
@@ -67,6 +70,7 @@ Required summary sections:
 - log which run is being summarized
 - log missing optional versus missing required artifacts distinctly
 - log summary completion with the main comparison outputs
+- log when a strategy is downgraded to non-comparable or oracle-only status
 
 ## Test Cases
 
@@ -74,6 +78,8 @@ Required summary sections:
 - summary generation works for a partial-failure run with explicit limitations
 - negative-result summary path includes interpretation notes
 - missing required artifact causes a clear failure
+- non-comparable or oracle-only strategies are surfaced explicitly in the summary
+- smoke or development-only runs are marked non-reportable
 
 ## Extension Points
 
@@ -88,6 +94,7 @@ Stable contract:
 - `summary.json` is the canonical serialized `ExperimentResult` view
 - analysis must support positive and negative results
 - required summary sections listed above must exist in v1
+- the summary must make comparability and reportability status explicit
 
 Exploratory areas:
 

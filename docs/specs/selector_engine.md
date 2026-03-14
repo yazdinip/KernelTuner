@@ -29,18 +29,21 @@ Inputs:
 - optional `ProfileMeasurement` rows
 - `SelectionBudget`
 - selector mode
+- orchestrator-owned measurement request interface for additional calibration-time runtime or profile requests
 
 Outputs:
 
 - `SelectionDecision` with:
   - `run_id`
   - `strategy_id`
+  - `comparison_class`
   - `selector_mode`
   - `kernel_id`
   - `shape_scope`
   - `selected_config_id`
   - `ranked_config_ids`
   - `pruned_config_ids`
+  - budget-consumption fields
   - `rationale_summary`
   - `decision_status`
   - optional score map
@@ -60,8 +63,8 @@ v1 selector modes:
 3. Apply pruning heuristics based on compile signals and any hard thresholds.
 4. If calibration data exists, estimate which bottleneck features matter most for the current scope.
 5. Rank remaining candidates using the configured selector mode.
-6. If additional runtime measurements are allowed, request them through the orchestrator and update the ranking state.
-7. Emit the final `SelectionDecision`.
+6. If additional runtime or profile measurements are allowed, request them through the orchestrator and update the ranking state.
+7. Emit the final `SelectionDecision`, including effective mode and consumed budget.
 
 ## Persisted Artifacts Touched
 
@@ -81,6 +84,7 @@ v1 selector modes:
 - log prune counts by reason
 - log any downgrade from profiled or learned mode to a simpler heuristic mode
 - log final selected config and a concise rationale summary
+- log benchmark and profile budget consumption
 
 ## Test Cases
 
@@ -89,6 +93,7 @@ v1 selector modes:
 - budget exhaustion produces an explicit partial decision
 - selector downgrade path is recorded when profile data is missing
 - score or ranking outputs remain deterministic under a fixed seed
+- selector requests additional measurements only through the orchestrator-owned interface
 
 ## Extension Points
 
@@ -103,6 +108,7 @@ Stable contract:
 - selector consumes the shared candidate pool
 - pruning and ranking are mandatory behaviors in v1
 - the decision output must include ranked configs, pruned configs, and rationale
+- selector-side measurement access is mediated by the orchestrator
 
 Exploratory areas:
 

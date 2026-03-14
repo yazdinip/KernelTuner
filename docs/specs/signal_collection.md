@@ -39,6 +39,7 @@ Outputs:
   - `register_count`
   - `shared_memory_bytes`
   - `occupancy_estimate`
+  - optional signal backend and occupancy method metadata
   - `notes`
 
 v1 required signals:
@@ -74,6 +75,7 @@ Signal collection must not silently drop records.
 - log signal extraction start and end for each `(kernel_id, shape_id, config_id)`
 - log missing metadata paths distinctly from hard failures
 - record the method used to compute occupancy estimates
+- persist the signal-backend and occupancy-method identifiers when those paths are known
 
 ## Test Cases
 

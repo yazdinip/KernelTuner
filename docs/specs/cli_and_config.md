@@ -54,6 +54,7 @@ Required fields:
 Optional fields:
 
 - `default_config`
+- `correctness_policy`
 - `tags`
 - `notes`
 
@@ -74,9 +75,51 @@ Required fields:
 
 Optional fields:
 
+- `study_kind`
 - `counter_set_id`
+- `benchmark_settings`
+- `profiling_settings`
+- `execution_settings`
+- `analysis_settings`
 - `notes`
 - `tags`
+
+Allowed `study_kind` values:
+
+- `smoke`
+- `development`
+- `reportable`
+
+If omitted, `study_kind` should default to `development`.
+
+Recommended `benchmark_settings` fields:
+
+- `warmup_iterations`
+- `timed_iterations`
+- `timing_backend`
+- `reuse_inputs`
+- `store_raw_samples`
+
+Recommended `profiling_settings` fields:
+
+- `replay_mode`
+- `kernel_name_regex`
+- `timeout_s`
+- `cooldown_s`
+
+Recommended `execution_settings` fields:
+
+- `cache_root`
+- `scratch_root`
+- `isolate_triton_cache`
+- `expected_gpu_name`
+- `expected_partition`
+
+Recommended `analysis_settings` fields:
+
+- `enable_small_space_oracle`
+- `reportability_target`
+- `confidence_interval_method`
 
 ### Counter set config schema
 
@@ -90,6 +133,10 @@ Required fields:
 Optional fields:
 
 - `kernel_family_filters`
+- `ncu_args`
+- `replay_mode`
+- `kernel_name_regex`
+- `target_processes`
 - `notes`
 
 ## Internal Workflow
@@ -97,7 +144,7 @@ Optional fields:
 1. Parse CLI arguments.
 2. Resolve config paths and validate they exist.
 3. Load YAML into typed config objects.
-4. Validate schema and cross-reference integrity.
+4. Validate schema and cross-reference integrity, including reportability-sensitive settings such as held-out splits and counter set references.
 5. Dispatch to the relevant module or the orchestrator.
 6. Return a success or failure exit code.
 
@@ -126,6 +173,7 @@ Optional fields:
 - valid kernel config passes `validate-kernel`
 - missing required fields fail validation
 - `run-experiment` rejects missing counter set references
+- reportable studies reject missing or degenerate held-out configuration
 - command dispatch reaches the correct module with typed config objects
 - `summarize` rejects a run directory missing `manifest.json`
 

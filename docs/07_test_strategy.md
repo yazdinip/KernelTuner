@@ -58,6 +58,7 @@ Focus:
 Focus:
 
 - manifest completeness
+- environment provenance completeness
 - Parquet schema versions
 - YAML config validation
 - read/write round-trips
@@ -71,6 +72,7 @@ Focus:
 - matched budget enforcement
 - selector and baselines consuming the same candidate pool
 - negative-result reporting path
+- non-comparable and oracle-only path marking
 
 ### 6. Reproducibility Tests
 
@@ -80,6 +82,15 @@ Focus:
 - deterministic split assignment under a fixed seed
 - deterministic ranking order when randomness is not involved
 - equivalent sampling order when randomness is seeded
+- stable manifest provenance capture across repeated runs
+
+### 7. Operational Tests
+
+Focus:
+
+- Slurm wrapper path resolution and dry-run behavior
+- benchmark/profiler cache-path isolation
+- profiler metadata capture and parser stability
 
 ## Required Test Scenarios
 
@@ -97,6 +108,9 @@ The following scenarios are mandatory before treating the implementation as trus
 10. Result store can round-trip every persisted artifact without schema ambiguity.
 11. Analysis layer can produce a report for both positive and negative outcomes.
 12. Re-running the same experiment spec with the same seed yields equivalent selection ordering where randomness is involved.
+13. Benchmark timing excludes compilation and allocation in the default measurement path.
+14. Slurm submission helpers resolve experiment-list paths correctly from both repo-root and explicit `--workspace` invocations.
+15. Summary generation marks smoke, oracle-only, and non-comparable outputs explicitly.
 
 ## Suggested Test Placement
 
@@ -119,3 +133,4 @@ The exact directory names may change later, but these categories must remain.
 - Schema tests, budget tests, and held-out split tests are mandatory.
 - Failed and skipped paths must be tested, not treated as edge cases to ignore.
 - Reproducibility tests are part of the core project, not a stretch goal.
+- Operational checks for the Slurm and profiling toolchain are part of implementation readiness for reportable runs.

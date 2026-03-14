@@ -57,6 +57,57 @@ Mitigation:
 - use repeated timed runs and robust summary metrics
 - record environment metadata in every manifest
 
+### Cluster Heterogeneity
+
+Risk:
+
+- Slurm scheduling may place nominally similar jobs on different hosts or GPU variants, quietly undermining comparability.
+
+Impact:
+
+- benchmark drift that is misattributed to selector quality
+- hidden environment confounds in reportable results
+
+Mitigation:
+
+- designate one authoritative host or homogeneous node class
+- record Slurm metadata and GPU identity in every run
+- mark mixed-environment runs as non-comparable
+
+### Cache Contamination and Toolchain Drift
+
+Risk:
+
+- Triton compile caches, profiler intermediates, or dirty working trees may leak state across runs.
+
+Impact:
+
+- irreproducible compile signals
+- confusing benchmark differences between nominally identical experiments
+
+Mitigation:
+
+- isolate cache roots on scratch storage
+- record cache locations and git dirty state
+- archive the working-tree diff for any non-clean reportable run
+
+### Profiler Perturbation
+
+Risk:
+
+- Nsight Compute replay or instrumentation overhead may materially alter execution behavior relative to plain benchmark runs.
+
+Impact:
+
+- profile-derived conclusions may not align with real benchmark performance
+- profiled timings may be mistaken for authoritative latency measurements
+
+Mitigation:
+
+- isolate profiling runs from benchmark runs
+- record profiler settings and replay mode
+- never treat profiler-collected timings as benchmark-harness replacements
+
 ### Search-Space Explosion
 
 Risk:
@@ -122,6 +173,8 @@ These must be resolved before or during early implementation:
 1. Which Linux CUDA host will be the authoritative benchmark machine?
 2. Which GPU model will be used for the primary study?
 3. Which Triton and PyTorch versions will be pinned for the initial environment bootstrap?
+4. What is the policy for Slurm node pinning or homogeneous partition use in reportable runs?
+5. What clock-control or thermal-control knobs are actually available on the chosen host?
 
 ## Non-Blocking Open Questions
 

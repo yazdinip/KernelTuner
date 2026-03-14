@@ -8,15 +8,17 @@ This document defines the scientific and measurement rules for `KernelTuner` v1.
 
 1. Load `ExperimentSpec`.
 2. Resolve one or more `KernelSpec` entries.
-3. Generate candidate configs for each shape.
-4. Run compile-time signal collection for the broad candidate set.
-5. Benchmark or sample benchmark candidates under the experiment budget.
-6. Run selective profiling on the calibration subset only.
-7. Fit or calibrate selector logic if needed.
-8. Apply selector and baselines under matched budgets.
-9. Evaluate on held-out shapes.
-10. Write artifacts and summary outputs.
-11. Generate analysis tables and plots.
+3. Partition shapes into calibration and held-out scopes.
+4. Generate candidate configs for each shape.
+5. Run compile-time signal collection for the shared candidate set.
+6. Benchmark only the calibration candidates requested under the experiment budget.
+7. Run selective profiling on the calibration subset only.
+8. Fit or calibrate selector logic if needed.
+9. Apply selector and baselines under matched budgets.
+10. Evaluate on held-out shapes.
+11. Optionally run analysis-only exhaustive or oracle measurements after strategy decisions are fixed.
+12. Write artifacts and summary outputs.
+13. Generate analysis tables and plots.
 
 ## Fairness Rules
 
@@ -53,12 +55,22 @@ If any comparison violates these rules, it must be marked as non-comparable in t
 - Profiling is optional for baselines, but a baseline cannot exceed the selector's budget object.
 - If a strategy cannot complete within budget, it must emit a partial decision with explicit status rather than silently overrunning.
 
+## Measurement Access Model
+
+- The orchestrator is the only component allowed to invoke runtime benchmarking and profiling during strategy execution.
+- Selector and baseline modules may nominate candidates for measurement, but they may not inspect calibration runtime or profile data that was never requested on their behalf.
+- Calibration-time runtime measurements count against `max_benchmarks`.
+- Calibration-time profile measurements count against `max_profiles`.
+- Optional exhaustive evaluation, oracle measurement, or additional diagnostics may run only after strategy decisions are frozen and must be marked as `oracle_only` or otherwise non-comparable in reporting.
+
 ## Default Protocol Values
 
 Unless overridden by the experiment config:
 
 - warmup iterations per timed benchmark: `10`
 - timed iterations per benchmark: `30`
+- timing backend: CUDA events or an equivalent GPU-side timing path with explicit synchronization guarantees
+- benchmark stream mode: one dedicated stream per benchmark worker unless a kernel requires another documented mode
 - calibration split: `70%`
 - held-out split: `30%`
 - primary latency metric: median runtime in microseconds
@@ -71,17 +83,23 @@ Unless overridden by the experiment config:
 - The selector may use calibration shapes for signal analysis, runtime measurement, and selective profiling.
 - The selector may not consume held-out runtime or held-out profiling data during calibration.
 - Held-out shapes are used only for final evaluation of chosen configurations and baselines.
+- Reportable studies must include at least one calibration shape and at least one held-out shape per kernel scope.
+- Single-shape or zero-held-out experiments are allowed only for smoke or development validation and must not be presented as final comparative results.
 
 ## Runtime Measurement Protocol
 
 Each runtime benchmark must:
 
 1. Materialize the required inputs for the target shape and dtype.
-2. Run the kernel for the configured number of warmup iterations.
-3. Synchronize the device before entering timed measurement.
-4. Run the configured number of timed iterations.
-5. Synchronize after each timed execution or use an equivalent timing method with explicit synchronization guarantees.
-6. Record all latency samples and derived statistics.
+2. Use deterministic input generation or persist the input seed so the inputs are reproducible.
+3. Compile or lower the kernel outside the timed region unless a study explicitly targets compile latency.
+4. Allocate or reuse benchmark tensors outside the timed region unless allocation cost is an explicit study variable.
+5. Run correctness validation before reporting a successful timing result for a new `(kernel_id, shape_id, config_id)` combination.
+6. Run the kernel for the configured number of warmup iterations.
+7. Synchronize the device before entering timed measurement.
+8. Run the configured number of timed iterations using CUDA events or an equivalent method with explicit synchronization guarantees.
+9. Record all latency samples and derived statistics.
+10. Record the timing backend, stream mode, and any raw-sample reference when raw samples are stored.
 
 The benchmark harness must mark measurement status explicitly as:
 
@@ -91,6 +109,15 @@ The benchmark harness must mark measurement status explicitly as:
 - `invalid_config`
 - `skipped_budget`
 - `skipped_dependency`
+
+Runtime measurements collected under a profiler must not be reused as authoritative benchmark timings for matched-budget comparisons.
+
+## Noise Control and Evaluation Ordering
+
+- Held-out evaluation should measure competing final configurations in a paired or alternating order on the same host allocation whenever feasible.
+- The system must record candidate and strategy ordering when randomization or adaptive measurement is involved.
+- If thermal throttling, background jobs, or cluster migration appear to affect results materially, the run must be flagged with a warning in the summary.
+- Host-side launch overhead diagnostics from tools such as `nsys` may be used for debugging, but they are development diagnostics unless explicitly declared as non-comparable analysis artifacts.
 
 ## Compile-Time and Compile-Adjacent Signals
 
@@ -110,6 +137,9 @@ Missing values are allowed only when accompanied by a non-success status or an e
 - Profiling must use named counter sets defined in config files.
 - Unsupported counters or failed profiler invocations must be recorded explicitly.
 - The profile budget is consumed per `(kernel_id, shape_id, config_id, counter_set_id)` measurement.
+- Profiling runs must be isolated from benchmark timing runs.
+- The profiler tool version, invocation options, replay mode, and any kernel filters must be recorded with the profile metadata.
+- Profiling should be attempted only for configs that are known to compile and satisfy correctness checks unless the experiment explicitly studies failing paths.
 
 ## Reporting Metrics
 
@@ -121,12 +151,27 @@ Required summary metrics:
 - budget consumption by strategy
 - number of valid, failed, and skipped candidates
 - calibration-to-held-out transfer behavior
+- paired held-out comparison data per shape
+- reportability and comparability status for each strategy
+- environment provenance summary sufficient to reconstruct the run
 
 Recommended analysis metrics:
 
 - correlation between cheap signals and runtime
 - rank quality of the selector compared with the small-space oracle when available
 - sensitivity of selection quality to budget size
+- uncertainty estimates such as confidence intervals or bootstrap intervals for aggregate speedup metrics
+
+## Reportable Study Requirements
+
+A study is considered reportable only if all of the following hold:
+
+- environment provenance is captured completely enough to recreate the run
+- selector and baselines are compared under matched budgets or are explicitly marked non-comparable
+- calibration and held-out data remain disjoint
+- at least one matched-budget naive baseline is present
+- held-out evaluation uses the same measurement protocol across compared strategies
+- summary outputs include uncertainty estimates or an explicit statement of why they are unavailable
 
 ## Negative-Result Reporting Rule
 
@@ -143,6 +188,8 @@ If the selector does not outperform naive baselines, the report must still inclu
 - Calibration and held-out data must stay disjoint.
 - Held-out evaluation is separate from the selection budget.
 - All failed and skipped cases must be recorded explicitly.
+- Runtime and profile measurements during selection are brokered by the orchestrator.
+- Smoke or development-only runs must not be confused with reportable matched-budget studies.
 
 ## Exploratory Areas
 
