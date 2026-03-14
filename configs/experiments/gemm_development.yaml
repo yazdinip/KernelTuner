@@ -1,0 +1,64 @@
+experiment_id: gemm_development
+study_kind: development
+kernels:
+  - gemm
+shapes:
+  - shape_id: gemm_m512_n512_k512_fp16_rowmajor
+    m: 512
+    n: 512
+    k: 512
+    dtype: fp16
+    layout: row_major
+  - shape_id: gemm_m1024_n1024_k1024_fp16_rowmajor
+    m: 1024
+    n: 1024
+    k: 1024
+    dtype: fp16
+    layout: row_major
+  - shape_id: gemm_m2048_n2048_k1024_fp16_rowmajor
+    m: 2048
+    n: 2048
+    k: 1024
+    dtype: fp16
+    layout: row_major
+  - shape_id: gemm_m2048_n2048_k2048_fp16_rowmajor
+    m: 2048
+    n: 2048
+    k: 2048
+    dtype: fp16
+    layout: row_major
+selector_modes:
+  - prune_only
+  - prune_rank
+  - prune_rank_profiled
+baselines:
+  - default_config
+  - naive_random_search
+  - naive_grid_search
+budgets:
+  max_candidates: 24
+  max_benchmarks: 10
+  max_profiles: 4
+  wall_clock_limit_s: 600
+calibration_split: 0.5
+held_out_split: 0.5
+artifact_root: artifacts
+counter_set_id: default_calibration
+benchmark_settings:
+  warmup_iterations: 15
+  timed_iterations: 40
+  timing_backend: cuda_events
+profiling_settings:
+  replay_mode: kernel
+  timeout_s: 180
+  cooldown_s: 1.0
+execution_settings:
+  isolate_triton_cache: true
+  expected_partition: gpunodes
+  expected_node_name: gpunode2
+  expected_gpu_name: NVIDIA RTX A6000
+  cuda_home: /usr/local/cuda-12.9
+analysis_settings:
+  reportability_target: gpunode2_rtx_a6000
+seed: 7
+notes: Development-sized GEMM study with the full strategy set, including profiler-guided selection.

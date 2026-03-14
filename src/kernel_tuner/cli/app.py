@@ -110,3 +110,7 @@ def profile_once(payload: str) -> None:
 
 def main() -> None:
     app()
+
+
+if __name__ == "__main__":
+    main()

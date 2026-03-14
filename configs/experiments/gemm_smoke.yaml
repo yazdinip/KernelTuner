@@ -32,5 +32,9 @@ profiling_settings:
   replay_mode: kernel
 execution_settings:
   isolate_triton_cache: true
+  expected_partition: gpunodes
+  expected_node_name: gpunode2
+  expected_gpu_name: NVIDIA RTX A6000
+  cuda_home: /usr/local/cuda-12.9
 notes: Single-shape smoke config for wiring and tool validation only; not a reportable study.
 seed: 7

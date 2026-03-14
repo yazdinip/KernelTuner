@@ -1,4 +1,4 @@
-"""Config loading and validation."""
+"""Config loading, validation, and repo-relative path resolution."""
 
 from __future__ import annotations
 
@@ -40,6 +40,48 @@ def load_experiment_spec(path: str | Path) -> ExperimentSpec:
     for shape in spec.shapes:
         _validate_shape_id(shape)
     return spec
+
+
+def repo_root(start: str | Path | None = None) -> Path:
+    current = Path(start or Path.cwd()).resolve()
+    for candidate in (current, *current.parents):
+        if (candidate / "pyproject.toml").exists():
+            return candidate
+    raise FileNotFoundError("could not locate repo root from path")
+
+
+def kernel_config_path(kernel_id: str, base_path: str | Path | None = None) -> Path:
+    root = repo_root(base_path)
+    candidates = [
+        root / "configs" / "kernels" / f"{kernel_id}.yaml",
+        root / "configs" / "kernels" / f"{kernel_id}.example.yaml",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError(f"kernel config not found for kernel_id '{kernel_id}'")
+
+
+def counter_set_path(counter_set_id: str, base_path: str | Path | None = None) -> Path:
+    root = repo_root(base_path)
+    candidates = [
+        root / "configs" / "counters" / f"{counter_set_id}.yaml",
+        root / "configs" / "counters" / f"{counter_set_id}.example.yaml",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError(f"counter set config not found for '{counter_set_id}'")
+
+
+def resolve_artifact_root(
+    artifact_root: str | Path,
+    base_path: str | Path | None = None,
+) -> Path:
+    path = Path(artifact_root)
+    if path.is_absolute():
+        return path
+    return repo_root(base_path) / path
 
 
 def _validate_shape_id(shape: ProblemShape) -> None:

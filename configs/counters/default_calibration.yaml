@@ -1,5 +1,5 @@
 counter_set_id: default_calibration
-description: Example calibration counter set for Triton GEMM experiments.
+description: Nsight Compute counters used for the pinned GEMM calibration workflow.
 tool: ncu
 replay_mode: kernel
 target_processes: all

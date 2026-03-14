@@ -1,6 +1,6 @@
 kernel_id: gemm
 family: gemm
-description: Example GEMM kernel specification for KernelTuner v1.
+description: Triton GEMM kernel specification for the pinned KernelTuner v1 baseline.
 shape_schema:
   required_dims:
     - m
@@ -30,3 +30,6 @@ default_config:
   block_k: 32
   num_warps: 4
   num_stages: 2
+tags:
+  - baseline
+  - triton
