@@ -37,6 +37,12 @@ This file is the canonical table of contents for the `KernelTuner` v1 documentat
 | [`07_test_strategy.md`](07_test_strategy.md) | Required tests and validation coverage | Build team | KernelTuner build team | Authoritative v1 |
 | [`08_risks_and_open_questions.md`](08_risks_and_open_questions.md) | Explicit risks and unresolved issues | Build team, course staff | KernelTuner build team | Authoritative v1 |
 
+## Operational Guides
+
+| Path | Purpose | Audience | Owner | Status |
+| --- | --- | --- | --- | --- |
+| [`gpu_job_guide.md`](gpu_job_guide.md) | Linux CUDA host setup and Slurm workflow guidance for repo work | Build team | KernelTuner build team | Supporting guide |
+
 ## Architecture Decision Records
 
 | Path | Decision | Audience | Owner | Status |

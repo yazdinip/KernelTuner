@@ -59,6 +59,16 @@ EXPERIMENT_LIST_FILE="$1"
 WORKSPACE_ROOT="${2:-${SLURM_SUBMIT_DIR:-$(pwd)}}"
 VENV_NAME="${3:-kerneltuner_env}"
 
+WORKSPACE_ROOT="$(cd "$WORKSPACE_ROOT" && pwd)"
+
+if [[ "$EXPERIMENT_LIST_FILE" != /* ]]; then
+  if [[ -f "$EXPERIMENT_LIST_FILE" ]]; then
+    EXPERIMENT_LIST_FILE="$(cd "$(dirname "$EXPERIMENT_LIST_FILE")" && pwd)/$(basename "$EXPERIMENT_LIST_FILE")"
+  else
+    EXPERIMENT_LIST_FILE="$WORKSPACE_ROOT/$EXPERIMENT_LIST_FILE"
+  fi
+fi
+
 if [[ ! -f "$EXPERIMENT_LIST_FILE" ]]; then
   echo "ERROR: Experiment list file not found: $EXPERIMENT_LIST_FILE" >&2
   exit 1

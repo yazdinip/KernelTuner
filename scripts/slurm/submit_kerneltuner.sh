@@ -85,6 +85,16 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+WORKSPACE_ROOT="$(cd "$WORKSPACE_ROOT" && pwd)"
+
+if [[ "$LIST_FILE" != /* ]]; then
+  if [[ -f "$LIST_FILE" ]]; then
+    LIST_FILE="$(cd "$(dirname "$LIST_FILE")" && pwd)/$(basename "$LIST_FILE")"
+  else
+    LIST_FILE="$WORKSPACE_ROOT/$LIST_FILE"
+  fi
+fi
+
 if [[ -z "$LIST_FILE" ]]; then
   echo "ERROR: --list is required" >&2
   usage

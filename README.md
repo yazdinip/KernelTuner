@@ -57,6 +57,7 @@ docs/
 
 - Proposal: [visual_computing_revised_proposal.md](visual_computing_revised_proposal.md)
 - Documentation index: [docs/00_index.md](docs/00_index.md)
+- GPU job guide: [docs/gpu_job_guide.md](docs/gpu_job_guide.md)
 - Architecture decisions: [docs/adr/](docs/adr/)
 - Module specifications: [docs/specs/](docs/specs/)
 
@@ -71,7 +72,9 @@ The initial workflow is document-driven:
 
 ## Slurm Submission Helpers
 
-For cluster execution, the repo includes reusable Slurm scripts:
+For cluster execution, the repo includes reusable Slurm scripts.
+
+These scripts are available on `main`, but they are still preparatory on the current branch because the documented `ktune` CLI has not been implemented yet.
 
 - `scripts/slurm/run_kerneltuner_array.sbatch`: array worker that maps one array task to one experiment YAML.
 - `scripts/slurm/submit_kerneltuner.sh`: submit wrapper that computes array size from a list file.
