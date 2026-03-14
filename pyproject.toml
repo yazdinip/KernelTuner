@@ -12,7 +12,26 @@ authors = [
   { name = "Pedram Yazdinia" },
   { name = "Giovanni Galea Curmi" },
 ]
-dependencies = []
+dependencies = [
+  "PyYAML==6.0.3",
+  "pandas==3.0.1",
+  "pyarrow==23.0.1",
+  "pydantic==2.12.5",
+  "typer==0.24.1",
+  "matplotlib==3.10.8",
+]
+
+[project.optional-dependencies]
+gpu = [
+  "torch==2.10.0",
+  "triton==3.6.0",
+]
+dev = [
+  "pytest==8.4.2",
+]
+
+[project.scripts]
+ktune = "kernel_tuner.cli.app:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

@@ -113,7 +113,16 @@ Recommended `execution_settings` fields:
 - `scratch_root`
 - `isolate_triton_cache`
 - `expected_gpu_name`
+- `expected_node_name`
 - `expected_partition`
+- `cuda_home`
+
+For the current repo baseline, the expected initial values are:
+
+- `expected_partition: gpunodes`
+- `expected_node_name: gpunode2`
+- `expected_gpu_name: NVIDIA RTX A6000`
+- `cuda_home: /usr/local/cuda-12.9`
 
 Recommended `analysis_settings` fields:
 

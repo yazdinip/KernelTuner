@@ -11,6 +11,11 @@
 
 set -euo pipefail
 
+CUDA_HOME="${CUDA_HOME:-/usr/local/cuda-12.9}"
+export CUDA_HOME
+export PATH="$CUDA_HOME/bin:$PATH"
+export LD_LIBRARY_PATH="$CUDA_HOME/lib64:${LD_LIBRARY_PATH:-}"
+
 send_alert() {
   local phase="$1"
   local details="$2"
@@ -165,20 +170,20 @@ if [[ "${SKIP_IF_ARTIFACTS_EXIST:-1}" == "1" ]]; then
 fi
 
 VENV_PATH="$SCRATCH_ROOT/$VENV_NAME"
-if [[ ! -d "$VENV_PATH" ]]; then
-  echo "Creating virtual environment at $VENV_PATH"
-  python3 -m venv "$VENV_PATH"
+if [[ "${INSTALL_PACKAGES:-1}" == "1" ]]; then
+  echo "Bootstrapping environment into $VENV_PATH"
+  "$WORKSPACE_ROOT/scripts/bootstrap_env.sh" "$VENV_PATH"
+else
+  if [[ ! -d "$VENV_PATH" ]]; then
+    echo "ERROR: virtual environment missing at $VENV_PATH and INSTALL_PACKAGES=0" >&2
+    exit 1
+  fi
 fi
 
 source "$VENV_PATH/bin/activate"
 
-if [[ "${INSTALL_PACKAGES:-1}" == "1" ]]; then
-  echo "Installing dependencies into $VENV_PATH"
-  pip install --upgrade pip
-  pip install --no-cache-dir -e "$WORKSPACE_ROOT" pyyaml pandas pyarrow
-  if [[ -n "${EXTRA_PIP_PACKAGES:-}" ]]; then
-    pip install --no-cache-dir ${EXTRA_PIP_PACKAGES}
-  fi
+if [[ -n "${EXTRA_PIP_PACKAGES:-}" ]]; then
+  pip install --no-cache-dir ${EXTRA_PIP_PACKAGES}
 fi
 
 export PYTHONPATH="$WORKSPACE_ROOT/src:${PYTHONPATH:-}"

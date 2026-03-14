@@ -9,20 +9,52 @@ This document defines the supported runtime and tooling assumptions for `KernelT
 | Area | v1 Assumption |
 | --- | --- |
 | Host OS | Linux x86_64 |
-| Recommended distro | Ubuntu 22.04 LTS or a comparable recent Linux distribution |
-| Python | Python 3.11 |
-| GPU | One NVIDIA GPU on a local host |
-| CUDA | CUDA 12.x compatible runtime and driver |
-| Triton runtime | A Triton release compatible with the chosen Python, PyTorch, and CUDA stack |
-| Tensor runtime | PyTorch release compatible with the chosen Triton stack |
-| Profiler | Nsight Compute CLI (`ncu`) |
+| Recommended distro | Ubuntu 24.04 LTS or a comparable recent Linux distribution |
+| Python | Python 3.12.3 via system `python3` on the benchmark node |
+| GPU | One NVIDIA RTX A6000 48 GB on `gpunode2` |
+| CUDA | CUDA 12.9 via `/usr/local/cuda-12.9` |
+| Triton runtime | `triton==3.6.0` for the initial implementation milestone |
+| Tensor runtime | `torch==2.10.0` for the initial implementation milestone |
+| Profiler | Nsight Compute CLI (`ncu`) 2025.2.1 via `/usr/local/cuda/bin/ncu` |
 | Optional diagnostic profiler | Nsight Systems (`nsys`) for development diagnostics only, not as a primary matched-budget signal source |
 | Artifact formats | YAML, JSON, Parquet |
+
+## Pinned Milestone 0 Baseline
+
+The initial implementation milestone is pinned to one concrete execution baseline so implementation does not start against moving environment targets.
+
+Selected authoritative benchmark target:
+
+- Slurm partition: `gpunodes`
+- Authoritative node: `gpunode2`
+- GPU model: `NVIDIA RTX A6000` with `49140 MiB`
+- Node OS: Ubuntu 24.04 LTS class image
+- Python: `3.12.3`
+- CUDA toolkit: `12.9` at `/usr/local/cuda-12.9`
+- Nsight Compute CLI: `2025.2.1`
+- GCC: `13.3.0`
+
+Pinned Python package set for initial implementation:
+
+- `torch==2.10.0`
+- `triton==3.6.0`
+- `PyYAML==6.0.3`
+- `pandas==3.0.1`
+- `pyarrow==23.0.1`
+- `pytest==8.4.2`
+
+Operational policy for this baseline:
+
+- Reportable runs are pinned to `gpunode2`.
+- `gpunode3` may be used only for development or for explicit requalification when `gpunode2` is unavailable.
+- A single comparative study must not mix `gpunode2` and `gpunode3`.
+- Clock control is not assumed for the initial milestone; the implementation should record observed clock behavior and persistence state rather than require clock locking.
 
 ## Operating Model
 
 - Development may happen from any machine.
 - Benchmarking and profiling are supported only on the designated Linux CUDA host in v1.
+- For the initial implementation milestone, the designated host is `gpunode2`.
 - Native Windows is not a supported execution environment for v1 experiments.
 - Windows plus WSL is acceptable for editing and light validation, but authoritative measurements must be run on the Linux host.
 - If Slurm is used, one authoritative host or one explicitly homogeneous node class must be designated for reportable runs.
@@ -32,11 +64,11 @@ This document defines the supported runtime and tooling assumptions for `KernelT
 
 The target machine must provide:
 
-- Python 3.11 with virtual environment support
+- Python 3.12 with virtual environment support
 - NVIDIA driver compatible with CUDA 12.x
 - CUDA runtime and device visibility
 - PyTorch and Triton installed in the same environment
-- `ncu` available on `PATH` for profiling runs
+- `ncu` available on `PATH` for profiling runs, either directly or via an explicit CUDA `bin/` export
 - Parquet support through a Python library such as `pyarrow`
 
 If cluster execution is used, the environment should also provide:
@@ -57,13 +89,28 @@ Before treating a host as authoritative for reportable measurements, verify:
 
 When fixed clocks or similar controls are not possible on the cluster, the run manifest must still record the observed environment and any known limitations.
 
+For the initial implementation milestone, the expected qualification values are:
+
+- node: `gpunode2`
+- GPU: `NVIDIA RTX A6000`
+- Python: `3.12.3`
+- CUDA toolkit root: `/usr/local/cuda-12.9`
+- Nsight Compute: `2025.2.1`
+- package pins: the versions listed in the pinned baseline above
+
 ## Slurm and Cluster Policy
 
 - Slurm is an execution convenience, not a relaxation of the single-host, single-GPU study contract.
 - Reportable runs should prefer one designated node when feasible.
+- For the initial implementation milestone, reportable runs should pin `--nodelist=gpunode2`.
 - If a single node cannot be guaranteed, runs may use a homogeneous node class only if GPU model, driver, CUDA stack, and partition remain identical across comparisons.
 - Slurm metadata must be recorded per run, including job ID, task ID, partition, node name, GRES allocation, CPU count, memory allocation, and `CUDA_VISIBLE_DEVICES` when available.
 - Preemptible or time-limited queues may be used for development or smoke runs, but reportable runs must document any preemption risk and partial-run handling policy.
+
+Current repo-specific policy:
+
+- The existing Slurm helper scripts are acceptable for development and smoke runs.
+- They should not be treated as sufficient for reportable runs until node pinning is exposed explicitly through the helper path or the reportable submission uses a manually pinned Slurm command.
 
 ## Recommended Host Characteristics
 
@@ -96,6 +143,7 @@ Recommended additional provenance:
 - a reference to a saved working-tree diff if the run used uncommitted changes
 - Triton cache root and any benchmark scratch directories
 - clock-control or persistence-mode settings if known
+- `CUDA_HOME` and any explicit `PATH` or `LD_LIBRARY_PATH` additions used to expose CUDA or profiler tools
 
 Additional expectations:
 
@@ -118,12 +166,18 @@ Cluster scheduling itself is allowed, but heterogeneous or weakly controlled clu
 
 ## Environment Setup Policy
 
-v1 assumes that implementation will later add explicit bootstrap files for environment creation. Until those files exist, the build team should use a single pinned Python environment on the Linux host, record exact package versions in experiment manifests, and preserve an environment export for any reportable run.
+v1 assumes that implementation will later add explicit bootstrap files for environment creation. Until those files exist, the build team should use the pinned Milestone 0 baseline above on `gpunode2`, record exact package versions in experiment manifests, and preserve an environment export for any reportable run.
+
+For the current cluster image, implementation should assume:
+
+- system Python is `python3`, not `python3.11`
+- CUDA and Nsight tools may require exporting `/usr/local/cuda-12.9/bin` or `/usr/local/cuda/bin`
+- scratch-backed virtual environments and caches should be preferred over home-directory installs
 
 ## Stable Contracts
 
 - Linux x86_64 plus one NVIDIA GPU is the only supported benchmark environment in v1.
-- Python 3.11 is the baseline language runtime.
+- Python 3.12.3 on `gpunode2` is the baseline language runtime for the initial implementation milestone.
 - Profiling is defined in terms of Nsight Compute CLI.
 - Environment metadata is part of the required run manifest.
 - Slurm use must still satisfy the single-host or homogeneous-node-class comparability requirement.
@@ -131,6 +185,6 @@ v1 assumes that implementation will later add explicit bootstrap files for envir
 
 ## Exploratory Areas
 
-- Exact package pins before bootstrap files are added
-- Exact GPU architecture used for the primary study
+- Package revisions after the initial implementation baseline is working
+- Whether the project later broadens from one pinned node to a homogeneous node class
 - Optional use of containers once implementation begins

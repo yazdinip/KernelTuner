@@ -168,13 +168,28 @@ Mitigation:
 
 ## Blocking Questions
 
-These must be resolved before or during early implementation:
+The initial implementation milestone resolves most of the original blocking questions. The remaining open item is intentionally kept visible.
 
-1. Which Linux CUDA host will be the authoritative benchmark machine?
-2. Which GPU model will be used for the primary study?
-3. Which Triton and PyTorch versions will be pinned for the initial environment bootstrap?
-4. What is the policy for Slurm node pinning or homogeneous partition use in reportable runs?
-5. What clock-control or thermal-control knobs are actually available on the chosen host?
+Resolved for the initial implementation milestone:
+
+1. Authoritative benchmark machine: `gpunode2`
+2. Primary-study GPU model: `NVIDIA RTX A6000` (`49140 MiB`)
+3. Initial environment pins:
+   - Python `3.12.3`
+   - CUDA toolkit `12.9` at `/usr/local/cuda-12.9`
+   - Nsight Compute `2025.2.1`
+   - GCC `13.3.0`
+   - `torch==2.10.0`
+   - `triton==3.6.0`
+   - `PyYAML==6.0.3`
+   - `pandas==3.0.1`
+   - `pyarrow==23.0.1`
+   - `pytest==8.4.2`
+4. Reportable Slurm policy: pin reportable runs to `--nodelist=gpunode2` and do not mix `gpunode2` with `gpunode3` within one comparative study
+
+Still open:
+
+1. What clock-control or thermal-control knobs are actually available on `gpunode2`, and should the project use them or remain on a record-only policy?
 
 ## Non-Blocking Open Questions
 
