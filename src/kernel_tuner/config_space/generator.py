@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import itertools
+import json
 from pathlib import Path
 
 from kernel_tuner.common.config import kernel_config_path, load_kernel_spec
@@ -19,11 +20,7 @@ def _candidate_sort_key(record: CandidateConfig) -> tuple[object, ...]:
     return (
         record.kernel_id,
         record.shape_id,
-        record.block_m,
-        record.block_n,
-        record.block_k,
-        record.num_warps,
-        record.num_stages,
+        tuple(sorted(record.config.items())),
         record.config_id,
     )
 
@@ -43,11 +40,7 @@ def _candidate_record(
         kernel_id=kernel_id,
         shape_id=shape.shape_id,
         config_id=canonical_config_id(config),
-        block_m=config["block_m"],
-        block_n=config["block_n"],
-        block_k=config["block_k"],
-        num_warps=config["num_warps"],
-        num_stages=config["num_stages"],
+        config=dict(sorted(config.items())),
         is_valid=is_valid,
         validation_notes=validation_notes,
         generation_provenance=generation_provenance,
@@ -55,13 +48,7 @@ def _candidate_record(
 
 
 def config_dict_from_record(record: CandidateConfig) -> dict[str, int]:
-    return {
-        "block_m": record.block_m,
-        "block_n": record.block_n,
-        "block_k": record.block_k,
-        "num_warps": record.num_warps,
-        "num_stages": record.num_stages,
-    }
+    return dict(record.config)
 
 
 def generate_candidate_records(
@@ -75,7 +62,7 @@ def generate_candidate_records(
         kernel = resolve_kernel(spec)
         parameter_names = _ordered_parameter_names(spec)
         value_sets = [spec.config_parameters[name] for name in parameter_names]
-        raw_configs = [dict(zip(parameter_names, values)) for values in itertools.product(*value_sets)]
+        raw_configs = [dict(zip(parameter_names, values, strict=False)) for values in itertools.product(*value_sets)]
         config_ids = sorted({canonical_config_id(config) for config in raw_configs})
         selected_config_ids = set(config_ids[: experiment_spec.budgets.max_candidates])
         generation_provenance = "cartesian_product"
@@ -117,4 +104,8 @@ def generate_candidate_configs(
     return {
         "candidate_count": len(ordered),
         "records": [record.model_dump(mode="json") for record in ordered],
+        "config_ids": [record.config_id for record in ordered],
+        "config_space_signature": canonical_config_id(
+            {"records": [json.dumps(record.config, sort_keys=True) for record in ordered]}
+        ),
     }

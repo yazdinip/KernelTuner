@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import math
 import statistics
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Iterable
 
 from kernel_tuner.common.config import kernel_config_path, load_kernel_spec
 from kernel_tuner.common.schema import (
@@ -61,6 +60,11 @@ def _status_measurement(
         measurement_order_index=measurement_order_index,
         error_message=error_message,
     )
+
+
+def _percentile(sorted_samples: list[float], percentile: float) -> float:
+    index = int(round((len(sorted_samples) - 1) * percentile))
+    return sorted_samples[index]
 
 
 def benchmark_candidate(
@@ -148,14 +152,12 @@ def benchmark_candidate(
             end.synchronize()
             samples.append(start.elapsed_time(end) * 1000.0)
 
-    median_us = statistics.median(samples)
-    mean_us = statistics.fmean(samples)
-    std_us = statistics.pstdev(samples) if len(samples) > 1 else 0.0
     sorted_samples = sorted(samples)
-    p95_index = min(len(sorted_samples) - 1, math.ceil(0.95 * len(sorted_samples)) - 1)
-    p95_us = sorted_samples[p95_index]
-    flops = 2.0 * shape.m * shape.n * shape.k
-    throughput = flops / (median_us / 1_000_000.0) / 1_000_000_000_000.0
+    median_us = statistics.median(sorted_samples)
+    mean_us = statistics.fmean(sorted_samples)
+    std_us = statistics.pstdev(sorted_samples) if len(sorted_samples) > 1 else 0.0
+    p95_us = _percentile(sorted_samples, 0.95)
+    throughput_value, throughput_unit = kernel.performance_metric(shape, config, median_us)
     measurement = RuntimeMeasurement(
         run_id=run_id,
         strategy_id=strategy_id,
@@ -169,8 +171,8 @@ def benchmark_candidate(
         latency_mean_us=mean_us,
         latency_std_us=std_us,
         latency_p95_us=p95_us,
-        throughput_value=throughput,
-        throughput_unit="TFLOP/s",
+        throughput_value=throughput_value,
+        throughput_unit=throughput_unit,
         status=RuntimeStatus.SUCCESS,
         timing_backend=settings.timing_backend,
         measurement_order_index=measurement_order_index,

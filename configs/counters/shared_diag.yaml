@@ -1,0 +1,13 @@
+counter_set_id: shared_diag
+description: Diagnostic shared-memory counter set for targeted investigation only.
+tool: ncu
+replay_mode: kernel
+target_processes: all
+diagnostic_only: true
+minimum_availability: 0.9
+counters:
+  - l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld
+  - l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st
+  - l1tex__data_pipe_lsu_wavefronts_mem_shared
+  - smsp__warp_issue_stalled_short_scoreboard_per_warp_active
+notes: This set is diagnostic-only and should not be treated as matched-budget reportable evidence.

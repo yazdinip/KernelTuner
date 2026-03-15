@@ -110,6 +110,7 @@ def capture_invocation_metadata(
     experiment_config_path: str | None = None,
     kernel_config_path: str | None = None,
     counter_config_path: str | None = None,
+    study_config_path: str | None = None,
     seed: int | None = None,
 ) -> InvocationMetadata:
     return InvocationMetadata(
@@ -117,6 +118,7 @@ def capture_invocation_metadata(
         experiment_config_path=experiment_config_path,
         kernel_config_path=kernel_config_path,
         counter_config_path=counter_config_path,
+        study_config_path=study_config_path,
         seed=seed,
     )
 

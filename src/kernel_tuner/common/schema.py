@@ -9,7 +9,9 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+
+_LEGACY_SHAPE_KEYS = {"m", "n", "k", "rows", "hidden"}
 
 
 class KTModel(BaseModel):
@@ -28,6 +30,7 @@ class SelectorMode(StrEnum):
     PRUNE_ONLY = "prune_only"
     PRUNE_RANK = "prune_rank"
     PRUNE_RANK_PROFILED = "prune_rank_profiled"
+    PRUNE_RANK_REVISED = "prune_rank_revised"
     LEARNED_RANK = "learned_rank"
 
 
@@ -111,6 +114,8 @@ class AnalysisSettings(KTModel):
     enable_small_space_oracle: bool = False
     reportability_target: str | None = None
     confidence_interval_method: str = "bootstrap"
+    workload_id: str | None = None
+    comparison_tags: list[str] = Field(default_factory=list)
 
 
 class SelectionBudget(KTModel):
@@ -156,20 +161,66 @@ class KernelSpec(KTModel):
 
 class ProblemShape(KTModel):
     shape_id: str
-    m: int
-    n: int
-    k: int
-    dtype: str
-    layout: str
+    dimensions: dict[str, int]
+    dtype: str | None = None
+    layout: str | None = None
     batch_group: str | None = None
+    workload_class: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
     notes: str | None = None
 
-    @field_validator("m", "n", "k")
+    @model_validator(mode="before")
     @classmethod
-    def _positive_dims(cls, value: int) -> int:
-        if value <= 0:
-            raise ValueError("shape dimensions must be positive")
-        return value
+    def _coerce_legacy_shape_fields(cls, value: Any) -> Any:
+        if isinstance(value, cls):
+            return value
+        if not isinstance(value, dict):
+            return value
+        payload = dict(value)
+        if "dimensions" not in payload:
+            legacy_dims = {
+                key: payload.pop(key)
+                for key in list(payload)
+                if key in _LEGACY_SHAPE_KEYS
+            }
+            if legacy_dims:
+                payload["dimensions"] = legacy_dims
+        if "metadata" not in payload:
+            payload["metadata"] = {}
+        return payload
+
+    @field_validator("dimensions")
+    @classmethod
+    def _positive_dims(cls, value: dict[str, int]) -> dict[str, int]:
+        if not value:
+            raise ValueError("dimensions must not be empty")
+        for name, dim in value.items():
+            if dim <= 0:
+                raise ValueError(f"shape dimension '{name}' must be positive")
+        return dict(sorted(value.items()))
+
+    def dim(self, name: str) -> int:
+        return self.dimensions[name]
+
+    @property
+    def m(self) -> int | None:
+        return self.dimensions.get("m")
+
+    @property
+    def n(self) -> int | None:
+        return self.dimensions.get("n")
+
+    @property
+    def k(self) -> int | None:
+        return self.dimensions.get("k")
+
+    @property
+    def rows(self) -> int | None:
+        return self.dimensions.get("rows")
+
+    @property
+    def hidden(self) -> int | None:
+        return self.dimensions.get("hidden")
 
 
 class CounterSetSpec(KTModel):
@@ -182,7 +233,16 @@ class CounterSetSpec(KTModel):
     replay_mode: str | None = None
     kernel_name_regex: str | None = None
     target_processes: str | None = None
+    diagnostic_only: bool = False
+    minimum_availability: float = 0.9
     notes: str | None = None
+
+    @field_validator("minimum_availability")
+    @classmethod
+    def _availability_range(cls, value: float) -> float:
+        if not 0.0 <= value <= 1.0:
+            raise ValueError("minimum_availability must be in [0, 1]")
+        return value
 
 
 class ExperimentSpec(KTModel):
@@ -198,6 +258,8 @@ class ExperimentSpec(KTModel):
     seed: int
     study_kind: StudyKind = StudyKind.DEVELOPMENT
     counter_set_id: str | None = None
+    selector_version: str = "v1"
+    budget_id: str | None = None
     benchmark_settings: BenchmarkSettings = Field(default_factory=BenchmarkSettings)
     profiling_settings: ProfilingSettings = Field(default_factory=ProfilingSettings)
     execution_settings: ExecutionSettings = Field(default_factory=ExecutionSettings)
@@ -213,8 +275,15 @@ class ExperimentSpec(KTModel):
         if self.study_kind == StudyKind.REPORTABLE:
             if self.calibration_split <= 0.0 or self.held_out_split <= 0.0:
                 raise ValueError("reportable studies require non-zero calibration and held-out splits")
+        if len(self.kernels) != 1:
+            raise ValueError("v1 experiments must specify exactly one kernel")
         if self.budgets.seed is None:
             self.budgets.seed = self.seed
+        if self.budget_id is None:
+            self.budget_id = (
+                f"cand{self.budgets.max_candidates}_bench{self.budgets.max_benchmarks}_"
+                f"profile{self.budgets.max_profiles}"
+            )
         return self
 
 
@@ -224,11 +293,7 @@ class CandidateConfig(KTModel):
     kernel_id: str
     shape_id: str
     config_id: str
-    block_m: int
-    block_n: int
-    block_k: int
-    num_warps: int
-    num_stages: int
+    config: dict[str, int]
     is_valid: bool
     validation_notes: str | None = None
     generation_provenance: str | None = None
@@ -313,6 +378,91 @@ class SelectionDecision(KTModel):
     calibration_metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class CounterAvailabilityRecord(KTModel):
+    schema_version: int = SCHEMA_VERSION
+    run_id: str
+    strategy_id: str
+    counter_set_id: str
+    counter_name: str
+    populated_rows: int
+    total_rows: int
+    non_null_fraction: float
+    acceptable: bool
+
+
+class BottleneckSignatureRecord(KTModel):
+    schema_version: int = SCHEMA_VERSION
+    run_id: str
+    strategy_id: str
+    kernel_id: str
+    shape_id: str
+    config_id: str
+    workload_class: str | None = None
+    occupancy_bucket: str
+    tensor_util_bucket: str
+    memory_pressure_bucket: str
+    scoreboard_bucket: str
+    shared_conflict_bucket: str
+    compile_feasibility_bucket: str
+    selected_by_strategy: bool
+    held_out_outcome: str
+    regret_to_best_measured: float | None = None
+    opportunity_tags: list[str] = Field(default_factory=list)
+
+
+class HypothesisSpec(KTModel):
+    hypothesis_id: str
+    description: str
+    comparison_pair: list[str] = Field(default_factory=list)
+    notes: str | None = None
+
+
+class RunGroupSpec(KTModel):
+    group_id: str
+    experiment_ids: list[str] = Field(default_factory=list)
+    run_dirs: list[str] = Field(default_factory=list)
+    include_latest_runs: int | None = None
+    kernel_family: str | None = None
+    workload_class: str | None = None
+    selector_version: str = "v1"
+    counter_set_id: str | None = None
+    budget_id: str | None = None
+    notes: str | None = None
+
+
+class StudySpec(KTModel):
+    study_id: str
+    hypotheses: list[HypothesisSpec]
+    run_groups: list[RunGroupSpec]
+    group_by: list[str] = Field(
+        default_factory=lambda: [
+            "kernel_family",
+            "workload_class",
+            "selector_version",
+            "counter_set_id",
+            "budget_id",
+            "seed",
+        ]
+    )
+    primary_metric: str = "geomean_speedup_vs_default_config"
+    secondary_metrics: list[str] = Field(
+        default_factory=lambda: [
+            "speedup_vs_naive_random_search",
+            "speedup_vs_naive_grid_search",
+            "winner_rate",
+            "regret_vs_best_measured_calibration",
+            "selection_agreement",
+            "stability_band",
+            "signal_runtime_correlation",
+            "counter_availability",
+        ]
+    )
+    reportability_filter: bool = True
+    environment_filter: dict[str, str] = Field(default_factory=dict)
+    comparison_rules: dict[str, Any] = Field(default_factory=dict)
+    output_root: str = "artifacts/studies"
+
+
 class EnvironmentMetadata(KTModel):
     hostname: str
     os_name: str
@@ -337,6 +487,7 @@ class InvocationMetadata(KTModel):
     experiment_config_path: str | None = None
     kernel_config_path: str | None = None
     counter_config_path: str | None = None
+    study_config_path: str | None = None
     seed: int | None = None
 
 

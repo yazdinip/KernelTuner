@@ -94,16 +94,15 @@ class GemmKernel:
     def make_inputs(self, shape: ProblemShape, *, seed: int, device: str = "cuda") -> dict[str, Any]:
         import torch
 
-        dtype = _dtype_from_name(shape.dtype)
+        dtype = _dtype_from_name(shape.dtype or "fp16")
+        m = shape.dim("m")
+        n = shape.dim("n")
+        k = shape.dim("k")
         generator = torch.Generator(device="cpu")
         generator.manual_seed(seed)
-        a = torch.randn((shape.m, shape.k), generator=generator, dtype=torch.float32).to(
-            device=device, dtype=dtype
-        )
-        b = torch.randn((shape.k, shape.n), generator=generator, dtype=torch.float32).to(
-            device=device, dtype=dtype
-        )
-        out = torch.empty((shape.m, shape.n), device=device, dtype=dtype)
+        a = torch.randn((m, k), generator=generator, dtype=torch.float32).to(device=device, dtype=dtype)
+        b = torch.randn((k, n), generator=generator, dtype=torch.float32).to(device=device, dtype=dtype)
+        out = torch.empty((m, n), device=device, dtype=dtype)
         return {"a": a, "b": b, "out": out}
 
     def supports_config(self, shape: ProblemShape, config: dict[str, int]) -> tuple[bool, str | None]:
@@ -117,7 +116,11 @@ class GemmKernel:
             return False, "block sizes must be positive"
         if config["num_warps"] <= 0 or config["num_stages"] <= 0:
             return False, "num_warps and num_stages must be positive"
-        if config["block_m"] > shape.m or config["block_n"] > shape.n or config["block_k"] > shape.k:
+        if (
+            config["block_m"] > shape.dim("m")
+            or config["block_n"] > shape.dim("n")
+            or config["block_k"] > shape.dim("k")
+        ):
             return False, "block sizes cannot exceed shape dimensions in v1"
         return True, None
 
@@ -125,7 +128,7 @@ class GemmKernel:
         triton, matmul_kernel = _load_triton_components()
 
         out_dtype_flag = 1 if shape.dtype == "bf16" else 0
-        m, n, k = shape.m, shape.n, shape.k
+        m, n, k = shape.dim("m"), shape.dim("n"), shape.dim("k")
         grid = lambda meta: (triton.cdiv(m, meta["BLOCK_M"]) * triton.cdiv(n, meta["BLOCK_N"]),)
 
         matmul_kernel[grid](
@@ -170,9 +173,19 @@ class GemmKernel:
         rtol = policy.rtol if policy else 1e-2
         return bool(torch.allclose(candidate_output.float(), reference_output.float(), atol=atol, rtol=rtol))
 
+    def performance_metric(
+        self,
+        shape: ProblemShape,
+        config: dict[str, int],
+        latency_median_us: float,
+    ) -> tuple[float | None, str | None]:
+        flops = 2.0 * shape.dim("m") * shape.dim("n") * shape.dim("k")
+        throughput = flops / (latency_median_us / 1_000_000.0) / 1_000_000_000_000.0
+        return throughput, "TFLOP/s"
+
     def estimate_signal_defaults(self, shape: ProblemShape, config: dict[str, int]) -> dict[str, float | int]:
         shared_memory = (config["block_m"] * config["block_k"] + config["block_k"] * config["block_n"]) * _dtype_size(
-            shape.dtype
+            shape.dtype or "fp16"
         )
         occupancy = min(1.0, 8.0 / float(config["num_warps"]))
         return {
@@ -192,9 +205,9 @@ class GemmKernel:
                 inputs["a"],
                 inputs["b"],
                 inputs["out"],
-                shape.m,
-                shape.n,
-                shape.k,
+                shape.dim("m"),
+                shape.dim("n"),
+                shape.dim("k"),
                 inputs["a"].stride(0),
                 inputs["a"].stride(1),
                 inputs["b"].stride(0),

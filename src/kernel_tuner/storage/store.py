@@ -120,6 +120,26 @@ class RunStore:
         )
         return path
 
+    def write_yaml_artifact(
+        self,
+        logical_name: str,
+        payload: dict[str, Any],
+        *,
+        filename: str | None = None,
+    ) -> Path:
+        path = self.run_dir / (filename or f"{logical_name}.yaml")
+        self._write_yaml_atomic(path, payload)
+        self._register_artifact(
+            ArtifactFile(
+                logical_name=logical_name,
+                relative_path=path.relative_to(self.run_dir).as_posix(),
+                schema_version=SCHEMA_VERSION,
+                row_count=None,
+                content_hash=self._hash_file(path),
+            )
+        )
+        return path
+
     def write_csv_artifact(
         self,
         logical_name: str,

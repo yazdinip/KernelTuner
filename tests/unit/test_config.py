@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from kernel_tuner.common.config import load_experiment_spec, load_kernel_spec
+from kernel_tuner.common.config import load_experiment_spec, load_kernel_spec, load_study_spec
 
 
 def test_load_kernel_spec_example():
@@ -49,3 +49,9 @@ def test_reportable_requires_holdout(tmp_path):
     )
     with pytest.raises(ValueError):
         load_experiment_spec(path)
+
+
+def test_load_validation_study_spec():
+    spec = load_study_spec(Path("configs/studies/validation_phase.yaml"))
+    assert spec.study_id == "validation_phase"
+    assert {hypothesis.hypothesis_id for hypothesis in spec.hypotheses} == {"H1", "H2", "H3", "H4"}

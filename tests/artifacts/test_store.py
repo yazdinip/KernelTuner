@@ -32,11 +32,13 @@ def test_run_store_writes_manifest_and_table(tmp_path):
         kernel_id="gemm",
         shape_id="gemm_m128_n128_k128_fp16_row_major",
         config_id="cfg_123",
-        block_m=128,
-        block_n=128,
-        block_k=32,
-        num_warps=4,
-        num_stages=2,
+        config={
+            "block_m": 128,
+            "block_n": 128,
+            "block_k": 32,
+            "num_warps": 4,
+            "num_stages": 2,
+        },
         is_valid=True,
     )
     path = store.write_table("candidates", [record])

@@ -1,0 +1,63 @@
+study_id: validation_phase
+hypotheses:
+  - hypothesis_id: H1
+    description: Cheap compile signals prune obvious losers, but do not reliably rank near-tied GEMM configs.
+    comparison_pair: [gemm_representative]
+  - hypothesis_id: H2
+    description: Limited profiling helps more on LayerNorm than on GEMM under matched budget.
+    comparison_pair: [gemm_representative, layernorm_representative]
+  - hypothesis_id: H3
+    description: The aligned GEMM workload overstates selector quality relative to the representative workload.
+    comparison_pair: [gemm_current_aligned, gemm_representative]
+  - hypothesis_id: H4
+    description: Opportunity-guided heuristic revisions improve held-out performance more reliably than the current selector.
+    comparison_pair: [gemm_representative, layernorm_representative]
+run_groups:
+  - group_id: gemm_current_aligned
+    experiment_ids: [gemm_aligned_reportable]
+    include_latest_runs: 3
+    kernel_family: gemm
+    workload_class: aligned
+    selector_version: v2_validation
+    counter_set_id: compute_lite
+    budget_id: gemm_aligned_matched_v2
+  - group_id: gemm_representative
+    experiment_ids: [gemm_reportable]
+    include_latest_runs: 3
+    kernel_family: gemm
+    workload_class: representative
+    selector_version: v2_validation
+    counter_set_id: compute_lite
+    budget_id: gemm_reportable_matched_v2
+  - group_id: layernorm_representative
+    experiment_ids: [layernorm_reportable]
+    include_latest_runs: 3
+    kernel_family: layernorm
+    workload_class: representative
+    selector_version: v2_validation
+    counter_set_id: memory_lite
+    budget_id: layernorm_reportable_matched_v2
+group_by:
+  - kernel_family
+  - workload_class
+  - selector_version
+  - counter_set_id
+  - budget_id
+  - seed
+primary_metric: geomean_speedup_vs_default_config
+secondary_metrics:
+  - speedup_vs_naive_random_search
+  - speedup_vs_naive_grid_search
+  - winner_rate
+  - regret_vs_best_measured_calibration
+  - selection_agreement
+  - stability_band
+  - signal_runtime_correlation
+  - counter_availability
+reportability_filter: true
+environment_filter:
+  gpu_name: NVIDIA RTX A6000
+comparison_rules:
+  repeatability_runs: 3
+  robustness_seeds: [7, 19, 43]
+output_root: artifacts/studies

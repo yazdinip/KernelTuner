@@ -25,6 +25,7 @@ from kernel_tuner.common.provenance import (
     capture_environment_metadata,
     capture_invocation_metadata,
     capture_slurm_metadata,
+    python_command,
     require_gpu_environment,
 )
 from kernel_tuner.common.schema import (
@@ -276,7 +277,7 @@ def run_experiment(
         store.write_experiment_spec(experiment_spec)
 
         pip_freeze = subprocess.run(
-            ["python", "-m", "pip", "freeze"],
+            [python_command(), "-m", "pip", "freeze"],
             check=False,
             capture_output=True,
             text=True,

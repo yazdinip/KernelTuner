@@ -7,9 +7,10 @@ from pathlib import Path
 
 import typer
 
+from kernel_tuner.analysis.comparison import compare_runs_from_path
 from kernel_tuner.analysis.reporting import summarize_run
 from kernel_tuner.benchmark.harness import benchmark_experiment
-from kernel_tuner.common.config import load_counter_set, load_experiment_spec, load_kernel_spec
+from kernel_tuner.common.config import load_experiment_spec, load_kernel_spec
 from kernel_tuner.common.logging_utils import configure_logging
 from kernel_tuner.config_space.generator import generate_candidate_configs
 from kernel_tuner.experiments.orchestrator import run_experiment
@@ -100,6 +101,16 @@ def summarize(
 ) -> None:
     configure_logging(verbose)
     result = summarize_run(run)
+    typer.echo(json.dumps(result, indent=2))
+
+
+@app.command("compare-runs")
+def compare_runs(
+    spec: Path = typer.Option(..., "--spec", exists=True, dir_okay=False),
+    verbose: bool = False,
+) -> None:
+    configure_logging(verbose)
+    result = compare_runs_from_path(spec)
     typer.echo(json.dumps(result, indent=2))
 
 

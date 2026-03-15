@@ -1,0 +1,15 @@
+counter_set_id: compute_lite
+description: Compute-oriented Nsight Compute counter set for reportable GEMM studies.
+tool: ncu
+replay_mode: kernel
+target_processes: all
+kernel_family_filters:
+  - gemm
+counters:
+  - sm__warps_active.avg.pct_of_peak_sustained_active
+  - smsp__inst_executed.sum
+  - smsp__inst_executed_pipe_tensor_op_hmma.avg
+  - smsp__pipe_tensor_op_hmma_cycles_active.avg
+  - smsp__warp_issue_stalled_math_pipe_throttle_per_warp_active.pct
+  - smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct
+minimum_availability: 0.9

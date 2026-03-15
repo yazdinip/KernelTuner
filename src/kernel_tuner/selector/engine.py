@@ -162,6 +162,14 @@ def _select_with_tolerance(
     return min(runtime_scores, key=lambda config_id: (runtime_scores[config_id], config_id))
 
 
+def _counter_value(counter_map: dict[str, float | None], *names: str) -> float | None:
+    for name in names:
+        value = counter_map.get(name)
+        if value is not None:
+            return value
+    return None
+
+
 def _aggregate_profile_metrics(
     profile_records: Iterable[ProfileMeasurement],
 ) -> dict[str, dict[str, float | None]]:
@@ -177,26 +185,140 @@ def _aggregate_profile_metrics(
             if record.profile_status in {ProfileStatus.SUCCESS, ProfileStatus.UNSUPPORTED_COUNTER}
         ]
         if not usable:
-            metrics[config_id] = {"warps_active": None, "long_scoreboard_stall": None}
+            metrics[config_id] = {
+                "warps_active": None,
+                "long_scoreboard_stall": None,
+                "tensor_ops": None,
+                "dram_throughput": None,
+                "lg_throttle": None,
+                "shared_conflicts": None,
+            }
             continue
         warps = [
-            record.counter_map.get("sm__warps_active.avg.pct_of_peak_sustained_active")
+            _counter_value(record.counter_map, "sm__warps_active.avg.pct_of_peak_sustained_active")
             for record in usable
-            if record.counter_map.get("sm__warps_active.avg.pct_of_peak_sustained_active") is not None
+            if _counter_value(record.counter_map, "sm__warps_active.avg.pct_of_peak_sustained_active") is not None
         ]
         stalls = [
-            record.counter_map.get("smsp__average_warps_issue_stalled_long_scoreboard_per_issue_active.avg")
+            _counter_value(
+                record.counter_map,
+                "smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct",
+                "smsp__warp_issue_stalled_long_scoreboard_per_warp_active",
+                "smsp__average_warps_issue_stalled_long_scoreboard_per_issue_active.avg",
+            )
             for record in usable
-            if record.counter_map.get(
-                "smsp__average_warps_issue_stalled_long_scoreboard_per_issue_active.avg"
+            if _counter_value(
+                record.counter_map,
+                "smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct",
+                "smsp__warp_issue_stalled_long_scoreboard_per_warp_active",
+                "smsp__average_warps_issue_stalled_long_scoreboard_per_issue_active.avg",
+            )
+            is not None
+        ]
+        tensor_ops = [
+            _counter_value(
+                record.counter_map,
+                "smsp__inst_executed_pipe_tensor_op_hmma.avg",
+                "smsp__inst_executed_pipe_tensor_op_hmma",
+            )
+            for record in usable
+            if _counter_value(
+                record.counter_map,
+                "smsp__inst_executed_pipe_tensor_op_hmma.avg",
+                "smsp__inst_executed_pipe_tensor_op_hmma",
+            )
+            is not None
+        ]
+        dram_throughput = [
+            _counter_value(
+                record.counter_map,
+                "dram__throughput.avg.pct_of_peak_sustained_elapsed",
+                "dram__throughput",
+            )
+            for record in usable
+            if _counter_value(
+                record.counter_map,
+                "dram__throughput.avg.pct_of_peak_sustained_elapsed",
+                "dram__throughput",
+            )
+            is not None
+        ]
+        lg_throttle = [
+            _counter_value(
+                record.counter_map,
+                "smsp__warp_issue_stalled_lg_throttle_per_warp_active.pct",
+                "smsp__warp_issue_stalled_lg_throttle_per_warp_active",
+            )
+            for record in usable
+            if _counter_value(
+                record.counter_map,
+                "smsp__warp_issue_stalled_lg_throttle_per_warp_active.pct",
+                "smsp__warp_issue_stalled_lg_throttle_per_warp_active",
+            )
+            is not None
+        ]
+        shared_conflicts = [
+            sum(
+                value
+                for value in [
+                    _counter_value(record.counter_map, "l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld"),
+                    _counter_value(record.counter_map, "l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st"),
+                ]
+                if value is not None
+            )
+            for record in usable
+            if _counter_value(
+                record.counter_map,
+                "l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld",
+                "l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st",
             )
             is not None
         ]
         metrics[config_id] = {
             "warps_active": (sum(warps) / len(warps)) if warps else None,
             "long_scoreboard_stall": (sum(stalls) / len(stalls)) if stalls else None,
+            "tensor_ops": (sum(tensor_ops) / len(tensor_ops)) if tensor_ops else None,
+            "dram_throughput": (sum(dram_throughput) / len(dram_throughput)) if dram_throughput else None,
+            "lg_throttle": (sum(lg_throttle) / len(lg_throttle)) if lg_throttle else None,
+            "shared_conflicts": (sum(shared_conflicts) / len(shared_conflicts)) if shared_conflicts else None,
         }
     return metrics
+
+
+def _profile_rank_key(
+    config_id: str,
+    profile_metrics: dict[str, dict[str, float | None]],
+) -> tuple[object, ...]:
+    metrics = profile_metrics.get(config_id, {})
+    return (
+        -(metrics.get("warps_active") or -1.0),
+        metrics.get("long_scoreboard_stall")
+        if metrics.get("long_scoreboard_stall") is not None
+        else float("inf"),
+        config_id,
+    )
+
+
+def _revised_profile_rank_key(
+    config_id: str,
+    profile_metrics: dict[str, dict[str, float | None]],
+    compile_summary: dict[str, dict[str, float | int | bool | None]],
+) -> tuple[object, ...]:
+    profile = profile_metrics.get(config_id, {})
+    compile_metrics = compile_summary.get(config_id, {})
+    return (
+        -(profile.get("warps_active") or -1.0),
+        -(profile.get("tensor_ops") or -1.0),
+        profile.get("long_scoreboard_stall")
+        if profile.get("long_scoreboard_stall") is not None
+        else float("inf"),
+        profile.get("lg_throttle") if profile.get("lg_throttle") is not None else float("inf"),
+        profile.get("shared_conflicts") if profile.get("shared_conflicts") is not None else float("inf"),
+        compile_metrics.get("register_count")
+        if compile_metrics.get("register_count") is not None
+        else float("inf"),
+        config_id,
+    )
 
 
 def run_selector_mode(
@@ -264,7 +386,10 @@ def run_selector_mode(
 
     profiled_records: list[ProfileMeasurement] = []
     benchmark_order = list(ranked_ids)
-    if requested_mode == SelectorMode.PRUNE_RANK_PROFILED.value:
+    if requested_mode in {
+        SelectorMode.PRUNE_RANK_PROFILED.value,
+        SelectorMode.PRUNE_RANK_REVISED.value,
+    }:
         if request_profile is None:
             actual_mode = SelectorMode.PRUNE_RANK.value
             rationale.append("downgraded to prune_rank because no profile requester was supplied")
@@ -286,21 +411,24 @@ def run_selector_mode(
                 actual_mode = SelectorMode.PRUNE_RANK.value
                 rationale.append("downgraded to prune_rank because no successful profile records were available")
             else:
-                reordered_profiled = sorted(
-                    successful_profile_ids,
-                    key=lambda config_id: (
-                        -(profile_metrics[config_id]["warps_active"] or -1.0),
-                        profile_metrics[config_id]["long_scoreboard_stall"]
-                        if profile_metrics[config_id]["long_scoreboard_stall"] is not None
-                        else float("inf"),
-                        config_id,
-                    ),
-                )
+                if requested_mode == SelectorMode.PRUNE_RANK_REVISED.value:
+                    reordered_profiled = sorted(
+                        successful_profile_ids,
+                        key=lambda config_id: _revised_profile_rank_key(config_id, profile_metrics, compile_summary),
+                    )
+                    rationale.append(
+                        f"profile-reordered {len(reordered_profiled)} configs using opportunity-guided penalties"
+                    )
+                else:
+                    reordered_profiled = sorted(
+                        successful_profile_ids,
+                        key=lambda config_id: _profile_rank_key(config_id, profile_metrics),
+                    )
+                    rationale.append(
+                        f"profile-reordered {len(reordered_profiled)} configs using warps_active and long_scoreboard"
+                    )
                 remainder = [config_id for config_id in ranked_ids if config_id not in reordered_profiled]
                 benchmark_order = reordered_profiled + remainder
-                rationale.append(
-                    f"profile-reordered {len(reordered_profiled)} configs using warps_active and long_scoreboard"
-                )
 
     benchmark_ids = benchmark_order[: budgets.max_benchmarks]
     runtime_records: list[RuntimeMeasurement] = []

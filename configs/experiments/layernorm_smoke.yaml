@@ -1,11 +1,11 @@
-experiment_id: gemm_smoke
+experiment_id: layernorm_smoke
 study_kind: smoke
 kernels:
-  - gemm
+  - layernorm
 selector_version: v2_validation
 shapes:
-  - shape_id: gemm_m128_n128_k128_fp16_rowmajor
-    dimensions: {m: 128, n: 128, k: 128}
+  - shape_id: layernorm_rows128_hidden768_fp16_rowmajor
+    dimensions: {rows: 128, hidden: 768}
     dtype: fp16
     layout: row_major
     workload_class: smoke
@@ -17,15 +17,15 @@ baselines:
   - default_config
   - naive_random_search
 budgets:
-  max_candidates: 16
+  max_candidates: 12
   max_benchmarks: 8
   max_profiles: 4
   wall_clock_limit_s: 300
 calibration_split: 1.0
 held_out_split: 0.0
 artifact_root: artifacts
-counter_set_id: default_calibration
-budget_id: gemm_smoke_v2
+counter_set_id: memory_lite
+budget_id: layernorm_smoke_v2
 benchmark_settings:
   warmup_iterations: 10
   timed_iterations: 30
@@ -39,6 +39,6 @@ execution_settings:
   expected_gpu_name: NVIDIA RTX A6000
   cuda_home: /usr/local/cuda-12.9
 analysis_settings:
-  workload_id: gemm_smoke_v2
-notes: Single-shape GEMM smoke config for wiring and tool validation only.
+  workload_id: layernorm_smoke_v2
+notes: Single-shape LayerNorm smoke config for wiring validation.
 seed: 7
