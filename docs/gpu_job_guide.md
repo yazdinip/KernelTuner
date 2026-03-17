@@ -2,18 +2,27 @@
 
 ## Purpose
 
-This guide is for running `KernelTuner` work on a Linux CUDA host managed by Slurm.
+This guide covers how to run `KernelTuner` on the Linux CUDA cluster environment used for authoritative experiments.
 
-Important current-state note:
+It focuses on the pinned v1 baseline and on the repo's actual current state, not the earlier docs-only setup.
 
-- `main` is still documentation-first.
-- The runnable experiment pipeline is not implemented yet.
-- The repo now includes Slurm helper scripts and example YAMLs.
-- The documented `ktune` CLI is still planned, not available on the current branch.
+## Current Repo State
 
-Use this guide to prepare the GPU environment correctly, work from the example configs, and avoid mixing this repo up with commands from unrelated projects.
+The runnable experiment pipeline exists now. The repo currently provides:
 
-## Supported benchmark environment
+- the `ktune` CLI
+- Triton GEMM and LayerNorm kernels
+- benchmark, signal, profiling, selection, and reporting paths
+- study-level comparison through `ktune compare-runs`
+- Slurm helper scripts for array submission and pinned reportable runs
+
+The main practical distinction is no longer "implemented vs not implemented." It is:
+
+- smoke and development runs for iteration,
+- reportable runs pinned to the designated node,
+- study comparisons built from completed reportable runs.
+
+## Supported Benchmark Environment
 
 Per [03_execution_environment.md](03_execution_environment.md), authoritative runs for v1 are:
 
@@ -22,15 +31,11 @@ Per [03_execution_environment.md](03_execution_environment.md), authoritative ru
 - one `NVIDIA RTX A6000` on `gpunode2`
 - CUDA `12.9` via `/usr/local/cuda-12.9`
 - `torch==2.10.0` and `triton==3.6.0` in the same virtualenv
-- Nsight Compute CLI (`ncu`) `2025.2.1` via `/usr/local/cuda/bin/ncu`
+- Nsight Compute CLI (`ncu`) `2025.2.1`
 
-For reportable runs, stay on one designated host or one explicitly homogeneous Slurm node class.
+For reportable runs, stay on one designated host or one explicitly homogeneous node class. In the current project baseline, that means pinning to `gpunode2`.
 
-Native Windows is not a supported benchmark platform for this repo.
-
-## Pinned Milestone 0 baseline
-
-The initial implementation milestone is pinned to one concrete cluster target so implementation starts from a known-good environment contract instead of placeholders.
+## Pinned Baseline
 
 - Authoritative node: `gpunode2`
 - Partition: `gpunodes`
@@ -49,50 +54,40 @@ Pinned package set:
 - `pandas==3.0.1`
 - `pyarrow==23.0.1`
 - `pytest==8.4.2`
+- `pydantic==2.12.5`
+- `typer==0.24.1`
+- `matplotlib==3.10.8`
 
 Current host-image note:
 
-- `ncu` and `nvcc` are installed on the GPU nodes, but not exported on `PATH` by default.
-- `python3.11` is not present on the current node image.
-- The login host is for submission and editing; authoritative benchmarking happens only inside a Slurm allocation on the GPU node.
+- `ncu` and `nvcc` are installed on the GPU nodes, but are not always exported on `PATH` by default.
+- the login host is for submission and editing; authoritative benchmarking happens only inside a Slurm allocation on the GPU node.
 
-## Repo status on `main`
+## Useful Files
 
-What exists now:
+Kernel and experiment configs:
 
-- architecture and experiment docs under `docs/`
-- example configs under `configs/`
-- package skeleton under `src/kernel_tuner/`
-- Slurm helper scripts under `scripts/slurm/`
+- `configs/kernels/gemm.yaml`
+- `configs/kernels/layernorm.yaml`
+- `configs/experiments/gemm_smoke.yaml`
+- `configs/experiments/gemm_reportable.yaml`
+- `configs/experiments/layernorm_reportable.yaml`
+- `configs/studies/validation_phase.yaml`
 
-What does not exist yet on `main`:
+Counter sets:
 
-- implemented Triton kernels
-- implemented benchmark/selector/profiling pipeline
-- a `ktune` console entrypoint
+- `configs/counters/default_calibration.yaml`
+- `configs/counters/compute_lite.yaml`
+- `configs/counters/memory_lite.yaml`
+- `configs/counters/shared_diag.yaml`
 
-That means GPU-node work right now is mainly:
+Operational scripts:
 
-1. setting up the Linux environment,
-2. validating tool availability,
-3. preparing experiment YAMLs,
-4. using dry-run or custom-command Slurm flows until the pipeline lands.
-
-## Useful files to start from
-
-- `configs/kernels/gemm.example.yaml`
-- `configs/experiments/gemm_smoke.example.yaml`
-- `configs/experiments/slurm_experiment_list.example.txt`
-- `configs/counters/default_calibration.example.yaml`
+- `scripts/bootstrap_env.sh`
 - `scripts/slurm/submit_kerneltuner.sh`
 - `scripts/slurm/run_kerneltuner_array.sbatch`
-- [00_index.md](00_index.md)
-- [04_experiment_protocol.md](04_experiment_protocol.md)
-- [05_data_model_and_artifacts.md](05_data_model_and_artifacts.md)
 
-The primary v1 kernel family is GEMM.
-
-## Connect to the GPU host
+## Connect to the Cluster
 
 Use your own SSH alias or direct host command. Example:
 
@@ -100,17 +95,15 @@ Use your own SSH alias or direct host command. Example:
 ssh <your-gpu-host-alias>
 ```
 
-If your cluster exposes GPU nodes through Slurm, check what is available before requesting one:
+To inspect available GPU nodes:
 
 ```bash
 sinfo -p gpunodes -N -o "%15N %5t %10m %10G %8c %16e"
 ```
 
-Adjust partition and GPU type names to match your cluster.
+## Start an Interactive GPU Shell
 
-## Start an interactive GPU shell
-
-`KernelTuner` v1 assumes one GPU per run, so request the pinned authoritative node directly for reportable work:
+For reportable work, request the pinned node directly:
 
 ```bash
 srun --partition=gpunodes \
@@ -122,7 +115,7 @@ srun --partition=gpunodes \
      --pty bash -l
 ```
 
-Inside the session, verify the machine is suitable:
+Inside the session, verify the machine:
 
 ```bash
 nvidia-smi
@@ -133,44 +126,41 @@ export LD_LIBRARY_PATH=$CUDA_HOME/lib64:${LD_LIBRARY_PATH:-}
 ncu --version
 ```
 
-If you want a persistent shell, start `tmux` after entering the allocated GPU shell:
+If you want a persistent shell, start `tmux` after entering the allocation:
 
 ```bash
 tmux new -s kerneltuner_gpu
 ```
 
-## Create a clean environment on scratch storage
+## Create the Environment
 
-Keep the virtualenv and pip cache off your home quota when possible:
+The repo now provides a bootstrap script for the pinned environment:
 
 ```bash
-export CUDA_HOME=/usr/local/cuda-12.9
-export PATH=$CUDA_HOME/bin:$PATH
-export LD_LIBRARY_PATH=$CUDA_HOME/lib64:${LD_LIBRARY_PATH:-}
-
 export KTUNE_SCRATCH_BASE="$(ls -d /scratch/scratch-space/expires-* 2>/dev/null | sort | tail -n 1)"
 if [[ -n "$KTUNE_SCRATCH_BASE" ]]; then
   export KTUNE_SCRATCH="$KTUNE_SCRATCH_BASE/$USER/kerneltuner"
 else
   export KTUNE_SCRATCH="/tmp/$USER/kerneltuner"
 fi
-export PIP_CACHE_DIR=$KTUNE_SCRATCH/pip-cache
-mkdir -p "$KTUNE_SCRATCH"
 
-python3 -m venv "$KTUNE_SCRATCH/venv-py312"
+scripts/bootstrap_env.sh "$KTUNE_SCRATCH/venv-py312"
 source "$KTUNE_SCRATCH/venv-py312/bin/activate"
-
-python -m pip install --upgrade pip setuptools wheel
-pip install -e . \
-  "torch==2.10.0" \
-  "triton==3.6.0" \
-  "PyYAML==6.0.3" \
-  "pandas==3.0.1" \
-  "pyarrow==23.0.1" \
-  "pytest==8.4.2"
 ```
 
-These pins are the selected initial implementation baseline. Change them only if a later compatibility issue forces a documented update.
+If you want to choose the virtualenv path explicitly:
+
+```bash
+scripts/bootstrap_env.sh /scratch/scratch-space/expires-xxxx/$USER/kerneltuner/venv-py312
+source /scratch/scratch-space/expires-xxxx/$USER/kerneltuner/venv-py312/bin/activate
+```
+
+The bootstrap script:
+
+- exports CUDA paths
+- prefers scratch-backed caches
+- creates a Python 3.12 virtualenv
+- installs the repo with GPU and dev extras
 
 Record the environment immediately after install:
 
@@ -182,146 +172,118 @@ import triton
 import yaml
 import pandas
 import pyarrow
+import pydantic
+import typer
 print("python", platform.python_version())
 print("torch", torch.__version__)
 print("triton", triton.__version__)
 print("pyyaml", yaml.__version__)
 print("pandas", pandas.__version__)
 print("pyarrow", pyarrow.__version__)
+print("pydantic", pydantic.__version__)
+print("typer", typer.__version__)
 PY
 
-pip freeze > "$KTUNE_SCRATCH/pip-freeze.txt"
+pip freeze > "${KTUNE_SCRATCH:-/tmp/$USER/kerneltuner}/pip-freeze.txt"
 ```
 
-## Prepare local experiment configs
+## Run the CLI Directly
 
-The repo already provides example configs. Copy them to real filenames before editing:
-
-```bash
-cp configs/kernels/gemm.example.yaml configs/kernels/gemm.yaml
-cp configs/experiments/gemm_smoke.example.yaml configs/experiments/gemm_smoke.yaml
-cp configs/counters/default_calibration.example.yaml configs/counters/default_calibration.yaml
-cp configs/experiments/slurm_experiment_list.example.txt configs/experiments/slurm_experiment_list.txt
-```
-
-These files define:
-
-- the kernel spec,
-- the experiment spec,
-- the named Nsight Compute counter set,
-- the list of experiments for Slurm array submission.
-
-`gemm_smoke.example.yaml` is a smoke-only config for wiring and tool validation. It is not a reportable study config.
-
-## Planned workflow once implementation lands
-
-The documented command surface is:
+Basic validation and smoke workflow:
 
 ```bash
 ktune validate-kernel --kernel configs/kernels/gemm.yaml
-ktune generate-configs --experiment configs/experiments/gemm_smoke.yaml
-ktune benchmark --experiment configs/experiments/gemm_smoke.yaml
-ktune collect-signals --experiment configs/experiments/gemm_smoke.yaml
-ktune profile --experiment configs/experiments/gemm_smoke.yaml
-ktune select --experiment configs/experiments/gemm_smoke.yaml
+ktune validate-kernel --kernel configs/kernels/layernorm.yaml
+
 ktune run-experiment --experiment configs/experiments/gemm_smoke.yaml
-ktune summarize --run artifacts/<experiment_id>/<run_id>/
+ktune run-experiment --experiment configs/experiments/gemm_reportable.yaml
+ktune run-experiment --experiment configs/experiments/layernorm_reportable.yaml
 ```
 
-Do not expect those commands to work on the current `main` branch yet. They come from the v1 CLI spec, not from implemented code.
+Post-run analysis:
 
-## Slurm helper workflow on current `main`
+```bash
+ktune summarize --run artifacts/gemm_reportable/<run_id>/
+ktune compare-runs --spec configs/studies/validation_phase.yaml
+```
 
-The repo now ships two helper scripts:
+Stage-by-stage commands are also available:
+
+```bash
+ktune generate-configs --experiment configs/experiments/gemm_reportable.yaml
+ktune benchmark --experiment configs/experiments/gemm_reportable.yaml
+ktune collect-signals --experiment configs/experiments/gemm_reportable.yaml
+ktune profile --experiment configs/experiments/gemm_reportable.yaml
+ktune select --experiment configs/experiments/gemm_reportable.yaml
+```
+
+## Slurm Helper Workflow
+
+The repo ships two helper scripts:
 
 - `scripts/slurm/submit_kerneltuner.sh`
 - `scripts/slurm/run_kerneltuner_array.sbatch`
 
-These are useful now for:
+They are suitable for both development and reportable runs, provided reportable submissions pin the authoritative node explicitly with `--nodelist gpunode2`.
 
-- reserving GPU time,
-- validating the environment,
-- setting up a repeatable job wrapper,
-- preparing for future `ktune run-experiment` runs.
-
-For reportable runs, make sure the submission path also captures node name, Slurm job metadata, and an environment export such as `pip freeze`.
-
-Important limitation for the current branch:
-
-- The helper scripts do not yet expose a `--nodelist` option.
-- That means they are currently suitable for smoke or development runs, not for final reportable runs that must stay pinned to `gpunode2`.
-- Before using the helper path for reportable runs, add explicit node pinning to the submission path or use a manually pinned Slurm command.
-
-Basic dry-run submission example:
+Basic pinned submission example:
 
 ```bash
 chmod +x scripts/slurm/submit_kerneltuner.sh
-cp configs/experiments/slurm_experiment_list.example.txt configs/experiments/slurm_experiment_list.txt
 
 scripts/slurm/submit_kerneltuner.sh \
-  --list configs/experiments/slurm_experiment_list.txt \
+  --list configs/experiments/slurm_experiment_list.example.txt \
   --partition gpunodes \
+  --nodelist gpunode2 \
   --gpu-type rtx_a6000 \
   --gpus 1 \
-  --time 0-02:00 \
-  --cpus 4 \
+  --time 0-04:00 \
+  --cpus 8 \
   --mem 24GB \
-  --dry-run
+  --workspace "$(pwd)"
 ```
 
-If you want the worker to run something other than the future `ktune` command, override the command template:
-
-```bash
-export RUN_COMMAND_TEMPLATE='python -m pip list'
-scripts/slurm/submit_kerneltuner.sh \
-  --list configs/experiments/slurm_experiment_list.txt \
-  --partition gpunodes \
-  --gpus 1 \
-  --time 0-00:30 \
-  --cpus 2 \
-  --mem 8GB
-```
-
-Available submission options include:
-
-- `--workspace`
-- `--log-dir`
-- `--scratch-root`
-- `--artifact-root`
-- `--gpu-type`
-- `--mail-user`
-- `--mail-type`
-- `--alert-email`
-
-Useful worker-level environment overrides include:
+Useful environment overrides:
 
 - `RUN_COMMAND_TEMPLATE`
 - `INSTALL_PACKAGES=0`
 - `EXTRA_PIP_PACKAGES`
 - `SKIP_IF_ARTIFACTS_EXIST=0`
 - `DRY_RUN=1`
+- `ALERT_EMAIL`
+- `ALERT_ON_START`
+- `ALERT_ON_END`
+- `ALERT_ON_FAIL`
 
-For development runs on the current helper path, prefer:
+Important operational notes:
 
-```bash
-export EXTRA_PIP_PACKAGES='torch==2.10.0 triton==3.6.0 pytest==8.4.2'
-```
+- the worker script exports CUDA paths before running
+- the worker script uses `scripts/bootstrap_env.sh` when `INSTALL_PACKAGES=1`
+- `--artifact-root` overrides the experiment YAML artifact root at submit time
+- if no scratch path exists on the node, jobs fall back to `<workspace>/.scratch/$USER`
 
-## Expected artifact layout
+## Reportable-Run Policy
 
-When experiment execution is implemented, each run is supposed to write:
+For reportable runs:
 
-```text
-artifacts/<experiment_id>/<run_id>/
-  manifest.json
-  experiment_spec.yaml
-  candidates.parquet
-  compile_signals.parquet
-  runtime_measurements.parquet
-  profile_measurements.parquet
-  selection_decisions.parquet
-  summary.json
-  logs/
-```
+- pin `--nodelist=gpunode2`
+- keep one GPU per run
+- do not mix `gpunode2` with `gpunode3` within one comparative study
+- preserve `pip freeze` and environment provenance
+- do not treat `shared_diag` as matched-budget reportable evidence unless the protocol explicitly marks it diagnostic-only
 
-This layout is fixed by [05_data_model_and_artifacts.md](05_data_model_and_artifacts.md).
+## Common Failure Checks
+
+If something fails unexpectedly, check:
+
+1. `CUDA_HOME`, `PATH`, and `LD_LIBRARY_PATH` are exported correctly.
+2. `ncu --version` works inside the allocation.
+3. the virtualenv is active and contains `torch` and `triton`.
+4. you are on `gpunode2` for reportable work.
+5. the experiment config points to the intended artifact root and counter set.
+
+## What This Guide Is Not
+
+- It is not a substitute for the scientific protocol in [04_experiment_protocol.md](04_experiment_protocol.md).
+- It is not the artifact schema reference; use [05_data_model_and_artifacts.md](05_data_model_and_artifacts.md) for that.
+- It is not the research plan; use [docs/research/00_index.md](research/00_index.md) for the paper-facing backbone.

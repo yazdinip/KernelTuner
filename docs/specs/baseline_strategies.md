@@ -44,7 +44,7 @@ v1 baseline modes:
 ### Default Configuration Baseline
 
 1. Resolve the kernel's declared default config if present.
-2. If absent, use a fixed minimal hand-authored baseline config from the kernel spec.
+2. Fail explicitly if no declared default config exists in the kernel spec or if the default config is absent from the candidate pool.
 3. Emit a baseline decision without adaptive search.
 
 ### Naive Search Baseline
@@ -61,6 +61,10 @@ v1 baseline modes:
 2. Exhaustively evaluate all valid candidates for analysis.
 3. Mark the result as an oracle-only comparison, not a matched-budget baseline.
 
+Current implementation note:
+
+- `small_space_oracle` remains a declared extension point, but it is not implemented in the current baseline and therefore returns an explicit unsupported decision.
+
 ## Persisted Artifacts Touched
 
 - writes baseline `SelectionDecision` records into `selection_decisions.parquet`
@@ -68,7 +72,8 @@ v1 baseline modes:
 
 ## Failure Modes and Fallback Behavior
 
-- missing default config: fail the `default_config` baseline unless a documented fallback exists in the kernel spec
+- missing default config: fail the `default_config` baseline explicitly
+- default config absent from the generated candidate pool: fail explicitly
 - empty candidate pool: emit explicit failure decision
 - budget exhaustion: emit best-found decision with explicit status
 

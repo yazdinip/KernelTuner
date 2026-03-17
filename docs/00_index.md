@@ -15,6 +15,7 @@ This file is the canonical table of contents for the `KernelTuner` v1 documentat
 9. [07_test_strategy.md](07_test_strategy.md)
 10. [06_implementation_roadmap.md](06_implementation_roadmap.md)
 11. [08_risks_and_open_questions.md](08_risks_and_open_questions.md)
+12. [Research documentation package](research/00_index.md)
 
 ## Documentation Conventions
 
@@ -69,6 +70,25 @@ This file is the canonical table of contents for the `KernelTuner` v1 documentat
 | [`specs/result_store.md`](specs/result_store.md) | Artifact writing, layout, and readback | Build team | KernelTuner build team | Authoritative v1 |
 | [`specs/analysis_and_reporting.md`](specs/analysis_and_reporting.md) | Aggregation and experiment summary outputs | Build team | KernelTuner build team | Authoritative v1 |
 
+## Research Docs
+
+| Path | Purpose | Audience | Owner | Status |
+| --- | --- | --- | --- | --- |
+| [`research/00_index.md`](research/00_index.md) | Research package table of contents and usage rules | Build team, course staff | KernelTuner research team | Backbone |
+| [`research/01_research_program.md`](research/01_research_program.md) | Research question, paper claim, and success criteria | Build team, course staff | KernelTuner research team | Backbone |
+| [`research/02_tuning_theory_and_knob_space.md`](research/02_tuning_theory_and_knob_space.md) | Tuning surface, knob families, and mechanism-level reasoning | Build team | KernelTuner research team | Backbone |
+| [`research/03_bottleneck_taxonomy.md`](research/03_bottleneck_taxonomy.md) | Bottleneck vocabulary and interpretation rules | Build team | KernelTuner research team | Backbone |
+| [`research/04_signal_and_profiling_plan.md`](research/04_signal_and_profiling_plan.md) | Scientific signal tiers and profiling plan | Build team | KernelTuner research team | Backbone |
+| [`research/05_workload_matrix_and_case_studies.md`](research/05_workload_matrix_and_case_studies.md) | Workload program and case-study matrix | Build team, course staff | KernelTuner research team | Backbone |
+| [`research/06_hypotheses_and_ablation_plan.md`](research/06_hypotheses_and_ablation_plan.md) | Pre-registered hypotheses and selector ladder | Build team, course staff | KernelTuner research team | Backbone |
+| [`research/07_experiment_campaign_plan.md`](research/07_experiment_campaign_plan.md) | Research-round execution plan and evidence gates | Build team | KernelTuner research team | Backbone |
+| [`research/08_evidence_registry.md`](research/08_evidence_registry.md) | Structured evidence ledger for hypothesis status | Build team, course staff | KernelTuner research team | Living Registry |
+| [`research/09_opportunity_log.md`](research/09_opportunity_log.md) | Tuner opportunity and failure-mode log | Build team | KernelTuner research team | Living Registry |
+| [`research/10_paper_outline_and_figure_plan.md`](research/10_paper_outline_and_figure_plan.md) | Paper outline and figure/table mapping | Build team, course staff | KernelTuner research team | Backbone |
+| [`research/logs/`](research/logs/) | Append-only dated research notes | Build team | KernelTuner research team | Log |
+
 ## Maintenance Rule
 
-If implementation deviates from these docs, update the relevant spec or add a new ADR before treating the code as authoritative.
+If implementation deviates from the implementation docs, update the relevant spec or add a new ADR before treating the code as authoritative.
+
+If experimentation changes the scientific interpretation, update the relevant research doc or living registry before treating the result as part of the paper backbone.

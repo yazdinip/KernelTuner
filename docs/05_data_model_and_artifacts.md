@@ -4,16 +4,29 @@
 
 This document defines the v1 persisted artifacts, schema contracts, identifier rules, and serialization choices for `KernelTuner`.
 
+The authoritative runtime schema is implemented in `src/kernel_tuner/common/schema.py`. This document must match that code-level contract.
+
 ## Storage Principles
 
 - Human-authored configuration is stored as YAML.
 - Run metadata and summaries are stored as JSON and YAML.
-- Tabular experiment artifacts are stored as Parquet.
+- Tabular experiment artifacts are stored as Parquet or CSV, depending on the artifact role.
+- Plot outputs are stored as PNG.
 - Every run writes into its own immutable run directory.
 - Missing values are represented explicitly; failed records are not dropped.
-- Every persisted schema has a version.
+- Persisted schemas are versioned.
+
+## Active Schema Version
+
+- Current schema version: `2`
+
+`schema_version` is embedded in typed records and in the manifest artifact index. Readers should fail fast on unsupported major schema versions.
 
 ## Artifact Root Layout
+
+### Run-level layout
+
+Required core files are always present for a completed run. Derived analysis artifacts are present when the upstream data needed to produce them exists and the analysis path emits them.
 
 ```text
 artifacts/<experiment_id>/<run_id>/
@@ -24,13 +37,39 @@ artifacts/<experiment_id>/<run_id>/
   runtime_measurements.parquet
   profile_measurements.parquet
   selection_decisions.parquet
+  counter_availability.parquet
+  bottleneck_signatures.parquet
+  budget_usage.csv
+  held_out_pairwise.csv
+  held_out_per_shape.csv
+  signal_runtime_correlations.csv
+  counter_availability_report.csv
+  opportunity_catalog.csv
+  heuristic_candidates.yaml
+  strategy_speedups.png
   summary.json
+  logs/
+```
+
+### Study-level layout
+
+`manifest.json` and `cross_run_summary.json` are the core study outputs. Additional CSV or PNG files are present when the comparison path emits non-empty derived outputs.
+
+```text
+artifacts/studies/<study_id>/<run_id>/
+  manifest.json
+  study_strategy_metrics.csv
+  stability_report.csv
+  hypothesis_results.csv
+  opportunity_catalog.csv
+  comparison_primary_metric.png
+  cross_run_summary.json
   logs/
 ```
 
 ## Canonical Manifest
 
-`manifest.json` is the canonical index for a run. It must include:
+`manifest.json` is the canonical index for a run or study-comparison output. It includes:
 
 - `schema_version`
 - `experiment_id`
@@ -46,40 +85,53 @@ artifacts/<experiment_id>/<run_id>/
 - `status`
 - `warnings`
 
-When a run does not execute under Slurm, the manifest `slurm` field should be present as `null` or an equivalent explicit empty object.
+When execution does not happen under Slurm, `slurm` is present as `null`.
 
-`artifact_files` must list every artifact with:
+`artifact_files` indexes each written artifact with:
 
-- logical name
-- relative path
-- schema version
-- row count if applicable
-- content hash if available
+- `logical_name`
+- `relative_path`
+- `schema_version`
+- `row_count` when applicable
+- `content_hash`
 
-## Required Run Provenance
+## Required Provenance
 
-The manifest `environment` object must capture enough state to reconstruct or audit the run. Required fields:
+### `environment`
+
+The manifest `environment` object must capture enough state to reconstruct or audit the run:
 
 - `hostname`
 - `os_name`
 - `os_version`
 - `python_version`
 - `gpu_name`
-- `gpu_uuid` or an equivalent stable device identifier when available
+- `gpu_uuid`
 - `nvidia_driver_version`
 - `cuda_runtime_version`
 - `pytorch_version`
 - `triton_version`
-- `ncu_version` when profiling is enabled
-- `cuda_visible_devices` when available
+- `ncu_version`
+- `cuda_visible_devices`
+- `git_commit`
+- `git_branch`
+- `git_dirty`
+- `cache_roots`
 
-The manifest `invocation` object must capture:
+### `invocation`
 
-- top-level command or CLI entrypoint
-- resolved experiment config path
-- active seed
+The manifest `invocation` object captures:
 
-The manifest `slurm` object is required when Slurm was used and should capture:
+- top-level command
+- resolved experiment config path when applicable
+- resolved kernel config path when applicable
+- resolved counter config path when applicable
+- resolved study config path when applicable
+- active seed when applicable
+
+### `slurm`
+
+The manifest `slurm` object is required when Slurm is used and should capture:
 
 - `job_id`
 - `array_task_id`
@@ -89,44 +141,51 @@ The manifest `slurm` object is required when Slurm was used and should capture:
 - `cpus_per_task`
 - `mem`
 
-Recommended optional provenance:
+Recommended additional provenance:
 
-- `working_tree_diff_ref`
 - `pip_freeze_ref`
-- `cache_roots`
-- `clock_policy`
+- `working_tree_diff_ref`
+- explicit cache roots
+- clock policy or persistence-mode note
 
 ## Identifier Rules
 
 - `experiment_id`: stable identifier for a human-authored experiment config
 - `run_id`: unique execution instance identifier
 - `kernel_id`: stable kernel registry identifier
-- `shape_id`: canonical identifier derived from a kernel family and normalized shape description
+- `shape_id`: canonical identifier derived from kernel family and normalized dimensions
 - `config_id`: canonical identifier derived from a normalized configuration record
 - `strategy_id`: identifier for selector or baseline strategy
+- `study_id`: stable identifier for a multi-run comparison config
 
-IDs must be deterministic where derived from normalized input data.
+IDs must be deterministic where they are derived from normalized input data.
 
 ## Serialization Matrix
 
 | Type | Serialized | Primary Location |
 | --- | --- | --- |
 | `KernelSpec` | Yes | `configs/kernels/<kernel_id>.yaml` |
-| `ProblemShape` | Yes | Embedded in `experiment_spec.yaml`; optionally denormalized into tables |
+| `ProblemShape` | Yes | embedded in `experiment_spec.yaml` |
+| `CounterSetSpec` | Yes | `configs/counters/<counter_set_id>.yaml` |
+| `ExperimentSpec` | Yes | `configs/experiments/<experiment_id>.yaml` and copied to `experiment_spec.yaml` |
+| `StudySpec` | Yes | `configs/studies/<study_id>.yaml` |
 | `CandidateConfig` | Yes | `candidates.parquet` |
 | `CompileSignalRecord` | Yes | `compile_signals.parquet` |
 | `RuntimeMeasurement` | Yes | `runtime_measurements.parquet` |
 | `ProfileMeasurement` | Yes | `profile_measurements.parquet` |
-| `SelectionBudget` | Yes | Embedded in `experiment_spec.yaml` and manifest |
 | `SelectionDecision` | Yes | `selection_decisions.parquet` |
-| `ExperimentSpec` | Yes | `experiment_spec.yaml` |
-| `ExperimentResult` | Derived serialization | `summary.json` |
+| `CounterAvailabilityRecord` | Derived and persisted | `counter_availability.parquet` |
+| `BottleneckSignatureRecord` | Derived and persisted | `bottleneck_signatures.parquet` |
+| `ExperimentResult` | Derived and persisted | `summary.json` |
+| cross-run summary payload | Derived and persisted | `cross_run_summary.json` |
 
 ## Stable Public Types
 
 ### `KernelSpec`
 
-Serialized as YAML. Required fields:
+Serialized as YAML.
+
+Required fields:
 
 - `kernel_id`
 - `family`
@@ -146,45 +205,114 @@ Optional fields:
 
 ### `ProblemShape`
 
-Serialized inside `ExperimentSpec`. Required fields:
+Serialized inside `ExperimentSpec`.
+
+Required fields:
 
 - `shape_id`
-- kernel-family-specific dimensions
-- `dtype`
-- `layout`
+- `dimensions`
 
 Optional fields:
 
+- `dtype`
+- `layout`
 - `batch_group`
+- `workload_class`
+- `metadata`
 - `notes`
+
+Normalization rule:
+
+- legacy inline fields such as `m`, `n`, `k`, `rows`, and `hidden` are accepted at load time, but they are normalized into `dimensions` by the typed schema.
+
+### `CounterSetSpec`
+
+Serialized as YAML.
+
+Required fields:
+
+- `counter_set_id`
+- `description`
+- `tool`
+- `counters`
+
+Optional fields:
+
+- `kernel_family_filters`
+- `ncu_args`
+- `replay_mode`
+- `kernel_name_regex`
+- `target_processes`
+- `diagnostic_only`
+- `minimum_availability`
+- `notes`
+
+### `ExperimentSpec`
+
+Serialized as YAML.
+
+Required fields:
+
+- `experiment_id`
+- `kernels`
+- `shapes`
+- `selector_modes`
+- `baselines`
+- `budgets`
+- `calibration_split`
+- `held_out_split`
+- `artifact_root`
+- `seed`
+
+Optional fields:
+
+- `study_kind`
+- `counter_set_id`
+- `selector_version`
+- `budget_id`
+- `benchmark_settings`
+- `profiling_settings`
+- `execution_settings`
+- `analysis_settings`
+- `notes`
+- `tags`
+
+Validation rules:
+
+- `calibration_split + held_out_split == 1.0`
+- reportable studies require non-zero calibration and held-out splits
+- v1 experiments specify exactly one kernel
+- `budgets.seed` defaults to `seed`
+- `budget_id` is derived automatically when omitted
 
 ### `CandidateConfig`
 
-Serialized in `candidates.parquet`. Required fields:
+Serialized in `candidates.parquet`.
+
+Required fields:
 
 - `schema_version`
 - `experiment_id`
 - `kernel_id`
 - `shape_id`
 - `config_id`
-- tiling parameters
-- `num_warps`
-- `num_stages`
+- `config`
 - `is_valid`
 - `validation_notes`
 
 Optional fields:
 
-- extra launch metadata
-- generation provenance
+- `generation_provenance`
 
-Primary key:
+Uniqueness key:
 
 - `(experiment_id, kernel_id, shape_id, config_id)`
 
 ### `CompileSignalRecord`
 
-Serialized in `compile_signals.parquet`. Required fields:
+Serialized in `compile_signals.parquet`.
+
+Required fields:
 
 - `schema_version`
 - `run_id`
@@ -193,27 +321,25 @@ Serialized in `compile_signals.parquet`. Required fields:
 - `config_id`
 - `compile_status`
 - `compile_success`
-- `register_count`
-- `shared_memory_bytes`
-- `occupancy_estimate`
-- `notes`
-
-Nullability rules:
-
-- numeric signal fields may be null only when `compile_success` is `false` or the signal is unavailable and the reason is recorded in `notes`
 
 Optional fields:
 
+- `register_count`
+- `shared_memory_bytes`
+- `occupancy_estimate`
 - `signal_backend`
 - `occupancy_method`
+- `notes`
 
-Primary key:
+Uniqueness key:
 
 - `(run_id, kernel_id, shape_id, config_id)`
 
 ### `RuntimeMeasurement`
 
-Serialized in `runtime_measurements.parquet`. Required fields:
+Serialized in `runtime_measurements.parquet`.
+
+Required fields:
 
 - `schema_version`
 - `run_id`
@@ -234,19 +360,21 @@ Serialized in `runtime_measurements.parquet`. Required fields:
 
 Optional fields:
 
-- raw sample storage reference
-- timing backend
-- measurement order index
-- error message
-- attempt index
+- `raw_sample_ref`
+- `timing_backend`
+- `measurement_order_index`
+- `error_message`
+- `attempt_index`
 
-Primary key:
+Uniqueness key:
 
-- `(run_id, strategy_id, measurement_phase, kernel_id, shape_id, config_id)`
+- `(run_id, strategy_id, measurement_phase, kernel_id, shape_id, config_id, attempt_index)`
 
 ### `ProfileMeasurement`
 
-Serialized in `profile_measurements.parquet`. Required fields:
+Serialized in `profile_measurements.parquet`.
+
+Required fields:
 
 - `schema_version`
 - `run_id`
@@ -261,29 +389,19 @@ Serialized in `profile_measurements.parquet`. Required fields:
 
 Optional fields:
 
-- profiler stdout/stderr references
-- notes
+- `profiler_stdout_ref`
+- `profiler_stderr_ref`
+- `notes`
 
-Primary key:
+Uniqueness key:
 
 - `(run_id, strategy_id, kernel_id, shape_id, config_id, counter_set_id)`
 
-### `SelectionBudget`
-
-Serialized in `experiment_spec.yaml` and manifest. Required fields:
-
-- `max_candidates`
-- `max_benchmarks`
-- `max_profiles`
-- `seed`
-
-Optional fields:
-
-- `wall_clock_limit_s`
-
 ### `SelectionDecision`
 
-Serialized in `selection_decisions.parquet`. Required fields:
+Serialized in `selection_decisions.parquet`.
+
+Required fields:
 
 - `schema_version`
 - `run_id`
@@ -292,6 +410,11 @@ Serialized in `selection_decisions.parquet`. Required fields:
 - `selector_mode`
 - `kernel_id`
 - `shape_scope`
+- `rationale_summary`
+- `decision_status`
+
+Common populated fields:
+
 - `selected_config_id`
 - `ranked_config_ids`
 - `pruned_config_ids`
@@ -299,65 +422,117 @@ Serialized in `selection_decisions.parquet`. Required fields:
 - `benchmarks_requested`
 - `profiles_requested`
 - `decision_wall_clock_s`
-- `rationale_summary`
-- `decision_status`
+- `requested_selector_mode`
+- `score_map`
+- `confidence_value`
+- `calibration_metadata`
 
-`comparison_class` must be one of:
+Allowed `comparison_class` values:
 
 - `matched_budget`
 - `oracle_only`
 - `non_comparable`
 
-Optional fields:
-
-- `requested_selector_mode`
-- score map
-- confidence value
-- calibration metadata
-
-Primary key:
+Uniqueness key:
 
 - `(run_id, strategy_id, kernel_id, shape_scope)`
 
-### `ExperimentSpec`
+### `CounterAvailabilityRecord`
 
-Serialized in YAML. Required fields:
+Derived and serialized in `counter_availability.parquet`.
 
-- `experiment_id`
-- `kernels`
-- `shapes`
-- `selector_modes`
-- `baselines`
-- `budgets`
-- `calibration_split`
-- `held_out_split`
-- `artifact_root`
-- `seed`
+Required fields:
+
+- `schema_version`
+- `run_id`
+- `strategy_id`
+- `counter_set_id`
+- `counter_name`
+- `populated_rows`
+- `total_rows`
+- `non_null_fraction`
+- `acceptable`
+
+### `BottleneckSignatureRecord`
+
+Derived and serialized in `bottleneck_signatures.parquet`.
+
+Required fields:
+
+- `schema_version`
+- `run_id`
+- `strategy_id`
+- `kernel_id`
+- `shape_id`
+- `config_id`
+- `occupancy_bucket`
+- `tensor_util_bucket`
+- `memory_pressure_bucket`
+- `scoreboard_bucket`
+- `shared_conflict_bucket`
+- `compile_feasibility_bucket`
+- `selected_by_strategy`
+- `held_out_outcome`
 
 Optional fields:
 
-- `study_kind`
-- `counter_set_id`
-- `benchmark_settings`
-- `profiling_settings`
-- `execution_settings`
-- `analysis_settings`
+- `workload_class`
+- `regret_to_best_measured`
+- `opportunity_tags`
+
+### `HypothesisSpec`
+
+Serialized inside `StudySpec`.
+
+Fields:
+
+- `hypothesis_id`
+- `description`
+- `comparison_pair`
 - `notes`
-- `tags`
 
-When present, `study_kind` should be one of:
+### `RunGroupSpec`
 
-- `smoke`
-- `development`
-- `reportable`
+Serialized inside `StudySpec`.
 
-If omitted, `study_kind` defaults to `development`.
+Fields:
+
+- `group_id`
+- `experiment_ids`
+- `run_dirs`
+- `include_latest_runs`
+- `kernel_family`
+- `workload_class`
+- `selector_version`
+- `counter_set_id`
+- `budget_id`
+- `notes`
+
+### `StudySpec`
+
+Serialized as YAML.
+
+Required fields:
+
+- `study_id`
+- `hypotheses`
+- `run_groups`
+
+Optional fields:
+
+- `group_by`
+- `primary_metric`
+- `secondary_metrics`
+- `reportability_filter`
+- `environment_filter`
+- `comparison_rules`
+- `output_root`
 
 ### `ExperimentResult`
 
-`ExperimentResult` is the in-memory aggregate outcome of a run. Its serialized representation is `summary.json`, not a standalone typed table.
+Derived and serialized in `summary.json`.
 
-Required summary fields:
+Required top-level fields:
 
 - `schema_version`
 - `experiment_id`
@@ -371,41 +546,64 @@ Required summary fields:
 - `uncertainty_metrics`
 - `artifact_locations`
 
-## Artifact Lifecycle
+## Run-Level Artifact Catalog
 
-1. Human-authored configs define kernels, counters, and experiments.
-2. The orchestrator resolves configs into runtime objects.
-3. Candidate generation writes `candidates.parquet`.
-4. Signal collection writes `compile_signals.parquet`.
-5. Benchmarking writes `runtime_measurements.parquet`.
-6. Profiling writes `profile_measurements.parquet`.
-7. Selector and baselines write `selection_decisions.parquet`.
-8. Analysis writes `summary.json` and optional derived outputs under `logs/` or future analysis subdirectories.
+| File | Role |
+| --- | --- |
+| `manifest.json` | canonical run index and provenance |
+| `experiment_spec.yaml` | frozen copy of the effective experiment config |
+| `candidates.parquet` | candidate config table |
+| `compile_signals.parquet` | broad compile-time signal table |
+| `runtime_measurements.parquet` | calibration and held-out measurement table |
+| `profile_measurements.parquet` | selective profiler outputs |
+| `selection_decisions.parquet` | selector and baseline decisions |
+| `counter_availability.parquet` | derived per-counter non-null availability records when profiling data exists |
+| `bottleneck_signatures.parquet` | derived bottleneck labels and opportunity tags when analysis can construct them |
+| `budget_usage.csv` | compact per-strategy budget summary when decisions exist |
+| `held_out_pairwise.csv` | held-out aggregate comparison table when held-out measurements exist |
+| `held_out_per_shape.csv` | held-out per-shape comparison table when held-out measurements exist |
+| `signal_runtime_correlations.csv` | cheap-signal correlation summary when calibration data exists |
+| `counter_availability_report.csv` | human-readable counter availability summary when profiling data exists |
+| `opportunity_catalog.csv` | ranked tuning-opportunity summary when opportunities are detected |
+| `heuristic_candidates.yaml` | proposed heuristic revisions derived from opportunities |
+| `strategy_speedups.png` | held-out strategy speedup plot when comparison data exists |
+| `summary.json` | canonical serialized run summary |
 
-## Nullability Rules
+## Study-Level Artifact Catalog
 
-- Identifier fields are never null.
-- Status fields are never null.
-- Numeric metrics may be null only if the status is not `success`.
-- Free-form notes may be null.
-- Missing profiling counters must remain in `counter_map` as absent keys or null values with an explanatory status.
+| File | Role |
+| --- | --- |
+| `manifest.json` | canonical study-run index and provenance |
+| `study_strategy_metrics.csv` | normalized per-run, per-strategy comparison table when grouped runs are available |
+| `stability_report.csv` | cross-run stability and selection agreement summary when grouped runs are available |
+| `hypothesis_results.csv` | supported / unsupported / inconclusive decisions when hypothesis evaluation runs |
+| `opportunity_catalog.csv` | aggregated opportunity counts across grouped runs when opportunities exist |
+| `comparison_primary_metric.png` | compact primary-metric comparison plot when the plotted metric is available |
+| `cross_run_summary.json` | canonical serialized study summary |
 
-## Versioning Rules
+## Parquet Encoding Notes
 
-- All persisted schemas start at version `1`.
-- Backward-incompatible changes require a version bump.
-- The manifest must declare the schema version for every artifact file.
-- Readers must fail fast on unsupported major schema versions.
+The storage layer serializes nested dict and list fields in Parquet-backed records as JSON strings. Consumers must decode fields such as:
+
+- `CandidateConfig.config`
+- `ProfileMeasurement.counter_map`
+- `ProfileMeasurement.profiler_metadata`
+- `SelectionDecision.score_map`
+- `SelectionDecision.calibration_metadata`
+- list-valued decision fields
+
+The analysis layer already performs this decoding when it loads persisted tables.
 
 ## Stable Contracts
 
-- Artifact layout is fixed for v1.
-- YAML, JSON, and Parquet are the only supported persisted formats in v1.
-- `manifest.json` is the canonical index for a run.
-- Failed and skipped records must be persisted, not discarded.
+- `manifest.json` is the canonical index for both run and study outputs.
+- Schema version `2` is the active contract for the current implementation.
+- Failed, skipped, and partial records are persisted explicitly.
+- Study-level comparison outputs are first-class artifacts, not ad hoc notebook outputs.
+- Derived artifacts must still be indexed in the manifest like core artifacts.
 
 ## Exploratory Areas
 
-- Exact set of optional fields added for specific kernels
-- Additional derived analysis artifacts beyond `summary.json`
-- Compression and partitioning strategy if artifact volume grows
+- Additional derived artifacts beyond the current run-level and study-level outputs
+- Whether future schema versions split large JSON-like columns into more normalized tables
+- Whether compression or partitioning policy should change for larger studies

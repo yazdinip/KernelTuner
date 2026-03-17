@@ -20,51 +20,51 @@ Define the end-to-end controller that executes experiments, enforces phase bound
 - implementing kernel logic
 - implementing selector heuristics
 - parsing profiler outputs
-- generating plots directly
+- generating study-level cross-run reports directly
 
 ## Public Inputs and Outputs
 
 Inputs:
 
 - `ExperimentSpec`
-- resolved kernel configs
+- resolved kernel config
 - optional CLI overrides that do not violate the experiment spec
 
 Outputs:
 
 - complete run artifact directory
 - terminal experiment status
-- typed handles to in-memory `ExperimentResult` for the analysis layer
+- typed handles to in-memory result state for the analysis layer
 
 ## Internal Workflow
 
 1. Load `ExperimentSpec`.
-2. Resolve one or more `KernelSpec` entries.
+2. Resolve exactly one `KernelSpec`.
 3. Partition shapes into calibration and held-out scopes.
 4. Generate candidate configs for each shape.
 5. Run compile-time signal collection for the broad candidate set.
 6. Broker calibration-time runtime measurements under the experiment budget.
 7. Broker calibration-time profile measurements under the profile budget.
-8. Fit or calibrate selector logic if needed.
-9. Apply selector and baselines under matched budgets.
-10. Evaluate on held-out shapes.
-11. Optionally run analysis-only exhaustive or oracle phases after decision freeze.
-12. Write artifacts and summary outputs.
-13. Generate analysis tables and plots.
+8. Apply selector and baselines under matched budgets.
+9. Evaluate on held-out shapes.
+10. Optionally run analysis-only exhaustive or oracle phases after decision freeze.
+11. Write artifacts and summary outputs.
+12. Generate derived analysis tables and plots.
 
 ## Run Lifecycle
 
 1. create run directory and initial manifest
 2. capture environment provenance and scheduler metadata
-3. resolve kernels and shapes
-4. partition calibration and held-out scopes
-5. execute candidate generation
-6. execute measurement and profiling phases
-7. execute selection and baseline phases
-8. execute held-out evaluation
-9. optionally execute analysis-only exhaustive phases
-10. finalize artifacts and summary outputs
-11. mark terminal status in the manifest
+3. persist the effective experiment spec
+4. resolve kernel and shapes
+5. partition calibration and held-out scopes
+6. execute candidate generation
+7. execute measurement and profiling phases
+8. execute selection and baseline phases
+9. execute held-out evaluation
+10. optionally execute analysis-only exhaustive phases
+11. finalize artifacts and summary outputs
+12. mark terminal status in the manifest
 
 ## Checkpoint Behavior
 
@@ -79,7 +79,7 @@ Outputs:
 ## Failure Modes and Fallback Behavior
 
 - one candidate failure must not terminate the whole run
-- one kernel-scope failure may terminate only that scope if the experiment is configured to continue
+- one shape-scope failure may terminate only that scope if the experiment is configured to continue
 - manifest finalization must happen even for partial failure
 - unrecoverable schema or environment mismatch should fail the run early and clearly
 - cluster timeout or preemption should produce the best available partial manifest and terminal status when signal handling is available
@@ -99,6 +99,7 @@ Outputs:
 - partial failures still produce complete artifact metadata
 - rerun with the same seed produces the same split assignment
 - benchmark and profile requests from strategies are budgeted centrally by the orchestrator
+- reportable runs fail early on environment mismatch
 
 ## Extension Points
 
@@ -111,6 +112,7 @@ Outputs:
 Stable contract:
 
 - the workflow above is fixed for v1
+- experiments are single-kernel in v1
 - calibration and held-out separation is enforced centrally
 - storage writes are coordinated through the orchestrator and storage layer
 - selection-time measurement access is mediated centrally by the orchestrator

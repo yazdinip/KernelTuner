@@ -58,6 +58,10 @@ v1 required signals:
 4. Estimate occupancy from device properties and resource usage when possible.
 5. Emit a `CompileSignalRecord` whether extraction succeeds or fails.
 
+Current implementation note:
+
+- the signal path may use Triton warmup metadata when available and otherwise fall back to deterministic heuristic estimates with an explicit `signal_backend` marker.
+
 ## Persisted Artifacts Touched
 
 - writes `compile_signals.parquet` through the storage layer

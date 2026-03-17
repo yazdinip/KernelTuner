@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document translates the proposal into a concrete implementation sequence for `KernelTuner` v1.
+This document translates the proposal into a concrete implementation sequence for `KernelTuner` v1 and records how far the implementation has progressed.
 
 ## Roadmap Principles
 
@@ -10,6 +10,21 @@ This document translates the proposal into a concrete implementation sequence fo
 - Prioritize correctness, observability, and artifact quality over optimization.
 - Finish the primary GEMM path before adding breadth.
 - Cut optional work explicitly rather than allowing uncontrolled drift.
+- Once the foundation exists, shift effort from feature growth to research validation.
+
+## Current Status Snapshot
+
+As of the current implementation state:
+
+- Milestones 0 through 4 are substantially implemented.
+- The repo has a working `ktune` CLI, GPU execution path, artifact store, selector and baseline ladder, and run-level reporting.
+- Cross-run comparison, counter-availability reporting, opportunity mining, and LayerNorm support are now part of the codebase.
+- The active project phase is no longer basic implementation. It is research validation and refinement, as described in [`docs/research/07_experiment_campaign_plan.md`](research/07_experiment_campaign_plan.md).
+
+This roadmap therefore has two jobs:
+
+1. preserve the logic of how the implementation was built,
+2. make clear that the remaining work is mostly about evidence, stability, and scientifically justified tuner refinement.
 
 ## Milestones
 
@@ -27,6 +42,10 @@ Deliverables:
 - manifest writer and artifact-path utilities
 - environment provenance capture and host qualification checks
 - Slurm dry-run workflow validation for the designated cluster path
+
+Status:
+
+- implemented
 
 Gate to exit:
 
@@ -47,6 +66,10 @@ Deliverables:
 - candidate configuration generation with deterministic config IDs
 - reference implementation and correctness validation path
 
+Status:
+
+- implemented, then extended with LayerNorm as a validation kernel family
+
 Gate to exit:
 
 - GEMM candidates can be generated reproducibly
@@ -65,6 +88,10 @@ Deliverables:
 - compile-time signal collection
 - runtime and compile artifact writing
 - explicit timing-backend recording and raw-sample references when enabled
+
+Status:
+
+- implemented
 
 Gate to exit:
 
@@ -87,6 +114,10 @@ Deliverables:
 - selection decision artifact writing
 - profiler metadata capture including tool version and replay settings
 
+Status:
+
+- implemented
+
 Gate to exit:
 
 - profile measurements can be collected for a calibration subset
@@ -108,22 +139,40 @@ Deliverables:
 - comparability and reportability flags in summaries
 - uncertainty estimates for aggregate held-out results
 
+Status:
+
+- implemented
+
 Gate to exit:
 
 - one complete experiment run produces all required artifacts
 - summary output compares selector and baselines under matched budgets
 - held-out results are separated from calibration data
 
-### Milestone 5: Extensions If Time Allows
+### Milestone 5: Research Validation and Opportunity-Guided Refinement
 
-Candidate extensions:
+Goal:
 
-- secondary kernel family
-- richer configuration space
-- learned ranking component
-- small-space oracle for deeper analysis
+- turn the implemented system into a defensible research instrument and use evidence to justify tuner revisions
 
-These are optional. None of them should delay Milestones 0 through 4.
+Deliverables:
+
+- repeated reportable runs on the pinned baseline
+- study-level comparison via `StudySpec` and `ktune compare-runs`
+- counter-availability reporting for named counter sets
+- workload-class-aware comparisons across GEMM and LayerNorm
+- opportunity logs and heuristic-candidate proposals
+- one evidence-backed selector revision batch evaluated under unchanged budgets
+
+Status:
+
+- active
+
+Gate to exit:
+
+- repeated runs are stable enough for matched-budget claims
+- cross-run comparisons can mark hypotheses as supported, unsupported, or inconclusive
+- at least one selector revision is justified by observed failure modes rather than ad hoc tuning
 
 ## Dependency Graph
 
@@ -146,6 +195,7 @@ benchmark + signals + result store
 selector + baselines + result store
     -> experiment orchestrator
     -> analysis and reporting
+    -> study comparison
 ```
 
 ## Drop-If-Needed Rules
@@ -153,8 +203,8 @@ selector + baselines + result store
 Cut in this order if schedule pressure increases:
 
 1. learned ranker
-2. secondary kernels
-3. richer counter sets
+2. additional kernel families beyond GEMM and LayerNorm
+3. richer counter sets beyond the accepted reportable tiers
 4. richer configuration space
 5. small-space oracle
 
@@ -167,6 +217,7 @@ Do not cut these items without changing project scope:
 - matched-budget baselines
 - artifact persistence
 - held-out evaluation
+- research evidence tracking
 
 ## Implementation Order by Module
 
@@ -185,10 +236,11 @@ Do not cut these items without changing project scope:
 
 ## Acceptance Criteria
 
-The roadmap is considered executed when:
+The implementation roadmap is considered executed when:
 
 - the primary GEMM workflow runs end to end,
 - all required artifacts are written,
 - selector and baselines can be compared fairly,
 - held-out evaluation is separate and explicit,
-- the final report can describe either a positive or negative result.
+- run-level and study-level reporting are in place,
+- and the remaining work is research validation rather than missing core infrastructure.

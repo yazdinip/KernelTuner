@@ -38,6 +38,7 @@ Focus:
 - profiling adapter invocation path
 - orchestrator phase transitions
 - CLI to module wiring
+- study-level `compare-runs` wiring
 
 Run expectations:
 
@@ -63,6 +64,8 @@ Focus:
 - YAML config validation
 - read/write round-trips
 - nullability behavior under failed measurements
+- study-level artifact generation
+- derived artifact indexing in the manifest
 
 ### 5. Experiment Validity Tests
 
@@ -91,6 +94,7 @@ Focus:
 - Slurm wrapper path resolution and dry-run behavior
 - benchmark/profiler cache-path isolation
 - profiler metadata capture and parser stability
+- counter-availability threshold handling
 
 ## Required Test Scenarios
 
@@ -111,6 +115,9 @@ The following scenarios are mandatory before treating the implementation as trus
 13. Benchmark timing excludes compilation and allocation in the default measurement path.
 14. Slurm submission helpers resolve experiment-list paths correctly from both repo-root and explicit `--workspace` invocations.
 15. Summary generation marks smoke, oracle-only, and non-comparable outputs explicitly.
+16. `compare-runs` can aggregate multiple completed reportable runs into one study summary.
+17. Counter-availability reporting marks counter sets acceptable or unacceptable according to the configured threshold.
+18. Opportunity artifacts can be generated without schema ambiguity from completed run outputs.
 
 ## Suggested Test Placement
 
@@ -127,6 +134,7 @@ The exact directory names may change later, but these categories must remain.
 - Artifact schemas are incomplete until round-trip tests exist.
 - The selector is incomplete until budget, split separation, and failure recording are tested.
 - Benchmark results are not reportable until benchmark sanity checks have run on the target host.
+- Study comparison is incomplete until repeated-run aggregation has been exercised on completed run directories.
 
 ## Stable Contracts
 
@@ -134,3 +142,4 @@ The exact directory names may change later, but these categories must remain.
 - Failed and skipped paths must be tested, not treated as edge cases to ignore.
 - Reproducibility tests are part of the core project, not a stretch goal.
 - Operational checks for the Slurm and profiling toolchain are part of implementation readiness for reportable runs.
+- Study-level comparison and counter-availability checks are part of research-readiness for reportable claims.

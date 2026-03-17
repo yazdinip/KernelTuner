@@ -7,18 +7,17 @@ This document defines the scientific and measurement rules for `KernelTuner` v1.
 ## End-to-End Workflow
 
 1. Load `ExperimentSpec`.
-2. Resolve one or more `KernelSpec` entries.
+2. Resolve exactly one `KernelSpec`.
 3. Partition shapes into calibration and held-out scopes.
 4. Generate candidate configs for each shape.
 5. Run compile-time signal collection for the shared candidate set.
 6. Benchmark only the calibration candidates requested under the experiment budget.
 7. Run selective profiling on the calibration subset only.
-8. Fit or calibrate selector logic if needed.
-9. Apply selector and baselines under matched budgets.
-10. Evaluate on held-out shapes.
-11. Optionally run analysis-only exhaustive or oracle measurements after strategy decisions are fixed.
-12. Write artifacts and summary outputs.
-13. Generate analysis tables and plots.
+8. Apply selector and baselines under matched budgets.
+9. Evaluate on held-out shapes.
+10. Optionally run analysis-only exhaustive or oracle measurements after strategy decisions are fixed.
+11. Write artifacts and summary outputs.
+12. Generate analysis tables, plots, counter-availability outputs, and opportunity records.
 
 ## Fairness Rules
 
@@ -83,7 +82,7 @@ Unless overridden by the experiment config:
 - The selector may use calibration shapes for signal analysis, runtime measurement, and selective profiling.
 - The selector may not consume held-out runtime or held-out profiling data during calibration.
 - Held-out shapes are used only for final evaluation of chosen configurations and baselines.
-- Reportable studies must include at least one calibration shape and at least one held-out shape per kernel scope.
+- Reportable studies must include at least one calibration shape and at least one held-out shape.
 - Single-shape or zero-held-out experiments are allowed only for smoke or development validation and must not be presented as final comparative results.
 
 ## Runtime Measurement Protocol
@@ -141,13 +140,18 @@ Missing values are allowed only when accompanied by a non-success status or an e
 - The profiler tool version, invocation options, replay mode, and any kernel filters must be recorded with the profile metadata.
 - Profiling should be attempted only for configs that are known to compile and satisfy correctness checks unless the experiment explicitly studies failing paths.
 
+Counter-set policy for reportable studies:
+
+- A Tier 1 matched-budget counter set is acceptable only if the recorded non-null availability of requested counters meets its configured `minimum_availability` threshold.
+- Counter sets marked `diagnostic_only: true` may still be collected, but their outputs must not be treated as matched-budget evidence for final comparative claims.
+
 ## Reporting Metrics
 
 Required summary metrics:
 
 - median runtime for each chosen configuration
 - relative speedup versus the default baseline
-- relative speedup versus the naive baseline
+- relative speedup versus the naive baselines
 - budget consumption by strategy
 - number of valid, failed, and skipped candidates
 - calibration-to-held-out transfer behavior
@@ -158,6 +162,9 @@ Required summary metrics:
 Recommended analysis metrics:
 
 - correlation between cheap signals and runtime
+- counter availability by strategy and counter set
+- bottleneck signature distribution
+- opportunity counts derived from profiler and runtime evidence
 - rank quality of the selector compared with the small-space oracle when available
 - sensitivity of selection quality to budget size
 - uncertainty estimates such as confidence intervals or bootstrap intervals for aggregate speedup metrics
@@ -172,6 +179,7 @@ A study is considered reportable only if all of the following hold:
 - at least one matched-budget naive baseline is present
 - held-out evaluation uses the same measurement protocol across compared strategies
 - summary outputs include uncertainty estimates or an explicit statement of why they are unavailable
+- any Tier 1 counter set used for reportable profiling meets its availability threshold or is explicitly downgraded
 
 ## Negative-Result Reporting Rule
 

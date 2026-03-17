@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define selective profiling for calibration data using named counter sets and explicit failure handling.
+Define selective profiling for calibration data using named counter sets, isolated profiler execution, and explicit failure handling.
 
 ## Responsibilities
 
@@ -11,6 +11,7 @@ Define selective profiling for calibration data using named counter sets and exp
 - run profiling only on the calibration subset
 - parse profiler outputs into typed records
 - capture unsupported counters and profiling failures explicitly
+- preserve enough metadata for later counter-availability and bottleneck analysis
 
 ## Non-Responsibilities
 
@@ -41,6 +42,14 @@ Outputs:
   - `counter_map`
   - `profiler_metadata`
 
+Counter set fields that affect profiling semantics:
+
+- `diagnostic_only`
+- `minimum_availability`
+- `replay_mode`
+- `kernel_name_regex`
+- `ncu_args`
+
 Profile status values:
 
 - `success`
@@ -54,8 +63,8 @@ Profile status values:
 1. Validate that the request belongs to the calibration subset.
 2. Load the named counter set config.
 3. Validate that the target config compiled successfully and passed correctness checks unless the experiment explicitly profiles failing paths.
-4. Assemble the profiler command for the target kernel execution.
-5. Execute the profiler with one isolated measurement request.
+4. Assemble the profiler command for one isolated kernel execution.
+5. Execute the profiler through the internal `_profile-once` helper path so profiler-side timing does not contaminate benchmark timing.
 6. Capture profiler version, invocation options, replay mode, and any kernel filter metadata.
 7. Parse the profiler output into normalized counter names and values.
 8. Emit a `ProfileMeasurement` record regardless of success or failure.
@@ -64,6 +73,8 @@ Profile status values:
 
 - reads `configs/counters/<counter_set_id>.yaml`
 - writes `profile_measurements.parquet` through the storage layer
+
+Counter-availability and acceptance summaries are derived later by the analysis layer from these persisted profile records.
 
 ## Failure Modes and Fallback Behavior
 
@@ -78,6 +89,7 @@ Profiler runs are never authoritative replacements for benchmark-harness timing 
 ## Logging and Observability Requirements
 
 - log the counter set ID for each request
+- log whether the counter set is reportable-tier or diagnostic-only
 - log the profiler tool version when available
 - keep stdout or stderr references when the profiler fails
 - log profiling duration for each request
@@ -90,6 +102,7 @@ Profiler runs are never authoritative replacements for benchmark-harness timing 
 - missing profiler binary yields `tool_unavailable`
 - non-calibration profile request is rejected or skipped before invocation
 - profiler metadata includes tool version and invocation settings
+- `minimum_availability` and `diagnostic_only` fields are preserved from the loaded config
 
 ## Extension Points
 
@@ -105,8 +118,10 @@ Stable contract:
 - named counter sets are required
 - a profile record must be emitted for every attempted request
 - profiling runs are isolated from benchmark timing runs
+- counter-set availability is judged after collection, not assumed
 
 Exploratory areas:
 
 - exact counter choices
 - exact profiler output parsing strategy
+- exact thresholding used in future availability policies

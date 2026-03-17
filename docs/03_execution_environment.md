@@ -17,7 +17,7 @@ This document defines the supported runtime and tooling assumptions for `KernelT
 | Tensor runtime | `torch==2.10.0` for the initial implementation milestone |
 | Profiler | Nsight Compute CLI (`ncu`) 2025.2.1 via `/usr/local/cuda/bin/ncu` |
 | Optional diagnostic profiler | Nsight Systems (`nsys`) for development diagnostics only, not as a primary matched-budget signal source |
-| Artifact formats | YAML, JSON, Parquet |
+| Artifact formats | YAML, JSON, CSV, PNG, Parquet |
 
 ## Pinned Milestone 0 Baseline
 
@@ -42,6 +42,9 @@ Pinned Python package set for initial implementation:
 - `pandas==3.0.1`
 - `pyarrow==23.0.1`
 - `pytest==8.4.2`
+- `pydantic==2.12.5`
+- `typer==0.24.1`
+- `matplotlib==3.10.8`
 
 Operational policy for this baseline:
 
@@ -109,8 +112,8 @@ For the initial implementation milestone, the expected qualification values are:
 
 Current repo-specific policy:
 
-- The existing Slurm helper scripts are acceptable for development and smoke runs.
-- They should not be treated as sufficient for reportable runs until node pinning is exposed explicitly through the helper path or the reportable submission uses a manually pinned Slurm command.
+- The existing Slurm helper scripts are acceptable for development, smoke, and reportable runs.
+- Reportable helper-based submissions must still pin `--nodelist=gpunode2` explicitly and preserve full environment provenance.
 
 ## Recommended Host Characteristics
 
@@ -166,9 +169,9 @@ Cluster scheduling itself is allowed, but heterogeneous or weakly controlled clu
 
 ## Environment Setup Policy
 
-v1 assumes that implementation will later add explicit bootstrap files for environment creation. Until those files exist, the build team should use the pinned Milestone 0 baseline above on `gpunode2`, record exact package versions in experiment manifests, and preserve an environment export for any reportable run.
+The repo now provides `scripts/bootstrap_env.sh` as the preferred bootstrap path for the pinned environment. Reportable runs should use that script or a documented equivalent, record exact package versions in experiment manifests, and preserve an environment export such as `pip freeze`.
 
-For the current cluster image, implementation should assume:
+For the current cluster image, assume:
 
 - system Python is `python3`, not `python3.11`
 - CUDA and Nsight tools may require exporting `/usr/local/cuda-12.9/bin` or `/usr/local/cuda/bin`

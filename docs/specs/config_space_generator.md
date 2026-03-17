@@ -25,7 +25,7 @@ Inputs:
 
 - `KernelSpec`
 - `ProblemShape`
-- optional experiment-level candidate caps
+- `ExperimentSpec`
 
 Outputs:
 
@@ -35,21 +35,21 @@ Outputs:
   - `kernel_id`
   - `shape_id`
   - `config_id`
-  - tiling parameters
-  - `num_warps`
-  - `num_stages`
+  - `config`
   - `is_valid`
   - `validation_notes`
+  - optional `generation_provenance`
 
 ## Internal Workflow
 
 1. Read the parameter ranges from `KernelSpec.config_parameters`.
 2. Produce the Cartesian product of allowed parameter values.
 3. Apply hard validation rules such as required divisibility or kernel-specific constraints.
-4. Apply shape-aware filtering rules.
-5. Canonicalize field ordering and generate deterministic `config_id` values.
-6. Deduplicate normalized configs.
-7. Emit the shared candidate set for downstream modules.
+4. Canonicalize field ordering and generate deterministic `config_id` values.
+5. Apply experiment-level `max_candidates` truncation deterministically on config IDs before shape expansion.
+6. Apply shape-aware validation rules per `(shape, config)` pair.
+7. Deduplicate normalized configs.
+8. Emit the shared candidate set for downstream modules.
 
 ## Persisted Artifacts Touched
 
@@ -59,18 +59,21 @@ Outputs:
 
 - empty candidate space after validation: fail the experiment scope explicitly
 - malformed parameter specification: fail fast
+- raw Cartesian space larger than `max_candidates`: truncate deterministically and record that provenance
 - duplicate configs after normalization: deduplicate and record deduplication count
 - invalid shape-specific config: mark `is_valid=false` with a validation note
 
 ## Logging and Observability Requirements
 
 - log total generated candidate count before and after filtering
+- log whether deterministic `max_candidates` truncation occurred
 - log how many configs were invalidated by each hard constraint
 - log candidate pool size passed downstream after any budget-based truncation
 
 ## Test Cases
 
 - deterministic `config_id` generation
+- deterministic `max_candidates` truncation behavior
 - shape-aware filtering rejects invalid tile choices
 - duplicate normalized configs are removed
 - empty post-filter candidate sets fail clearly
@@ -89,8 +92,9 @@ Stable contract:
 - `config_id` must be deterministic
 - hard validation occurs before selector and baseline logic
 - downstream modules consume the same shared candidate pool
+- candidate rows persist a generic `config` map rather than family-specific columns
 
 Exploratory areas:
 
-- exact candidate down-selection policy when the raw space is too large
+- exact truncation policy when the raw space is too large beyond the current canonical-order cut
 - additional family-specific filtering rules discovered during implementation
