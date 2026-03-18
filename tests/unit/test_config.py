@@ -2,7 +2,13 @@ from pathlib import Path
 
 import pytest
 
-from kernel_tuner.common.config import load_experiment_spec, load_kernel_spec, load_study_spec
+from kernel_tuner.common.config import (
+    load_campaign_spec,
+    load_experiment_spec,
+    load_kernel_spec,
+    load_selector_revision_spec,
+    load_study_spec,
+)
 
 
 def test_load_kernel_spec_example():
@@ -55,3 +61,16 @@ def test_load_validation_study_spec():
     spec = load_study_spec(Path("configs/studies/validation_phase.yaml"))
     assert spec.study_id == "validation_phase"
     assert {hypothesis.hypothesis_id for hypothesis in spec.hypotheses} == {"H1", "H2", "H3", "H4"}
+    assert all(hypothesis.clauses for hypothesis in spec.hypotheses)
+
+
+def test_load_campaign_spec():
+    spec = load_campaign_spec(Path("configs/campaigns/validation_rounds.yaml"))
+    assert spec.campaign_id == "validation_rounds"
+    assert len(spec.templates) >= 3
+
+
+def test_load_selector_revision_spec():
+    spec = load_selector_revision_spec(Path("configs/selector_revisions/v2_validation.yaml"))
+    assert spec.revision_id == "v2_validation"
+    assert spec.ranking_features[0].feature_name == "warps_active"

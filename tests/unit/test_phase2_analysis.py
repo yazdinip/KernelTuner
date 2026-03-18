@@ -3,7 +3,12 @@ from pathlib import Path
 
 import pandas as pd
 
-from kernel_tuner.analysis.comparison import _build_stability_report, _build_strategy_rows
+from kernel_tuner.analysis.comparison import (
+    _build_stability_report,
+    _build_strategy_rows,
+    _evaluate_hypotheses,
+)
+from kernel_tuner.common.schema import HypothesisClause, HypothesisMetricRef, HypothesisSpec, StudySpec
 from kernel_tuner.analysis.opportunities import (
     build_bottleneck_signatures,
     build_counter_availability_records,
@@ -164,6 +169,91 @@ def test_build_strategy_rows_preserves_kernel_family_and_workload_class():
 
     assert set(rows["kernel_family"]) == {"layernorm"}
     assert set(rows["workload_class"]) == {"small_batch"}
+
+
+def test_evaluate_hypotheses_uses_clause_based_metrics():
+    strategy_rows = pd.DataFrame(
+        [
+            {
+                "group_id": "gemm_representative",
+                "kernel_family": "gemm",
+                "workload_class": "square_compute",
+                "strategy_id": "prune_rank",
+                "selector_version": "v2_validation",
+                "selector_revision_id": "v2_validation",
+                "counter_set_id": "compute_lite",
+                "budget_id": "gemm_reportable_matched_v2",
+                "geomean_speedup_vs_default_config": 1.05,
+            },
+            {
+                "group_id": "gemm_representative",
+                "kernel_family": "gemm",
+                "workload_class": "square_compute",
+                "strategy_id": "prune_only",
+                "selector_version": "v2_validation",
+                "selector_revision_id": "v2_validation",
+                "counter_set_id": "compute_lite",
+                "budget_id": "gemm_reportable_matched_v2",
+                "geomean_speedup_vs_default_config": 1.00,
+            },
+        ]
+    )
+    stability_report = pd.DataFrame(
+        [
+            {
+                "group_id": "gemm_representative",
+                "kernel_family": "gemm",
+                "workload_class": "square_compute",
+                "strategy_id": "prune_rank",
+                "selector_version": "v2_validation",
+                "selector_revision_id": "v2_validation",
+                "counter_set_id": "compute_lite",
+                "budget_id": "gemm_reportable_matched_v2",
+                "stability_band": 0.08,
+            }
+        ]
+    )
+    study = StudySpec(
+        study_id="study",
+        hypotheses=[
+            HypothesisSpec(
+                hypothesis_id="H1",
+                description="test",
+                clauses=[
+                    HypothesisClause(
+                        left=HypothesisMetricRef(
+                            source="strategy_rows",
+                            metric="geomean_speedup_vs_default_config",
+                            group_id="gemm_representative",
+                            strategy_id="prune_rank",
+                        ),
+                        comparator="greater_than_or_equal",
+                        right=HypothesisMetricRef(
+                            source="strategy_rows",
+                            metric="geomean_speedup_vs_default_config",
+                            group_id="gemm_representative",
+                            strategy_id="prune_only",
+                        ),
+                    ),
+                    HypothesisClause(
+                        left=HypothesisMetricRef(
+                            source="stability_report",
+                            metric="stability_band",
+                            group_id="gemm_representative",
+                            strategy_id="prune_rank",
+                        ),
+                        comparator="greater_than",
+                        right_constant=0.05,
+                    ),
+                ],
+            )
+        ],
+        run_groups=[],
+    )
+
+    results = _evaluate_hypotheses(study, strategy_rows, stability_report)
+
+    assert results.iloc[0]["status"] == "supported"
 
 
 def test_opportunity_catalog_contains_expected_template():

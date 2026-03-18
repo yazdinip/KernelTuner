@@ -7,6 +7,7 @@ import platform
 import re
 import subprocess
 import sys
+from shutil import which
 from pathlib import Path
 
 from kernel_tuner.common.schema import EnvironmentMetadata, InvocationMetadata, SlurmMetadata
@@ -40,18 +41,30 @@ def _capture_nvidia() -> dict[str, str | None]:
         "gpu_uuid": None,
         "nvidia_driver_version": None,
         "cuda_runtime_version": None,
+        "persistence_mode": None,
+        "graphics_clock_mhz": None,
+        "memory_clock_mhz": None,
+        "power_limit_w": None,
     }
     query = _run_command(
         [
             "nvidia-smi",
-            "--query-gpu=name,uuid,driver_version",
+            "--query-gpu=name,uuid,driver_version,persistence_mode,clocks.gr,clocks.mem,power.limit",
             "--format=csv,noheader",
         ]
     )
     if query:
         parts = [item.strip() for item in query.split(",")]
-        if len(parts) >= 3:
-            result["gpu_name"], result["gpu_uuid"], result["nvidia_driver_version"] = parts[:3]
+        if len(parts) >= 7:
+            (
+                result["gpu_name"],
+                result["gpu_uuid"],
+                result["nvidia_driver_version"],
+                result["persistence_mode"],
+                result["graphics_clock_mhz"],
+                result["memory_clock_mhz"],
+                result["power_limit_w"],
+            ) = parts[:7]
     header = _run_command(["nvidia-smi"])
     if header:
         match = re.search(r"CUDA Version:\s+([0-9.]+)", header)
@@ -79,6 +92,24 @@ def _capture_ncu_version() -> str | None:
     return None
 
 
+def _cache_roots() -> dict[str, str]:
+    cache_roots: dict[str, str] = {}
+    for env_name in ["TRITON_CACHE_DIR", "CUDA_CACHE_PATH", "XDG_CACHE_HOME"]:
+        value = os.environ.get(env_name)
+        if value:
+            cache_roots[env_name] = value
+    return cache_roots
+
+
+def _tool_paths() -> dict[str, str]:
+    tools = {}
+    for name in ["python3", "ncu", "nsys", "nvcc"]:
+        path = which(name)
+        if path:
+            tools[name] = path
+    return tools
+
+
 def capture_environment_metadata(repo_root: str | Path) -> EnvironmentMetadata:
     gpu_info = _capture_nvidia()
     git_info = _capture_git(repo_root)
@@ -100,7 +131,14 @@ def capture_environment_metadata(repo_root: str | Path) -> EnvironmentMetadata:
         git_commit=git_info["git_commit"],
         git_branch=git_info["git_branch"],
         git_dirty=git_info["git_dirty"],
-        cache_roots={},
+        cache_roots=_cache_roots(),
+        tool_paths=_tool_paths(),
+        gpu_attributes={
+            "persistence_mode": gpu_info["persistence_mode"],
+            "graphics_clock_mhz": gpu_info["graphics_clock_mhz"],
+            "memory_clock_mhz": gpu_info["memory_clock_mhz"],
+            "power_limit_w": gpu_info["power_limit_w"],
+        },
     )
 
 
@@ -111,7 +149,11 @@ def capture_invocation_metadata(
     kernel_config_path: str | None = None,
     counter_config_path: str | None = None,
     study_config_path: str | None = None,
+    campaign_config_path: str | None = None,
     seed: int | None = None,
+    repeat_index: int | None = None,
+    selector_revision_id: str | None = None,
+    campaign_id: str | None = None,
 ) -> InvocationMetadata:
     return InvocationMetadata(
         command=command,
@@ -119,7 +161,11 @@ def capture_invocation_metadata(
         kernel_config_path=kernel_config_path,
         counter_config_path=counter_config_path,
         study_config_path=study_config_path,
+        campaign_config_path=campaign_config_path,
         seed=seed,
+        repeat_index=repeat_index,
+        selector_revision_id=selector_revision_id,
+        campaign_id=campaign_id,
     )
 
 

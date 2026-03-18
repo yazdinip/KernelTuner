@@ -90,15 +90,22 @@ def collect_signals_for_experiment(
     kernel_spec = load_kernel_spec(kernel_config_path(experiment_spec.kernels[0], experiment_path))
     kernel = resolve_kernel(kernel_spec)
     candidates = generate_candidate_records(experiment_spec, experiment_path=experiment_path)
-    shape = experiment_spec.shapes[0]
-    shape_candidates = [
-        candidate for candidate in candidates if candidate.shape_id == shape.shape_id
-    ]
-    record = collect_compile_signals(
-        run_id="standalone",
-        kernel=kernel,
-        shape=shape,
-        candidates=shape_candidates[:1],
-        seed=experiment_spec.seed,
-    )[0]
-    return record.model_dump(mode="json")
+    records = []
+    for index, shape in enumerate(experiment_spec.shapes):
+        shape_candidates = [
+            candidate for candidate in candidates if candidate.shape_id == shape.shape_id
+        ]
+        records.extend(
+            collect_compile_signals(
+                run_id="standalone",
+                kernel=kernel,
+                shape=shape,
+                candidates=shape_candidates,
+                seed=experiment_spec.seed + index,
+            )
+        )
+    return {
+        "experiment_id": experiment_spec.experiment_id,
+        "record_count": len(records),
+        "records": [record.model_dump(mode="json") for record in records],
+    }

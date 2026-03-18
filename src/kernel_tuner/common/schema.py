@@ -24,6 +24,7 @@ class StudyKind(StrEnum):
     SMOKE = "smoke"
     DEVELOPMENT = "development"
     REPORTABLE = "reportable"
+    DIAGNOSTIC_ONLY = "diagnostic_only"
 
 
 class SelectorMode(StrEnum):
@@ -78,6 +79,37 @@ class MeasurementPhase(StrEnum):
     ORACLE = "oracle"
 
 
+class ProfileSamplingMode(StrEnum):
+    FIRST_CALIBRATION = "first_calibration"
+    PER_WORKLOAD_CLASS_TOP1 = "per_workload_class_top1"
+    ALL_CALIBRATION = "all_calibration"
+    EXPLICIT_SHAPE_IDS = "explicit_shape_ids"
+
+
+class AvailabilityFailureMode(StrEnum):
+    DOWNGRADE_TO_DIAGNOSTIC = "downgrade_to_diagnostic"
+    FAIL_RUN = "fail_run"
+
+
+class HypothesisComparator(StrEnum):
+    GREATER_THAN = "greater_than"
+    GREATER_THAN_OR_EQUAL = "greater_than_or_equal"
+    LESS_THAN = "less_than"
+    LESS_THAN_OR_EQUAL = "less_than_or_equal"
+
+
+class HypothesisSource(StrEnum):
+    STRATEGY_ROWS = "strategy_rows"
+    STABILITY_REPORT = "stability_report"
+
+
+class ReductionMode(StrEnum):
+    MEAN = "mean"
+    MEDIAN = "median"
+    MIN = "min"
+    MAX = "max"
+
+
 class BenchmarkSettings(KTModel):
     warmup_iterations: int = 10
     timed_iterations: int = 30
@@ -100,6 +132,24 @@ class ProfilingSettings(KTModel):
     cooldown_s: float = 0.0
 
 
+class ProfilePolicySpec(KTModel):
+    counter_set_id: str | None = None
+    shape_sampling_mode: ProfileSamplingMode = ProfileSamplingMode.FIRST_CALIBRATION
+    max_shapes_per_config: int | None = None
+    aggregation_mode: ReductionMode = ReductionMode.MEAN
+    explicit_shape_ids: list[str] = Field(default_factory=list)
+    availability_failure_mode: AvailabilityFailureMode = (
+        AvailabilityFailureMode.DOWNGRADE_TO_DIAGNOSTIC
+    )
+
+    @field_validator("max_shapes_per_config")
+    @classmethod
+    def _positive_or_none(cls, value: int | None) -> int | None:
+        if value is not None and value <= 0:
+            raise ValueError("max_shapes_per_config must be positive when provided")
+        return value
+
+
 class ExecutionSettings(KTModel):
     cache_root: str | None = None
     scratch_root: str | None = None
@@ -116,6 +166,27 @@ class AnalysisSettings(KTModel):
     confidence_interval_method: str = "bootstrap"
     workload_id: str | None = None
     comparison_tags: list[str] = Field(default_factory=list)
+
+
+class ReportabilityPolicy(KTModel):
+    enforce_preflight: bool = True
+    require_workload_class_labels: bool = False
+    require_stratified_split: bool = False
+    minimum_calibration_shapes: int = 1
+    minimum_held_out_shapes: int = 1
+    minimum_held_out_per_workload_class: int = 0
+    abort_on_incompatible_counter_set: bool = True
+
+    @field_validator(
+        "minimum_calibration_shapes",
+        "minimum_held_out_shapes",
+        "minimum_held_out_per_workload_class",
+    )
+    @classmethod
+    def _non_negative_int(cls, value: int) -> int:
+        if value < 0:
+            raise ValueError("reportability minimums must be non-negative")
+        return value
 
 
 class SelectionBudget(KTModel):
@@ -157,6 +228,9 @@ class KernelSpec(KTModel):
     notes: str | None = None
     default_config: dict[str, int] | None = None
     correctness_policy: CorrectnessPolicy | None = None
+    supported_knob_families: list[str] = Field(default_factory=list)
+    expected_signal_families: list[str] = Field(default_factory=list)
+    unsupported_knobs: list[str] = Field(default_factory=list)
 
 
 class ProblemShape(KTModel):
@@ -258,7 +332,10 @@ class ExperimentSpec(KTModel):
     seed: int
     study_kind: StudyKind = StudyKind.DEVELOPMENT
     counter_set_id: str | None = None
+    profile_policy: ProfilePolicySpec | None = None
+    reportability_policy: ReportabilityPolicy = Field(default_factory=ReportabilityPolicy)
     selector_version: str = "v1"
+    selector_revision_id: str | None = None
     budget_id: str | None = None
     benchmark_settings: BenchmarkSettings = Field(default_factory=BenchmarkSettings)
     profiling_settings: ProfilingSettings = Field(default_factory=ProfilingSettings)
@@ -284,6 +361,16 @@ class ExperimentSpec(KTModel):
                 f"cand{self.budgets.max_candidates}_bench{self.budgets.max_benchmarks}_"
                 f"profile{self.budgets.max_profiles}"
             )
+        if self.profile_policy is None:
+            self.profile_policy = ProfilePolicySpec(counter_set_id=self.counter_set_id)
+        elif self.profile_policy.counter_set_id is None:
+            self.profile_policy.counter_set_id = self.counter_set_id
+        if self.counter_set_id is None and self.profile_policy.counter_set_id is not None:
+            self.counter_set_id = self.profile_policy.counter_set_id
+        if self.study_kind == StudyKind.REPORTABLE:
+            self.reportability_policy.enforce_preflight = True
+            if self.reportability_policy.minimum_held_out_shapes == 0:
+                self.reportability_policy.minimum_held_out_shapes = 1
         return self
 
 
@@ -414,6 +501,7 @@ class HypothesisSpec(KTModel):
     hypothesis_id: str
     description: str
     comparison_pair: list[str] = Field(default_factory=list)
+    clauses: list["HypothesisClause"] = Field(default_factory=list)
     notes: str | None = None
 
 
@@ -425,8 +513,12 @@ class RunGroupSpec(KTModel):
     kernel_family: str | None = None
     workload_class: str | None = None
     selector_version: str = "v1"
+    selector_revision_id: str | None = None
     counter_set_id: str | None = None
     budget_id: str | None = None
+    execution_mode: StudyKind | None = None
+    seeds: list[int] = Field(default_factory=list)
+    repeat_indices: list[int] = Field(default_factory=list)
     notes: str | None = None
 
 
@@ -463,6 +555,127 @@ class StudySpec(KTModel):
     output_root: str = "artifacts/studies"
 
 
+class RunLabels(KTModel):
+    kernel_family: str | None = None
+    workload_matrix_id: str | None = None
+    counter_set_id: str | None = None
+    selector_version: str | None = None
+    selector_revision_id: str | None = None
+    budget_id: str | None = None
+    seed: int | None = None
+    repeat_index: int | None = None
+    campaign_id: str | None = None
+    round_id: str | None = None
+    execution_mode: StudyKind | None = None
+    reportability_mode: str | None = None
+    workload_classes: list[str] = Field(default_factory=list)
+
+
+class CounterCompatibilityRecord(KTModel):
+    schema_version: int = SCHEMA_VERSION
+    counter_set_id: str
+    kernel_family: str
+    requested_counter_count: int
+    available_counter_count: int
+    missing_counters: list[str] = Field(default_factory=list)
+    availability_fraction: float
+    acceptable: bool
+    diagnostic_only: bool = False
+    kernel_family_allowed: bool = True
+    validation_backend: str
+    notes: str | None = None
+
+
+class SelectorRankingFeature(KTModel):
+    feature_name: str
+    source: str
+    direction: str = "desc"
+    missing_value: float | None = None
+
+
+class SelectorPruneRule(KTModel):
+    rule_id: str
+    source: str
+    feature_name: str
+    comparator: str
+    threshold: float
+    prune_reason: str
+
+
+class SelectorRevisionSpec(KTModel):
+    revision_id: str
+    parent_selector_mode: SelectorMode = SelectorMode.PRUNE_RANK_PROFILED
+    linked_opportunity_tags: list[str] = Field(default_factory=list)
+    prune_rules: list[SelectorPruneRule] = Field(default_factory=list)
+    ranking_features: list[SelectorRankingFeature] = Field(default_factory=list)
+    tie_break_relative_tolerance: float = 0.02
+    notes: str | None = None
+
+
+class CampaignTemplateSpec(KTModel):
+    template_id: str
+    experiment_ids: list[str] = Field(default_factory=list)
+    seeds: list[int] = Field(default_factory=list)
+    repeats: int = 1
+    counter_set_ids: list[str] = Field(default_factory=list)
+    selector_revision_ids: list[str] = Field(default_factory=list)
+    execution_mode: StudyKind | None = None
+    notes: str | None = None
+
+    @field_validator("repeats")
+    @classmethod
+    def _positive_repeats(cls, value: int) -> int:
+        if value <= 0:
+            raise ValueError("repeats must be positive")
+        return value
+
+
+class CampaignStudyBinding(KTModel):
+    study_id: str
+    study_path: str | None = None
+    requires_templates: list[str] = Field(default_factory=list)
+    notes: str | None = None
+
+
+class CampaignSpec(KTModel):
+    campaign_id: str
+    round_id: str
+    templates: list[CampaignTemplateSpec]
+    studies: list[CampaignStudyBinding] = Field(default_factory=list)
+    artifact_root: str = "artifacts/campaigns"
+    notes: str | None = None
+
+
+class HypothesisMetricRef(KTModel):
+    source: HypothesisSource = HypothesisSource.STRATEGY_ROWS
+    metric: str
+    group_id: str | None = None
+    strategy_id: str | None = None
+    kernel_family: str | None = None
+    workload_class: str | None = None
+    selector_version: str | None = None
+    selector_revision_id: str | None = None
+    counter_set_id: str | None = None
+    budget_id: str | None = None
+    reduction: ReductionMode = ReductionMode.MEAN
+
+
+class HypothesisClause(KTModel):
+    left: HypothesisMetricRef
+    comparator: HypothesisComparator = HypothesisComparator.GREATER_THAN
+    right: HypothesisMetricRef | None = None
+    right_constant: float | None = None
+    minimum_delta: float = 0.0
+
+    @model_validator(mode="after")
+    def _validate_rhs(self) -> "HypothesisClause":
+        if self.right is None and self.right_constant is None:
+            raise ValueError("hypothesis clause requires either right or right_constant")
+        if self.right is not None and self.right_constant is not None:
+            raise ValueError("hypothesis clause cannot set both right and right_constant")
+        return self
+
+
 class EnvironmentMetadata(KTModel):
     hostname: str
     os_name: str
@@ -480,6 +693,8 @@ class EnvironmentMetadata(KTModel):
     git_branch: str | None = None
     git_dirty: bool | None = None
     cache_roots: dict[str, str] = Field(default_factory=dict)
+    tool_paths: dict[str, str] = Field(default_factory=dict)
+    gpu_attributes: dict[str, Any] = Field(default_factory=dict)
 
 
 class InvocationMetadata(KTModel):
@@ -488,7 +703,11 @@ class InvocationMetadata(KTModel):
     kernel_config_path: str | None = None
     counter_config_path: str | None = None
     study_config_path: str | None = None
+    campaign_config_path: str | None = None
     seed: int | None = None
+    repeat_index: int | None = None
+    selector_revision_id: str | None = None
+    campaign_id: str | None = None
 
 
 class SlurmMetadata(KTModel):
@@ -523,6 +742,7 @@ class Manifest(KTModel):
     artifact_files: list[ArtifactFile] = Field(default_factory=list)
     status: RunStatus = RunStatus.CREATED
     warnings: list[str] = Field(default_factory=list)
+    labels: RunLabels = Field(default_factory=RunLabels)
 
 
 class ExperimentResult(KTModel):
@@ -537,3 +757,7 @@ class ExperimentResult(KTModel):
     reportability: dict[str, Any] = Field(default_factory=dict)
     uncertainty_metrics: dict[str, Any] = Field(default_factory=dict)
     artifact_locations: dict[str, str] = Field(default_factory=dict)
+    run_labels: dict[str, Any] = Field(default_factory=dict)
+
+
+HypothesisSpec.model_rebuild()

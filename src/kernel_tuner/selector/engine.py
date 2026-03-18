@@ -13,6 +13,8 @@ from kernel_tuner.common.config import (
     kernel_config_path,
     load_counter_set,
     load_kernel_spec,
+    load_selector_revision_spec,
+    selector_revision_path,
 )
 from kernel_tuner.common.schema import (
     CandidateConfig,
@@ -25,6 +27,7 @@ from kernel_tuner.common.schema import (
     RuntimeMeasurement,
     RuntimeStatus,
     SelectionDecision,
+    SelectorRevisionSpec,
     SelectorMode,
 )
 from kernel_tuner.config_space.generator import generate_candidate_records
@@ -321,6 +324,96 @@ def _revised_profile_rank_key(
     )
 
 
+def _metric_value(
+    *,
+    config_id: str,
+    feature_name: str,
+    source: str,
+    compile_summary: dict[str, dict[str, float | int | bool | None]],
+    profile_metrics: dict[str, dict[str, float | None]],
+) -> float | int | bool | None:
+    if source == "compile":
+        return compile_summary.get(config_id, {}).get(feature_name)
+    if source == "profile":
+        return profile_metrics.get(config_id, {}).get(feature_name)
+    raise ValueError(f"unsupported selector feature source '{source}'")
+
+
+def _compare_rule(value: float | int | bool | None, comparator: str, threshold: float) -> bool:
+    if value is None:
+        return False
+    numeric = float(value)
+    if comparator == "lt":
+        return numeric < threshold
+    if comparator == "lte":
+        return numeric <= threshold
+    if comparator == "gt":
+        return numeric > threshold
+    if comparator == "gte":
+        return numeric >= threshold
+    if comparator == "eq":
+        return numeric == threshold
+    if comparator == "ne":
+        return numeric != threshold
+    raise ValueError(f"unsupported prune comparator '{comparator}'")
+
+
+def _revision_rank_key(
+    config_id: str,
+    selector_revision: SelectorRevisionSpec,
+    compile_summary: dict[str, dict[str, float | int | bool | None]],
+    profile_metrics: dict[str, dict[str, float | None]],
+) -> tuple[object, ...]:
+    key: list[object] = []
+    for feature in selector_revision.ranking_features:
+        value = _metric_value(
+            config_id=config_id,
+            feature_name=feature.feature_name,
+            source=feature.source,
+            compile_summary=compile_summary,
+            profile_metrics=profile_metrics,
+        )
+        if value is None:
+            fallback: float = (
+                feature.missing_value
+                if feature.missing_value is not None
+                else (float("-inf") if feature.direction == "desc" else float("inf"))
+            )
+            key.append(fallback)
+            continue
+        numeric = float(value)
+        key.append(-numeric if feature.direction == "desc" else numeric)
+    key.append(config_id)
+    return tuple(key)
+
+
+def _apply_revision_prunes(
+    config_ids: list[str],
+    selector_revision: SelectorRevisionSpec,
+    compile_summary: dict[str, dict[str, float | int | bool | None]],
+    profile_metrics: dict[str, dict[str, float | None]],
+) -> tuple[list[str], dict[str, str]]:
+    surviving: list[str] = []
+    reasons: dict[str, str] = {}
+    for config_id in config_ids:
+        pruned = False
+        for rule in selector_revision.prune_rules:
+            value = _metric_value(
+                config_id=config_id,
+                feature_name=rule.feature_name,
+                source=rule.source,
+                compile_summary=compile_summary,
+                profile_metrics=profile_metrics,
+            )
+            if _compare_rule(value, rule.comparator, rule.threshold):
+                reasons[config_id] = rule.prune_reason
+                pruned = True
+                break
+        if not pruned:
+            surviving.append(config_id)
+    return surviving, reasons
+
+
 def run_selector_mode(
     *,
     run_id: str,
@@ -332,6 +425,7 @@ def run_selector_mode(
     budgets,
     request_benchmark: BenchmarkRequest,
     request_profile: ProfileRequest | None = None,
+    selector_revision: SelectorRevisionSpec | None = None,
 ) -> SelectionDecision:
     started = time.perf_counter()
     candidate_groups = _group_candidates(candidate_records)
@@ -412,13 +506,46 @@ def run_selector_mode(
                 rationale.append("downgraded to prune_rank because no successful profile records were available")
             else:
                 if requested_mode == SelectorMode.PRUNE_RANK_REVISED.value:
-                    reordered_profiled = sorted(
-                        successful_profile_ids,
-                        key=lambda config_id: _revised_profile_rank_key(config_id, profile_metrics, compile_summary),
-                    )
-                    rationale.append(
-                        f"profile-reordered {len(reordered_profiled)} configs using opportunity-guided penalties"
-                    )
+                    if selector_revision is None:
+                        actual_mode = SelectorMode.PRUNE_RANK_PROFILED.value
+                        rationale.append(
+                            "downgraded to prune_rank_profiled because no selector revision was supplied"
+                        )
+                        reordered_profiled = sorted(
+                            successful_profile_ids,
+                            key=lambda config_id: _profile_rank_key(config_id, profile_metrics),
+                        )
+                    else:
+                        surviving_profiled, revision_prunes = _apply_revision_prunes(
+                            successful_profile_ids,
+                            selector_revision,
+                            compile_summary,
+                            profile_metrics,
+                        )
+                        pruned_ids.extend(sorted(revision_prunes))
+                        prune_reasons.update(revision_prunes)
+                        if not surviving_profiled:
+                            actual_mode = SelectorMode.PRUNE_RANK_PROFILED.value
+                            rationale.append(
+                                "downgraded to prune_rank_profiled because revision pruned all profiled configs"
+                            )
+                            reordered_profiled = sorted(
+                                successful_profile_ids,
+                                key=lambda config_id: _profile_rank_key(config_id, profile_metrics),
+                            )
+                        else:
+                            reordered_profiled = sorted(
+                                surviving_profiled,
+                                key=lambda config_id: _revision_rank_key(
+                                    config_id,
+                                    selector_revision,
+                                    compile_summary,
+                                    profile_metrics,
+                                ),
+                            )
+                            rationale.append(
+                                f"profile-reordered {len(reordered_profiled)} configs using revision '{selector_revision.revision_id}'"
+                            )
                 else:
                     reordered_profiled = sorted(
                         successful_profile_ids,
@@ -475,39 +602,60 @@ def select_for_experiment(
     *,
     experiment_path: str | Path | None = None,
 ) -> dict[str, object]:
+    from kernel_tuner.experiments.orchestrator import _profile_shapes, _shape_split
+
     kernel_spec = load_kernel_spec(kernel_config_path(experiment_spec.kernels[0], experiment_path))
     kernel = resolve_kernel(kernel_spec)
-    shape = experiment_spec.shapes[0]
+    calibration_shapes, _ = _shape_split(experiment_spec)
+    calibration_shape_ids = {shape.shape_id for shape in calibration_shapes}
+    profile_shapes = _profile_shapes(experiment_spec, calibration_shapes)
     candidate_records = [
         candidate
         for candidate in generate_candidate_records(experiment_spec, experiment_path=experiment_path)
-        if candidate.shape_id == shape.shape_id
+        if candidate.shape_id in calibration_shape_ids
     ]
-    compile_signals = collect_compile_signals(
-        run_id="standalone",
-        kernel=kernel,
-        shape=shape,
-        candidates=candidate_records,
-        seed=experiment_spec.seed,
-    )
+    compile_signals = []
+    for index, shape in enumerate(calibration_shapes):
+        shape_candidates = [
+            candidate
+            for candidate in candidate_records
+            if candidate.shape_id == shape.shape_id
+        ]
+        compile_signals.extend(
+            collect_compile_signals(
+                run_id="standalone",
+                kernel=kernel,
+                shape=shape,
+                candidates=shape_candidates,
+                seed=experiment_spec.seed + index,
+            )
+        )
     benchmark_cache: dict[str, list[RuntimeMeasurement]] = {}
     profile_cache: dict[str, list[ProfileMeasurement]] = {}
 
     def request_benchmark(config_id: str) -> list[RuntimeMeasurement]:
         if config_id not in benchmark_cache:
-            candidate = next(candidate for candidate in candidate_records if candidate.config_id == config_id)
-            benchmark_cache[config_id] = [
-                benchmark_candidate(
-                    run_id="standalone",
-                    strategy_id=_mode_name(experiment_spec.selector_modes[0]),
-                    kernel=kernel,
-                    shape=shape,
-                    candidate=candidate,
-                    settings=experiment_spec.benchmark_settings,
-                    seed=experiment_spec.seed,
-                    measurement_phase=MeasurementPhase.CALIBRATION,
-                ).measurement
-            ]
+            measurements: list[RuntimeMeasurement] = []
+            for index, shape in enumerate(calibration_shapes):
+                candidate = next(
+                    candidate
+                    for candidate in candidate_records
+                    if candidate.config_id == config_id and candidate.shape_id == shape.shape_id
+                )
+                measurements.append(
+                    benchmark_candidate(
+                        run_id="standalone",
+                        strategy_id=_mode_name(experiment_spec.selector_modes[0]),
+                        kernel=kernel,
+                        shape=shape,
+                        candidate=candidate,
+                        settings=experiment_spec.benchmark_settings,
+                        seed=experiment_spec.seed + index,
+                        measurement_phase=MeasurementPhase.CALIBRATION,
+                        measurement_order_index=index,
+                    ).measurement
+                )
+            benchmark_cache[config_id] = measurements
         return benchmark_cache[config_id]
 
     def request_profile(config_id: str) -> list[ProfileMeasurement]:
@@ -515,20 +663,33 @@ def select_for_experiment(
             if not experiment_spec.counter_set_id:
                 return []
             counter_set = load_counter_set(counter_set_path(experiment_spec.counter_set_id, experiment_path))
-            candidate = next(candidate for candidate in candidate_records if candidate.config_id == config_id)
-            profile_cache[config_id] = [
-                profile_candidate(
-                    run_id="standalone",
-                    strategy_id=_mode_name(experiment_spec.selector_modes[0]),
-                    kernel_id=kernel_spec.kernel_id,
-                    shape=shape,
-                    candidate=candidate,
-                    counter_set=counter_set,
-                    experiment_spec=experiment_spec,
-                    experiment_path=experiment_path,
-                ).measurement
-            ]
+            measurements: list[ProfileMeasurement] = []
+            for shape in profile_shapes:
+                candidate = next(
+                    candidate
+                    for candidate in candidate_records
+                    if candidate.config_id == config_id and candidate.shape_id == shape.shape_id
+                )
+                measurements.append(
+                    profile_candidate(
+                        run_id="standalone",
+                        strategy_id=_mode_name(experiment_spec.selector_modes[0]),
+                        kernel_id=kernel_spec.kernel_id,
+                        shape=shape,
+                        candidate=candidate,
+                        counter_set=counter_set,
+                        experiment_spec=experiment_spec,
+                        experiment_path=experiment_path,
+                    ).measurement
+                )
+            profile_cache[config_id] = measurements
         return profile_cache[config_id]
+
+    selector_revision = None
+    if experiment_spec.selector_revision_id:
+        selector_revision = load_selector_revision_spec(
+            selector_revision_path(experiment_spec.selector_revision_id, experiment_path)
+        )
 
     decision = run_selector_mode(
         run_id="standalone",
@@ -540,5 +701,6 @@ def select_for_experiment(
         budgets=experiment_spec.budgets,
         request_benchmark=request_benchmark,
         request_profile=request_profile if experiment_spec.counter_set_id else None,
+        selector_revision=selector_revision,
     )
     return decision.model_dump(mode="json")

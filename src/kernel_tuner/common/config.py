@@ -10,14 +10,16 @@ import yaml
 
 from kernel_tuner.common.ids import canonical_shape_id
 from kernel_tuner.common.schema import (
+    CampaignSpec,
     CounterSetSpec,
     ExperimentSpec,
     KernelSpec,
     ProblemShape,
+    SelectorRevisionSpec,
     StudySpec,
 )
 
-T = TypeVar("T", KernelSpec, ExperimentSpec, CounterSetSpec, StudySpec)
+T = TypeVar("T", KernelSpec, ExperimentSpec, CounterSetSpec, StudySpec, CampaignSpec, SelectorRevisionSpec)
 
 
 def load_yaml(path: str | Path) -> dict[str, Any]:
@@ -53,6 +55,14 @@ def load_experiment_spec(path: str | Path) -> ExperimentSpec:
 
 def load_study_spec(path: str | Path) -> StudySpec:
     return StudySpec.model_validate(load_yaml(path))
+
+
+def load_campaign_spec(path: str | Path) -> CampaignSpec:
+    return CampaignSpec.model_validate(load_yaml(path))
+
+
+def load_selector_revision_spec(path: str | Path) -> SelectorRevisionSpec:
+    return SelectorRevisionSpec.model_validate(load_yaml(path))
 
 
 def repo_root(start: str | Path | None = None) -> Path:
@@ -100,6 +110,18 @@ def counter_set_path(counter_set_id: str, base_path: str | Path | None = None) -
     raise FileNotFoundError(f"counter set config not found for '{counter_set_id}'")
 
 
+def experiment_config_path(experiment_id: str, base_path: str | Path | None = None) -> Path:
+    root = repo_root(base_path)
+    candidates = [
+        root / "configs" / "experiments" / f"{experiment_id}.yaml",
+        root / "configs" / "experiments" / f"{experiment_id}.example.yaml",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError(f"experiment config not found for '{experiment_id}'")
+
+
 def study_config_path(study_id: str, base_path: str | Path | None = None) -> Path:
     root = repo_root(base_path)
     candidates = [
@@ -110,6 +132,30 @@ def study_config_path(study_id: str, base_path: str | Path | None = None) -> Pat
         if candidate.exists():
             return candidate
     raise FileNotFoundError(f"study config not found for '{study_id}'")
+
+
+def campaign_config_path(campaign_id: str, base_path: str | Path | None = None) -> Path:
+    root = repo_root(base_path)
+    candidates = [
+        root / "configs" / "campaigns" / f"{campaign_id}.yaml",
+        root / "configs" / "campaigns" / f"{campaign_id}.example.yaml",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError(f"campaign config not found for '{campaign_id}'")
+
+
+def selector_revision_path(revision_id: str, base_path: str | Path | None = None) -> Path:
+    root = repo_root(base_path)
+    candidates = [
+        root / "configs" / "selector_revisions" / f"{revision_id}.yaml",
+        root / "configs" / "selector_revisions" / f"{revision_id}.example.yaml",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError(f"selector revision config not found for '{revision_id}'")
 
 
 def resolve_artifact_root(

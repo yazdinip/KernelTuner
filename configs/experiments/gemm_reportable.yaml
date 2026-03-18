@@ -3,6 +3,7 @@ study_kind: reportable
 kernels:
   - gemm
 selector_version: v2_validation
+selector_revision_id: v2_validation
 shapes:
   - shape_id: gemm_m1024_n1024_k1024_fp16_rowmajor
     dimensions: {m: 1024, n: 1024, k: 1024}
@@ -82,6 +83,20 @@ calibration_split: 0.67
 held_out_split: 0.33
 artifact_root: artifacts
 counter_set_id: compute_lite
+profile_policy:
+  counter_set_id: compute_lite
+  shape_sampling_mode: per_workload_class_top1
+  max_shapes_per_config: 4
+  aggregation_mode: mean
+  availability_failure_mode: fail_run
+reportability_policy:
+  enforce_preflight: true
+  require_workload_class_labels: true
+  require_stratified_split: true
+  minimum_calibration_shapes: 8
+  minimum_held_out_shapes: 4
+  minimum_held_out_per_workload_class: 1
+  abort_on_incompatible_counter_set: true
 budget_id: gemm_reportable_matched_v2
 benchmark_settings:
   warmup_iterations: 40

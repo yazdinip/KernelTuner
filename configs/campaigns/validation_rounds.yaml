@@ -1,0 +1,31 @@
+campaign_id: validation_rounds
+round_id: round_validation_v2
+templates:
+  - template_id: gemm_aligned_repeatability
+    experiment_ids: [gemm_aligned_reportable]
+    seeds: [7]
+    repeats: 3
+    selector_revision_ids: [v2_validation]
+  - template_id: gemm_representative_repeatability
+    experiment_ids: [gemm_reportable]
+    seeds: [7]
+    repeats: 3
+    selector_revision_ids: [v2_validation]
+  - template_id: gemm_representative_robustness
+    experiment_ids: [gemm_reportable]
+    seeds: [7, 19, 43]
+    repeats: 1
+    selector_revision_ids: [v2_validation]
+  - template_id: layernorm_repeatability
+    experiment_ids: [layernorm_reportable]
+    seeds: [7]
+    repeats: 3
+    selector_revision_ids: [v2_validation]
+  - template_id: layernorm_robustness
+    experiment_ids: [layernorm_reportable]
+    seeds: [7, 19, 43]
+    repeats: 1
+    selector_revision_ids: [v2_validation]
+studies:
+  - study_id: validation_phase
+notes: Campaign manifest for the validation-first repeatability and robustness rounds.

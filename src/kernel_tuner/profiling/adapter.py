@@ -247,19 +247,30 @@ def profile_experiment(
         raise ValueError("profile command requires experiment_spec.counter_set_id")
     counter_set = load_counter_set(counter_set_path(experiment_spec.counter_set_id, experiment_path))
     candidates = generate_candidate_records(experiment_spec, experiment_path=experiment_path)
-    shape = experiment_spec.shapes[0]
-    candidate = next(candidate for candidate in candidates if candidate.shape_id == shape.shape_id)
-    outcome = profile_candidate(
-        run_id="standalone",
-        strategy_id="profile_cli",
-        kernel_id=experiment_spec.kernels[0],
-        shape=shape,
-        candidate=candidate,
-        counter_set=counter_set,
-        experiment_spec=experiment_spec,
-        experiment_path=experiment_path,
-    )
-    return outcome.measurement.model_dump(mode="json")
+    from kernel_tuner.experiments.orchestrator import _profile_shapes, _shape_split
+
+    calibration_shapes, _ = _shape_split(experiment_spec)
+    selected_shapes = _profile_shapes(experiment_spec, calibration_shapes)
+    measurements = []
+    for index, shape in enumerate(selected_shapes):
+        shape_candidates = [candidate for candidate in candidates if candidate.shape_id == shape.shape_id]
+        candidate = shape_candidates[0]
+        outcome = profile_candidate(
+            run_id="standalone",
+            strategy_id="profile_cli",
+            kernel_id=experiment_spec.kernels[0],
+            shape=shape,
+            candidate=candidate,
+            counter_set=counter_set,
+            experiment_spec=experiment_spec,
+            experiment_path=experiment_path,
+        )
+        measurements.append(outcome.measurement.model_dump(mode="json"))
+    return {
+        "experiment_id": experiment_spec.experiment_id,
+        "profile_shape_count": len(measurements),
+        "measurements": measurements,
+    }
 
 
 def profile_once_entrypoint(payload: str) -> None:
