@@ -39,6 +39,7 @@ Outputs:
   - `register_count`
   - `shared_memory_bytes`
   - `occupancy_estimate`
+  - optional signal backend and occupancy method metadata
   - `notes`
 
 v1 required signals:
@@ -57,6 +58,10 @@ v1 required signals:
 4. Estimate occupancy from device properties and resource usage when possible.
 5. Emit a `CompileSignalRecord` whether extraction succeeds or fails.
 
+Current implementation note:
+
+- the signal path may use Triton warmup metadata when available and otherwise fall back to deterministic heuristic estimates with an explicit `signal_backend` marker.
+
 ## Persisted Artifacts Touched
 
 - writes `compile_signals.parquet` through the storage layer
@@ -74,6 +79,7 @@ Signal collection must not silently drop records.
 - log signal extraction start and end for each `(kernel_id, shape_id, config_id)`
 - log missing metadata paths distinctly from hard failures
 - record the method used to compute occupancy estimates
+- persist the signal-backend and occupancy-method identifiers when those paths are known
 
 ## Test Cases
 

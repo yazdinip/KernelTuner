@@ -10,6 +10,7 @@ Options:
   --list <path>           Required. Text file with one experiment YAML path per line.
   --job-name <name>       Slurm job name. Default: kerneltuner
   --partition <name>      Slurm partition. Default: gpunodes
+  --nodelist <list>       Optional explicit Slurm nodelist for pinned reportable runs.
   --time <d-hh:mm>        Slurm time limit. Default: 0-02:00
   --cpus <n>              CPUs per task. Default: 4
   --mem <size>            Memory per task. Default: 24GB
@@ -40,6 +41,7 @@ EOF
 LIST_FILE=""
 JOB_NAME="kerneltuner"
 PARTITION="gpunodes"
+NODELIST=""
 TIME_LIMIT="0-02:00"
 CPUS="4"
 MEMORY="24GB"
@@ -63,6 +65,7 @@ while [[ $# -gt 0 ]]; do
     --list) LIST_FILE="${2:-}"; shift 2 ;;
     --job-name) JOB_NAME="${2:-}"; shift 2 ;;
     --partition) PARTITION="${2:-}"; shift 2 ;;
+    --nodelist) NODELIST="${2:-}"; shift 2 ;;
     --time) TIME_LIMIT="${2:-}"; shift 2 ;;
     --cpus) CPUS="${2:-}"; shift 2 ;;
     --mem) MEMORY="${2:-}"; shift 2 ;;
@@ -84,6 +87,16 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown option: $1" >&2; usage; exit 2 ;;
   esac
 done
+
+WORKSPACE_ROOT="$(cd "$WORKSPACE_ROOT" && pwd)"
+
+if [[ "$LIST_FILE" != /* ]]; then
+  if [[ -f "$LIST_FILE" ]]; then
+    LIST_FILE="$(cd "$(dirname "$LIST_FILE")" && pwd)/$(basename "$LIST_FILE")"
+  else
+    LIST_FILE="$WORKSPACE_ROOT/$LIST_FILE"
+  fi
+fi
 
 if [[ -z "$LIST_FILE" ]]; then
   echo "ERROR: --list is required" >&2
@@ -127,6 +140,10 @@ SBATCH_CMD=(
   "--output=$LOG_DIR/${JOB_NAME}_%A_%a.out"
   "--error=$LOG_DIR/${JOB_NAME}_%A_%a.err"
 )
+
+if [[ -n "$NODELIST" ]]; then
+  SBATCH_CMD+=("--nodelist=$NODELIST")
+fi
 
 if [[ -n "$MAIL_USER" ]]; then
   SBATCH_CMD+=("--mail-user=$MAIL_USER")

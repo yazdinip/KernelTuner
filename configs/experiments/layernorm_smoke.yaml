@@ -1,0 +1,44 @@
+experiment_id: layernorm_smoke
+study_kind: smoke
+kernels:
+  - layernorm
+selector_version: v2_validation
+shapes:
+  - shape_id: layernorm_rows128_hidden768_fp16_rowmajor
+    dimensions: {rows: 128, hidden: 768}
+    dtype: fp16
+    layout: row_major
+    workload_class: smoke
+selector_modes:
+  - prune_only
+  - prune_rank
+  - prune_rank_profiled
+baselines:
+  - default_config
+  - naive_random_search
+budgets:
+  max_candidates: 12
+  max_benchmarks: 8
+  max_profiles: 4
+  wall_clock_limit_s: 300
+calibration_split: 1.0
+held_out_split: 0.0
+artifact_root: artifacts
+counter_set_id: memory_lite
+budget_id: layernorm_smoke_v2
+benchmark_settings:
+  warmup_iterations: 10
+  timed_iterations: 30
+  timing_backend: cuda_events
+profiling_settings:
+  replay_mode: kernel
+execution_settings:
+  isolate_triton_cache: true
+  expected_partition: gpunodes
+  expected_node_name: gpunode2
+  expected_gpu_name: NVIDIA RTX A6000
+  cuda_home: /usr/local/cuda-12.9
+analysis_settings:
+  workload_id: layernorm_smoke_v2
+notes: Single-shape LayerNorm smoke config for wiring validation.
+seed: 7

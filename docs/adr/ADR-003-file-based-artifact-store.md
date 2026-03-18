@@ -9,7 +9,7 @@ The project needs reproducible experiment outputs, but it does not need a servic
 
 ## Decision
 
-All run artifacts will be written to the local filesystem under `artifacts/<experiment_id>/<run_id>/` using YAML, JSON, and Parquet.
+All run and study artifacts will be written to the local filesystem under `artifacts/<experiment_id>/<run_id>/` or `artifacts/studies/<study_id>/<run_id>/` using YAML, JSON, Parquet, and derived CSV or PNG outputs where those are useful for reporting.
 
 ## Consequences
 
@@ -17,12 +17,13 @@ All run artifacts will be written to the local filesystem under `artifacts/<expe
 - Artifacts are simple to archive and share.
 - The system avoids infrastructure dependencies that would slow development.
 - Schema versioning and manifest quality become especially important because there is no database enforcing structure.
+- Derived reporting artifacts may use CSV or PNG, but they are still indexed through the same manifest contract.
 
 ## Rejected Alternatives
 
 - SQLite or embedded database: rejected as unnecessary complexity for v1.
 - Remote metadata service: rejected because it does not help the core research goal.
-- Ad hoc CSV outputs: rejected because schema drift and nested fields are harder to manage.
+- Unindexed ad hoc outputs: rejected because schema drift and reporting ambiguity are harder to manage.
 
 ## Revisit If
 

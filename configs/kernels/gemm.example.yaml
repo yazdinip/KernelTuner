@@ -14,12 +14,16 @@ dtype_support:
   - bf16
 config_parameters:
   block_m: [64, 128]
-  block_n: [64, 128]
+  block_n: [64, 128, 256]
   block_k: [32]
   num_warps: [4, 8]
   num_stages: [2, 4]
 reference_impl: torch.matmul
 supports_profiling: true
+correctness_policy:
+  atol: 1.0e-2
+  rtol: 1.0e-2
+  reference_dtype: fp32
 default_config:
   block_m: 128
   block_n: 128

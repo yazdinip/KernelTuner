@@ -27,6 +27,7 @@ Inputs:
 - `ProblemShape`
 - `CandidateConfig`
 - benchmark settings from `ExperimentSpec`
+- execution settings that affect caches, stream usage, or scratch paths
 
 Outputs:
 
@@ -41,6 +42,7 @@ Outputs:
   - `timed_run_count`
   - latency statistics
   - throughput value and unit
+  - timing backend
   - `status`
 
 Status values:
@@ -56,12 +58,14 @@ Status values:
 
 1. Materialize inputs for the requested shape and dtype.
 2. Optionally run the kernel once for shape and config validation.
-3. Run reference output generation and correctness validation when the measurement phase requires it.
-4. Execute warmup iterations.
-5. Synchronize the device before timing.
-6. Execute timed iterations with explicit synchronization guarantees.
-7. Compute latency statistics and throughput.
-8. Emit a `RuntimeMeasurement` record.
+3. Trigger compilation or lowering outside the timed region unless compile latency is the explicit subject of the run.
+4. Run reference output generation and correctness validation using the kernel's declared `correctness_policy` when the measurement phase requires it.
+5. Allocate or reuse tensors outside the timed region unless allocation cost is explicitly being studied.
+6. Execute warmup iterations.
+7. Synchronize the device before timing.
+8. Execute timed iterations with explicit synchronization guarantees and a documented timing backend.
+9. Compute latency statistics and throughput.
+10. Emit a `RuntimeMeasurement` record.
 
 ## Persisted Artifacts Touched
 
@@ -75,6 +79,7 @@ Status values:
 - invalid config detected before execution: emit `invalid_config`
 
 The harness must not abort the entire experiment because one config fails.
+Timed benchmark results collected under a profiler are not valid substitutes for benchmark-harness measurements.
 
 ## Logging and Observability Requirements
 
@@ -82,6 +87,7 @@ The harness must not abort the entire experiment because one config fails.
 - log correctness failures with concise mismatch details
 - log benchmark retries or skipped measurements
 - record the benchmark settings used for the measurement
+- record the timing backend and whether compilation or allocation occurred before the timed region
 
 ## Test Cases
 
@@ -90,6 +96,9 @@ The harness must not abort the entire experiment because one config fails.
 - latency metrics are computed from the recorded sample set
 - correctness failure prevents misleading runtime reporting
 - one config failure does not terminate the experiment scope
+- compilation and tensor allocation are excluded from the timed region in the default path
+- profiler-enabled execution paths do not replace benchmark-harness timing outputs
+- correctness checks obey the kernel-specific `correctness_policy`
 
 ## Extension Points
 
@@ -104,6 +113,8 @@ Stable contract:
 - benchmark behavior follows the protocol in `docs/04_experiment_protocol.md`
 - status codes listed above are required
 - correctness checks happen before reporting a successful measurement
+- the timed region excludes compilation and allocation by default
+- the timing backend must be recorded with the measurement output
 
 Exploratory areas:
 

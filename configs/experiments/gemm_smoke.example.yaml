@@ -1,4 +1,5 @@
 experiment_id: gemm_smoke
+study_kind: smoke
 kernels:
   - gemm
 shapes:
@@ -15,12 +16,21 @@ baselines:
   - default_config
   - naive_random_search
 budgets:
-  max_candidates: 32
+  max_candidates: 16
   max_benchmarks: 8
   max_profiles: 4
   wall_clock_limit_s: 300
-calibration_split: 0.7
-held_out_split: 0.3
+calibration_split: 1.0
+held_out_split: 0.0
 artifact_root: artifacts
 counter_set_id: default_calibration
+benchmark_settings:
+  warmup_iterations: 10
+  timed_iterations: 30
+  timing_backend: cuda_events
+profiling_settings:
+  replay_mode: kernel
+execution_settings:
+  isolate_triton_cache: true
+notes: Single-shape smoke config for wiring and tool validation only; not a reportable study.
 seed: 7

@@ -11,6 +11,11 @@
 
 set -euo pipefail
 
+CUDA_HOME="${CUDA_HOME:-/usr/local/cuda-12.9}"
+export CUDA_HOME
+export PATH="$CUDA_HOME/bin:$PATH"
+export LD_LIBRARY_PATH="$CUDA_HOME/lib64:${LD_LIBRARY_PATH:-}"
+
 send_alert() {
   local phase="$1"
   local details="$2"
@@ -56,8 +61,18 @@ if [[ $# -lt 1 ]]; then
 fi
 
 EXPERIMENT_LIST_FILE="$1"
-WORKSPACE_ROOT="${2:-$SLURM_SUBMIT_DIR}"
+WORKSPACE_ROOT="${2:-${SLURM_SUBMIT_DIR:-$(pwd)}}"
 VENV_NAME="${3:-kerneltuner_env}"
+
+WORKSPACE_ROOT="$(cd "$WORKSPACE_ROOT" && pwd)"
+
+if [[ "$EXPERIMENT_LIST_FILE" != /* ]]; then
+  if [[ -f "$EXPERIMENT_LIST_FILE" ]]; then
+    EXPERIMENT_LIST_FILE="$(cd "$(dirname "$EXPERIMENT_LIST_FILE")" && pwd)/$(basename "$EXPERIMENT_LIST_FILE")"
+  else
+    EXPERIMENT_LIST_FILE="$WORKSPACE_ROOT/$EXPERIMENT_LIST_FILE"
+  fi
+fi
 
 if [[ ! -f "$EXPERIMENT_LIST_FILE" ]]; then
   echo "ERROR: Experiment list file not found: $EXPERIMENT_LIST_FILE" >&2
@@ -79,7 +94,12 @@ if (( TASK_ID < 0 || TASK_ID >= ${#EXPERIMENTS[@]} )); then
   exit 1
 fi
 
-EXPERIMENT_CFG="${EXPERIMENTS[$TASK_ID]}"
+EXPERIMENT_CFG_RAW="${EXPERIMENTS[$TASK_ID]}"
+if [[ "$EXPERIMENT_CFG_RAW" = /* ]]; then
+  EXPERIMENT_CFG="$EXPERIMENT_CFG_RAW"
+else
+  EXPERIMENT_CFG="$WORKSPACE_ROOT/$EXPERIMENT_CFG_RAW"
+fi
 if [[ ! -f "$EXPERIMENT_CFG" ]]; then
   echo "ERROR: Experiment config not found: $EXPERIMENT_CFG" >&2
   exit 1
@@ -150,20 +170,20 @@ if [[ "${SKIP_IF_ARTIFACTS_EXIST:-1}" == "1" ]]; then
 fi
 
 VENV_PATH="$SCRATCH_ROOT/$VENV_NAME"
-if [[ ! -d "$VENV_PATH" ]]; then
-  echo "Creating virtual environment at $VENV_PATH"
-  python3 -m venv "$VENV_PATH"
+if [[ "${INSTALL_PACKAGES:-1}" == "1" ]]; then
+  echo "Bootstrapping environment into $VENV_PATH"
+  "$WORKSPACE_ROOT/scripts/bootstrap_env.sh" "$VENV_PATH"
+else
+  if [[ ! -d "$VENV_PATH" ]]; then
+    echo "ERROR: virtual environment missing at $VENV_PATH and INSTALL_PACKAGES=0" >&2
+    exit 1
+  fi
 fi
 
 source "$VENV_PATH/bin/activate"
 
-if [[ "${INSTALL_PACKAGES:-1}" == "1" ]]; then
-  echo "Installing dependencies into $VENV_PATH"
-  pip install --upgrade pip
-  pip install --no-cache-dir -e "$WORKSPACE_ROOT" pyyaml pandas pyarrow
-  if [[ -n "${EXTRA_PIP_PACKAGES:-}" ]]; then
-    pip install --no-cache-dir ${EXTRA_PIP_PACKAGES}
-  fi
+if [[ -n "${EXTRA_PIP_PACKAGES:-}" ]]; then
+  pip install --no-cache-dir ${EXTRA_PIP_PACKAGES}
 fi
 
 export PYTHONPATH="$WORKSPACE_ROOT/src:${PYTHONPATH:-}"

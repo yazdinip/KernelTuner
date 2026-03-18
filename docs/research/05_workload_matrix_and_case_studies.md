@@ -1,0 +1,96 @@
+# Workload Matrix And Case Studies
+
+Purpose: define the workload program for the paper and explain why each workload class exists.
+Status: Backbone
+Update Rule: update when a reportable workload class or case-study role changes.
+Feeds Paper Sections: Experimental Setup, Results, Limitations
+Depends On: [../03_execution_environment.md](../03_execution_environment.md), [../04_experiment_protocol.md](../04_experiment_protocol.md), [../adr/ADR-005-primary-kernel-first.md](../adr/ADR-005-primary-kernel-first.md), [03_bottleneck_taxonomy.md](03_bottleneck_taxonomy.md)
+
+## Case-Study Roles
+
+The research package uses two kernel families with distinct roles:
+
+- **Primary case study:** GEMM
+- **Validation case study:** LayerNorm
+
+GEMM is the main place where the selector must prove it can reason about a meaningful Triton schedule space. LayerNorm is the contrast case used to test whether profiling helps more on a memory-bound workload than on a compute-heavy one.
+
+## GEMM Program
+
+### Reportable representative GEMM study
+
+Config: `configs/experiments/gemm_reportable.yaml`
+
+| Workload Class | Shapes | Why It Exists | Expected Bottlenecks |
+| --- | --- | --- | --- |
+| `square_compute` | `(1024,1024,1024)`, `(2048,2048,2048)`, `(4096,4096,2048)` | tests compute-heavy steady-state behavior where tile geometry should matter most | compute under-utilization, register pressure, occupancy collapse |
+| `m_dominant` | `(4096,1024,1024)`, `(4096,512,2048)`, `(2048,512,4096)` | tests tall-output aspect ratios and changes in tile reuse balance | memory latency, occupancy sensitivity, tile-shape mismatch |
+| `n_dominant` | `(1024,4096,1024)`, `(512,4096,2048)`, `(512,2048,4096)` | tests wide-output aspect ratios with different access and reuse behavior | memory pressure, warp scaling, shape-sensitive scheduling |
+| `edge_nondivisible` | `(1536,1792,960)`, `(2304,3072,1536)`, `(3584,1536,1280)` | tests masked-edge and irregular-tile effects that aligned workloads can hide | masked overhead, memory inefficiency, schedule brittleness |
+
+### Reportable aligned-reference GEMM study
+
+Config: `configs/experiments/gemm_aligned_reportable.yaml`
+
+| Workload Class | Shapes | Why It Exists |
+| --- | --- | --- |
+| `aligned_square` | `(512,512,512)`, `(1024,1024,1024)`, `(2048,2048,1024)`, `(2048,2048,2048)`, `(4096,4096,2048)` | preserves the easier, more regular GEMM baseline used to test whether aligned workloads overstate selector quality |
+| `aligned_rectangular` | `(4096,2048,1024)` | preserves one non-square but still regular reference point |
+
+This aligned study exists specifically for the workload-representativeness hypothesis. It is not the main reportable workload going forward.
+
+### Development and smoke GEMM studies
+
+| Study | Config | Role |
+| --- | --- | --- |
+| smoke | `configs/experiments/gemm_smoke.yaml` | wiring and tool validation only |
+| development | `configs/experiments/gemm_development.yaml` | faster iteration on representative classes before full reportable runs |
+
+## LayerNorm Program
+
+### Reportable LayerNorm study
+
+Config: `configs/experiments/layernorm_reportable.yaml`
+
+| Workload Class | Shapes | Why It Exists | Expected Bottlenecks |
+| --- | --- | --- | --- |
+| `small_batch` | `(128,768)`, `(128,1024)`, `(128,2048)`, `(128,4096)` | tests short-batch regimes where per-row overhead and work granularity dominate | latency-bound memory behavior, under-utilization, block-size mismatch |
+| `large_batch` | `(2048,768)`, `(2048,1024)`, `(2048,2048)`, `(2048,4096)` | tests steadier throughput regimes where memory efficiency and warp scaling matter more | bandwidth pressure, lg throttle, occupancy tradeoffs |
+
+### Development and smoke LayerNorm studies
+
+| Study | Config | Role |
+| --- | --- | --- |
+| smoke | `configs/experiments/layernorm_smoke.yaml` | wiring and tool validation only |
+| development | `configs/experiments/layernorm_development.yaml` | faster iteration on memory-centric tuning behavior |
+
+## Reportable vs Non-Reportable Workloads
+
+### Reportable
+
+- `gemm_reportable`
+- `gemm_aligned_reportable`
+- `layernorm_reportable`
+
+### Development only
+
+- `gemm_development`
+- `layernorm_development`
+
+### Smoke only
+
+- `gemm_smoke`
+- `layernorm_smoke`
+
+Smoke and development runs may be useful for debugging or iteration, but they do not count as final comparative evidence unless explicitly promoted with full protocol compliance.
+
+## Why This Workload Matrix Can Falsify The Method
+
+The workload matrix is intentionally designed so the selector can fail for real reasons:
+
+- aligned GEMM can make tuning look easier than it is,
+- irregular GEMM can expose schedule brittleness,
+- compute-heavy GEMM tests whether cheap signals actually say anything useful about tensor utilization,
+- and LayerNorm tests whether limited profiling matters more on a memory-bound kernel family.
+
+If the selector only works on aligned square GEMM and fails elsewhere, that is a scientifically useful result. The workload matrix is successful only if it can reveal that kind of limitation clearly.

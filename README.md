@@ -2,47 +2,62 @@
 
 `KernelTuner` is a research prototype for bottleneck-aware configuration selection for Triton GPU kernels.
 
-The project asks a narrow but substantial question: can lightweight resource signals and limited profiling feedback guide Triton kernel configuration search better than default settings or naive tuning under comparable budgets?
+The core question is narrow but substantial: can cheap compile-time signals plus limited profiling guide Triton configuration search better than default settings or equally budgeted naive tuning?
 
 ## Project Status
 
-The repository is currently documentation-first. The proposal and the v1 documentation package define the system architecture, experiment protocol, artifact schemas, and module boundaries that implementation will follow.
+The repository is no longer docs-only. It contains a working v1 experimentation stack with:
 
-Implementation has not started yet. The current goal of the repo is to remove design ambiguity before code is written.
+- typed configs and schema-validated artifacts
+- Triton kernel execution for GEMM and LayerNorm
+- deterministic candidate generation
+- correctness-checked benchmarking on GPU
+- compile-signal collection
+- selective Nsight Compute profiling
+- matched-budget selector and baseline strategies
+- run-level summaries and study-level cross-run comparison
+- a research documentation layer under `docs/research/` for paper-facing planning and evidence tracking
 
-## Core Question
+Current emphasis has shifted from foundational implementation to research validation:
 
-Can a bottleneck-aware configuration selector use resource signals and limited profiling data to guide Triton kernel configuration search better than default settings or equally budgeted naive tuning?
+- stabilizing repeated reportable runs on the pinned baseline
+- comparing runs across workload classes and kernel families
+- expanding mechanism-level analysis from signals and profiles
+- using evidence to justify any selector revision
 
 ## Research Posture
 
-- This is a research prototype, not a production autotuning framework.
-- A negative empirical result is still a valid project outcome if the system and evaluation are sound.
-- GEMM is the required primary kernel family for v1.
-- Additional kernels are optional validation targets once the core pipeline is stable.
+- This is a research system, not a production autotuning framework.
+- GEMM is the primary case study.
+- LayerNorm is the validation contrast kernel for memory-centric behavior.
+- Negative results are valid if the measurement protocol and interpretation are rigorous.
+- The objective is a defensible empirical story, not uncontrolled feature growth.
 
-## Planned v1 Repository Structure
+## Implemented Repository Structure
 
 ```text
 src/kernel_tuner/
-  kernels/
-  config_space/
-  benchmark/
-  signals/
-  profiling/
-  selector/
-  baselines/
-  experiments/
-  storage/
   analysis/
+  baselines/
+  benchmark/
   cli/
   common/
-configs/
-  kernels/
+  config_space/
   experiments/
+  kernels/
+  profiling/
+  selector/
+  signals/
+  storage/
+configs/
   counters/
+  experiments/
+  kernels/
+  studies/
 artifacts/
 docs/
+  research/
+scripts/
 ```
 
 ## Read This First
@@ -52,22 +67,65 @@ docs/
 3. [System Overview](docs/02_system_overview.md)
 4. [Experiment Protocol](docs/04_experiment_protocol.md)
 5. [Data Model and Artifacts](docs/05_data_model_and_artifacts.md)
+6. [Research Package Index](docs/research/00_index.md)
 
 ## Documentation Map
 
 - Proposal: [visual_computing_revised_proposal.md](visual_computing_revised_proposal.md)
 - Documentation index: [docs/00_index.md](docs/00_index.md)
+- GPU job guide: [docs/gpu_job_guide.md](docs/gpu_job_guide.md)
+- Research backbone: [docs/research/00_index.md](docs/research/00_index.md)
 - Architecture decisions: [docs/adr/](docs/adr/)
 - Module specifications: [docs/specs/](docs/specs/)
 
-## Quickstart Intent
+## Quickstart
 
-The initial workflow is document-driven:
+On the pinned GPU environment:
 
-1. Read the charter and system overview.
-2. Use the protocol and data model docs to align on experiment behavior.
-3. Implement modules against the specs in `docs/specs/`.
-4. Keep deviations explicit through ADRs rather than ad hoc code changes.
+```bash
+export KTUNE_SCRATCH=/scratch/scratch-space/expires-xxxx/$USER/kerneltuner
+scripts/bootstrap_env.sh "$KTUNE_SCRATCH/venv-py312"
+source "$KTUNE_SCRATCH/venv-py312/bin/activate"
+
+ktune validate-kernel --kernel configs/kernels/gemm.yaml
+ktune run-experiment --experiment configs/experiments/gemm_smoke.yaml
+ktune summarize --run artifacts/gemm_smoke/<run_id>/
+ktune compare-runs --spec configs/studies/validation_phase.yaml
+```
+
+Useful starting configs:
+
+- `configs/kernels/gemm.yaml`
+- `configs/kernels/layernorm.yaml`
+- `configs/experiments/gemm_smoke.yaml`
+- `configs/experiments/gemm_reportable.yaml`
+- `configs/experiments/layernorm_reportable.yaml`
+- `configs/studies/validation_phase.yaml`
+
+If you do not want to choose a scratch path manually, see the more explicit environment setup flow in [docs/gpu_job_guide.md](docs/gpu_job_guide.md).
+
+## Slurm Submission Helpers
+
+For cluster execution, the repo includes reusable Slurm scripts:
+
+- `scripts/slurm/run_kerneltuner_array.sbatch`
+- `scripts/slurm/submit_kerneltuner.sh`
+
+The submit wrapper now supports explicit node pinning for reportable runs through `--nodelist`.
+
+Example:
+
+```bash
+scripts/slurm/submit_kerneltuner.sh \
+  --list configs/experiments/slurm_experiment_list.example.txt \
+  --partition gpunodes \
+  --nodelist gpunode2 \
+  --gpu-type rtx_a6000 \
+  --gpus 1 \
+  --time 0-04:00 \
+  --cpus 8 \
+  --mem 24GB
+```
 
 ## Slurm Submission Helpers
 
@@ -121,4 +179,5 @@ Notes:
 
 - It is not a Triton compiler redesign effort.
 - It is not a vendor-library replacement project.
-- It is not a general-purpose multi-GPU autotuning platform in v1.
+- It is not a general-purpose multi-GPU autotuning platform.
+- It is not a claim of universal tuning wins across kernels or hardware.

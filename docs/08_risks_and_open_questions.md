@@ -57,6 +57,57 @@ Mitigation:
 - use repeated timed runs and robust summary metrics
 - record environment metadata in every manifest
 
+### Cluster Heterogeneity
+
+Risk:
+
+- Slurm scheduling may place nominally similar jobs on different hosts or GPU variants, quietly undermining comparability.
+
+Impact:
+
+- benchmark drift that is misattributed to selector quality
+- hidden environment confounds in reportable results
+
+Mitigation:
+
+- designate one authoritative host or homogeneous node class
+- record Slurm metadata and GPU identity in every run
+- mark mixed-environment runs as non-comparable
+
+### Cache Contamination and Toolchain Drift
+
+Risk:
+
+- Triton compile caches, profiler intermediates, or dirty working trees may leak state across runs.
+
+Impact:
+
+- irreproducible compile signals
+- confusing benchmark differences between nominally identical experiments
+
+Mitigation:
+
+- isolate cache roots on scratch storage
+- record cache locations and git dirty state
+- archive the working-tree diff for any non-clean reportable run
+
+### Profiler Perturbation
+
+Risk:
+
+- Nsight Compute replay or instrumentation overhead may materially alter execution behavior relative to plain benchmark runs.
+
+Impact:
+
+- profile-derived conclusions may not align with real benchmark performance
+- profiled timings may be mistaken for authoritative latency measurements
+
+Mitigation:
+
+- isolate profiling runs from benchmark runs
+- record profiler settings and replay mode
+- never treat profiler-collected timings as benchmark-harness replacements
+
 ### Search-Space Explosion
 
 Risk:
@@ -117,11 +168,28 @@ Mitigation:
 
 ## Blocking Questions
 
-These must be resolved before or during early implementation:
+The initial implementation milestone resolves most of the original blocking questions. The remaining open item is intentionally kept visible.
 
-1. Which Linux CUDA host will be the authoritative benchmark machine?
-2. Which GPU model will be used for the primary study?
-3. Which Triton and PyTorch versions will be pinned for the initial environment bootstrap?
+Resolved for the initial implementation milestone:
+
+1. Authoritative benchmark machine: `gpunode2`
+2. Primary-study GPU model: `NVIDIA RTX A6000` (`49140 MiB`)
+3. Initial environment pins:
+   - Python `3.12.3`
+   - CUDA toolkit `12.9` at `/usr/local/cuda-12.9`
+   - Nsight Compute `2025.2.1`
+   - GCC `13.3.0`
+   - `torch==2.10.0`
+   - `triton==3.6.0`
+   - `PyYAML==6.0.3`
+   - `pandas==3.0.1`
+   - `pyarrow==23.0.1`
+   - `pytest==8.4.2`
+4. Reportable Slurm policy: pin reportable runs to `--nodelist=gpunode2` and do not mix `gpunode2` with `gpunode3` within one comparative study
+
+Still open:
+
+1. What clock-control or thermal-control knobs are actually available on `gpunode2`, and should the project use them or remain on a record-only policy?
 
 ## Non-Blocking Open Questions
 

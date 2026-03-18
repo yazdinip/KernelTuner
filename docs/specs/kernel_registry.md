@@ -30,11 +30,13 @@ Outputs:
 
 - validated `KernelSpec`
 - resolved kernel object with required hooks:
-  - `make_inputs(shape)`
-  - `run_kernel(inputs, config)`
-  - `reference_impl(inputs)`
-  - `validate_output(candidate_output, reference_output)`
-  - `supports_config(config)`
+  - `make_inputs(shape, seed, device="cuda")`
+  - `supports_config(shape, config)`
+  - `run_kernel(inputs, shape, config)`
+  - `reference_impl(inputs, policy)`
+  - `validate_output(candidate_output, reference_output, policy)`
+  - `performance_metric(shape, config, latency_median_us)`
+  - `compile_metadata(inputs, shape, config)`
 
 Stable metadata fields:
 
@@ -47,14 +49,27 @@ Stable metadata fields:
 - `reference_impl`
 - `supports_profiling`
 
+Optional kernel metadata may include:
+
+- `default_config`
+- `correctness_policy`
+- `tags`
+- `notes`
+
+Current v1 families:
+
+- `gemm`
+- `layernorm`
+
 ## Internal Workflow
 
 1. Load YAML config for a kernel.
 2. Validate required metadata fields.
 3. Normalize the shape schema into a typed representation.
-4. Resolve implementation references.
-5. Bind runtime hooks and reference hooks.
-6. Register the kernel under `kernel_id`.
+4. Validate any `correctness_policy` fields that the benchmark harness will require for output checking.
+5. Resolve implementation references.
+6. Bind runtime hooks, reference hooks, and metadata hooks.
+7. Register the kernel under `kernel_id`.
 
 ## Persisted Artifacts Touched
 
@@ -82,12 +97,13 @@ There is no fallback to partially registered kernels in v1.
 - reject missing metadata
 - reject duplicate kernel IDs
 - resolve valid GEMM kernel config
+- resolve valid LayerNorm kernel config
 - fail on missing implementation hook
 - fail shape validation for malformed shape records
 
 ## Extension Points
 
-- additional kernel families beyond GEMM
+- additional kernel families
 - family-specific shape normalizers
 - kernel-specific metadata fields under a namespaced optional section
 
@@ -98,6 +114,7 @@ Stable contract:
 - `kernel_id` is the canonical registry key
 - every registered kernel must expose the required hooks
 - shape validation happens at registration and resolution time
+- v1 kernel resolution supports GEMM and LayerNorm
 
 Exploratory areas:
 
