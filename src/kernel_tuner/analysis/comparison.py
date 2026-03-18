@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import random
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,7 @@ import pandas as pd
 
 from kernel_tuner.analysis.reporting import summarize_run
 from kernel_tuner.common.config import (
+    experiment_config_path,
     kernel_config_path,
     load_experiment_spec,
     load_kernel_spec,
@@ -27,7 +29,15 @@ from kernel_tuner.common.provenance import (
     capture_invocation_metadata,
     capture_slurm_metadata,
 )
-from kernel_tuner.common.schema import Manifest, RunStatus, StudySpec
+from kernel_tuner.common.schema import (
+    HypothesisClause,
+    HypothesisComparator,
+    HypothesisMetricRef,
+    Manifest,
+    ReductionMode,
+    RunStatus,
+    StudySpec,
+)
 from kernel_tuner.storage import RunStore
 
 matplotlib.use("Agg")
@@ -77,6 +87,10 @@ def compare_runs(
         if not opportunity_catalog.empty:
             store.write_csv_artifact("opportunity_catalog", opportunity_catalog, filename="opportunity_catalog.csv")
         plot_path = _write_comparison_plot(store, strategy_rows)
+        evidence_bundle = _build_evidence_bundle(strategy_rows, stability_report, hypothesis_results, run_payloads)
+        figure_manifest = _build_figure_manifest(store, plot_path)
+        store.write_json_artifact("evidence_bundle", evidence_bundle, filename="evidence_bundle.json")
+        store.write_json_artifact("figure_manifest", figure_manifest, filename="figure_manifest.json")
 
         summary = {
             "study_id": study_spec.study_id,
@@ -95,6 +109,8 @@ def compare_runs(
                 "hypothesis_results": str(store.run_dir / "hypothesis_results.csv") if not hypothesis_results.empty else "",
                 "opportunity_catalog": str(store.run_dir / "opportunity_catalog.csv") if not opportunity_catalog.empty else "",
                 "comparison_plot": str(store.run_dir / plot_path) if plot_path else "",
+                "evidence_bundle": str(store.run_dir / "evidence_bundle.json"),
+                "figure_manifest": str(store.run_dir / "figure_manifest.json"),
             },
         }
         store.write_json_artifact("cross_run_summary", summary, filename="cross_run_summary.json")
@@ -113,6 +129,27 @@ def compare_runs(
 def compare_runs_from_path(study_path: str | Path) -> dict[str, object]:
     path = Path(study_path).resolve()
     return compare_runs(load_study_spec(path), study_path=path)
+
+
+def validate_study_from_path(study_path: str | Path) -> dict[str, object]:
+    path = Path(study_path).resolve()
+    study_spec = load_study_spec(path)
+    resolved_experiments: dict[str, str] = {}
+    missing_run_dirs: list[str] = []
+    for group in study_spec.run_groups:
+        for experiment_id in group.experiment_ids:
+            resolved_experiments[experiment_id] = str(experiment_config_path(experiment_id, path))
+        for run_dir in group.run_dirs:
+            if not Path(run_dir).exists():
+                missing_run_dirs.append(run_dir)
+    return {
+        "study_id": study_spec.study_id,
+        "group_count": len(study_spec.run_groups),
+        "hypothesis_count": len(study_spec.hypotheses),
+        "resolved_experiments": resolved_experiments,
+        "missing_run_dirs": missing_run_dirs,
+        "all_hypotheses_have_clauses": all(bool(hypothesis.clauses) for hypothesis in study_spec.hypotheses),
+    }
 
 
 def _resolve_run_payloads(study_spec: StudySpec, study_path: str | Path | None) -> list[dict[str, Any]]:
@@ -183,6 +220,7 @@ def _load_run_payload(run_dir: Path, group_id: str) -> dict[str, Any]:
         "experiment_spec": experiment_spec,
         "kernel_spec": kernel_spec,
         "manifest": manifest,
+        "run_labels": summary.get("run_labels") or manifest.labels.model_dump(mode="json"),
         "selection_decisions": selection_decisions,
         "runtime_measurements": runtime_measurements,
         "held_out_per_shape": held_out_per_shape,
@@ -194,12 +232,33 @@ def _load_run_payload(run_dir: Path, group_id: str) -> dict[str, Any]:
 def _passes_filters(payload: dict[str, Any], study_spec: StudySpec) -> bool:
     summary = payload["summary"]
     manifest = payload["manifest"]
+    labels = payload.get("run_labels") or {}
+    group_id = payload["group_id"]
+    group = next((item for item in study_spec.run_groups if item.group_id == group_id), None)
     if study_spec.reportability_filter and not summary.get("reportability", {}).get("is_reportable", False):
         return False
     for field, expected in study_spec.environment_filter.items():
         actual = getattr(manifest.environment, field, None)
         if actual != expected:
             return False
+    if group is None:
+        return True
+    if group.kernel_family and labels.get("kernel_family") != group.kernel_family:
+        return False
+    if group.selector_version and labels.get("selector_version") != group.selector_version:
+        return False
+    if group.selector_revision_id and labels.get("selector_revision_id") != group.selector_revision_id:
+        return False
+    if group.counter_set_id and labels.get("counter_set_id") != group.counter_set_id:
+        return False
+    if group.budget_id and labels.get("budget_id") != group.budget_id:
+        return False
+    if group.execution_mode and labels.get("execution_mode") != group.execution_mode:
+        return False
+    if group.seeds and labels.get("seed") not in group.seeds:
+        return False
+    if group.repeat_indices and labels.get("repeat_index") not in group.repeat_indices:
+        return False
     return True
 
 
@@ -208,6 +267,7 @@ def _build_strategy_rows(run_payloads: list[dict[str, Any]]) -> pd.DataFrame:
     for payload in run_payloads:
         summary = payload["summary"]
         experiment_spec = payload["experiment_spec"]
+        labels = payload.get("run_labels") or {}
         held_out = payload["held_out_per_shape"]
         selection = payload["selection_decisions"]
         counter_availability = payload["counter_availability"]
@@ -242,9 +302,14 @@ def _build_strategy_rows(run_payloads: list[dict[str, Any]]) -> pd.DataFrame:
                         "workload_class": workload_class,
                         "strategy_id": strategy_id,
                         "selector_version": experiment_spec.selector_version,
+                        "selector_revision_id": experiment_spec.selector_revision_id,
                         "counter_set_id": experiment_spec.counter_set_id,
                         "budget_id": experiment_spec.budget_id,
                         "seed": experiment_spec.seed,
+                        "repeat_index": labels.get("repeat_index"),
+                        "campaign_id": labels.get("campaign_id"),
+                        "round_id": labels.get("round_id"),
+                        "reportability_mode": labels.get("reportability_mode"),
                         "selected_config_id": selection_map.get(strategy_id, {}).get("selected_config_id"),
                         "geomean_speedup_vs_default_config": _speedup_to_baseline(pivot, strategy_id, "default_config"),
                         "speedup_vs_naive_random_search": _speedup_to_baseline(pivot, strategy_id, "naive_random_search"),
@@ -264,8 +329,8 @@ def _build_strategy_rows(run_payloads: list[dict[str, Any]]) -> pd.DataFrame:
     if frame.empty:
         return frame
     return frame.sort_values(
-        by=["group_id", "kernel_family", "workload_class", "strategy_id", "run_id"],
-        ascending=[True, True, True, True, True],
+        by=["group_id", "kernel_family", "workload_class", "strategy_id", "seed", "repeat_index", "run_id"],
+        ascending=[True, True, True, True, True, True, True],
     )
 
 
@@ -308,9 +373,34 @@ def _selected_regret(runtime_measurements: pd.DataFrame, strategy_id: str, selec
 def _build_stability_report(strategy_rows: pd.DataFrame) -> pd.DataFrame:
     if strategy_rows.empty:
         return pd.DataFrame()
+    working = strategy_rows.copy()
+    for column in ["selector_version", "selector_revision_id", "counter_set_id", "budget_id"]:
+        if column not in working.columns:
+            working[column] = None
     rows: list[dict[str, Any]] = []
-    grouped = strategy_rows.groupby(["group_id", "kernel_family", "workload_class", "strategy_id"], dropna=False)
-    for (group_id, kernel_family, workload_class, strategy_id), subset in grouped:
+    grouped = working.groupby(
+        [
+            "group_id",
+            "kernel_family",
+            "workload_class",
+            "strategy_id",
+            "selector_version",
+            "selector_revision_id",
+            "counter_set_id",
+            "budget_id",
+        ],
+        dropna=False,
+    )
+    for (
+        group_id,
+        kernel_family,
+        workload_class,
+        strategy_id,
+        selector_version,
+        selector_revision_id,
+        counter_set_id,
+        budget_id,
+    ), subset in grouped:
         selected_counts = subset["selected_config_id"].value_counts(dropna=False)
         most_common_selected = selected_counts.index[0] if not selected_counts.empty else None
         agreement = (selected_counts.iloc[0] / len(subset)) if not selected_counts.empty else None
@@ -324,6 +414,10 @@ def _build_stability_report(strategy_rows: pd.DataFrame) -> pd.DataFrame:
                 "kernel_family": kernel_family,
                 "workload_class": workload_class,
                 "strategy_id": strategy_id,
+                "selector_version": selector_version,
+                "selector_revision_id": selector_revision_id,
+                "counter_set_id": counter_set_id,
+                "budget_id": budget_id,
                 "run_count": len(subset),
                 "most_common_selected_config_id": most_common_selected,
                 "selection_agreement": agreement,
@@ -346,7 +440,7 @@ def _evaluate_hypotheses(
 ) -> pd.DataFrame:
     rows: list[dict[str, Any]] = []
     for hypothesis in study_spec.hypotheses:
-        result = _evaluate_one_hypothesis(hypothesis.hypothesis_id, strategy_rows, stability_report)
+        result = _evaluate_one_hypothesis(hypothesis, strategy_rows, stability_report)
         result["hypothesis_id"] = hypothesis.hypothesis_id
         result["description"] = hypothesis.description
         rows.append(result)
@@ -354,99 +448,105 @@ def _evaluate_hypotheses(
 
 
 def _evaluate_one_hypothesis(
-    hypothesis_id: str,
+    hypothesis,
     strategy_rows: pd.DataFrame,
     stability_report: pd.DataFrame,
 ) -> dict[str, Any]:
-    hypothesis_id = hypothesis_id.upper()
     if strategy_rows.empty:
         return {"status": "inconclusive", "evidence": "no study rows available"}
+    if not hypothesis.clauses:
+        return {"status": "inconclusive", "evidence": "hypothesis has no clauses"}
 
-    if hypothesis_id == "H1":
-        gemm = strategy_rows[strategy_rows["kernel_family"] == "gemm"]
-        if gemm.empty:
-            return {"status": "inconclusive", "evidence": "no GEMM rows available"}
-        prune_only = gemm[gemm["strategy_id"] == "prune_only"]["geomean_speedup_vs_default_config"].dropna()
-        prune_rank = gemm[gemm["strategy_id"] == "prune_rank"]["geomean_speedup_vs_default_config"].dropna()
-        rank_stability = stability_report[
-            (stability_report["kernel_family"] == "gemm")
-            & (stability_report["strategy_id"] == "prune_rank")
-        ]["stability_band"].dropna()
-        if prune_only.empty or prune_rank.empty or rank_stability.empty:
-            return {"status": "inconclusive", "evidence": "missing prune_only/prune_rank GEMM evidence"}
-        supported = prune_rank.mean() >= prune_only.mean() and rank_stability.mean() > 0.05
+    clause_results = [_evaluate_clause(clause, strategy_rows, stability_report) for clause in hypothesis.clauses]
+    if any(item["status"] == "inconclusive" for item in clause_results):
         return {
-            "status": "supported" if supported else "unsupported",
-            "evidence": (
-                f"prune_rank_mean={prune_rank.mean():.4f}, prune_only_mean={prune_only.mean():.4f}, "
-                f"prune_rank_stability_band={rank_stability.mean():.4f}"
-            ),
+            "status": "inconclusive",
+            "evidence": "; ".join(item["evidence"] for item in clause_results),
         }
-
-    if hypothesis_id == "H2":
-        gemm_gain = _mean_strategy_gain(strategy_rows, "gemm", "prune_rank_profiled", "prune_rank")
-        layernorm_gain = _mean_strategy_gain(strategy_rows, "layernorm", "prune_rank_profiled", "prune_rank")
-        if gemm_gain is None or layernorm_gain is None:
-            return {"status": "inconclusive", "evidence": "missing GEMM or LayerNorm profiled-vs-compile evidence"}
-        supported = layernorm_gain > gemm_gain + 0.02
-        return {
-            "status": "supported" if supported else "unsupported",
-            "evidence": f"layernorm_gain={layernorm_gain:.4f}, gemm_gain={gemm_gain:.4f}",
-        }
-
-    if hypothesis_id == "H3":
-        aligned = strategy_rows[strategy_rows["group_id"].str.contains("aligned|current", case=False, regex=True)]
-        representative = strategy_rows[
-            strategy_rows["group_id"].str.contains("representative|expanded", case=False, regex=True)
-        ]
-        aligned_metric = _mean_strategy_value(aligned, "prune_rank")
-        representative_metric = _mean_strategy_value(representative, "prune_rank")
-        if aligned_metric is None or representative_metric is None:
-            return {"status": "inconclusive", "evidence": "missing aligned or representative GEMM comparison groups"}
-        supported = aligned_metric > representative_metric + 0.02
-        return {
-            "status": "supported" if supported else "unsupported",
-            "evidence": (
-                f"aligned_prune_rank={aligned_metric:.4f}, "
-                f"representative_prune_rank={representative_metric:.4f}"
-            ),
-        }
-
-    if hypothesis_id == "H4":
-        base_metric = _mean_strategy_value(strategy_rows, "prune_rank")
-        revised_metric = _mean_strategy_value(strategy_rows, "prune_rank_revised")
-        if base_metric is None or revised_metric is None:
-            return {"status": "inconclusive", "evidence": "missing prune_rank or prune_rank_revised rows"}
-        supported = revised_metric > base_metric + 0.02
-        return {
-            "status": "supported" if supported else "unsupported",
-            "evidence": f"prune_rank_revised={revised_metric:.4f}, prune_rank={base_metric:.4f}",
-        }
-
-    return {"status": "inconclusive", "evidence": "unknown hypothesis id"}
+    supported = all(item["supported"] for item in clause_results)
+    return {
+        "status": "supported" if supported else "unsupported",
+        "evidence": "; ".join(item["evidence"] for item in clause_results),
+    }
 
 
-def _mean_strategy_gain(
-    frame: pd.DataFrame,
-    kernel_family: str,
-    improved: str,
-    baseline: str,
+def _evaluate_clause(
+    clause: HypothesisClause,
+    strategy_rows: pd.DataFrame,
+    stability_report: pd.DataFrame,
+) -> dict[str, Any]:
+    left_value = _metric_value(clause.left, strategy_rows, stability_report)
+    if left_value is None:
+        return {"status": "inconclusive", "supported": False, "evidence": "missing left-hand metric value"}
+    if clause.right is not None:
+        right_value = _metric_value(clause.right, strategy_rows, stability_report)
+        if right_value is None:
+            return {"status": "inconclusive", "supported": False, "evidence": "missing right-hand metric value"}
+    else:
+        right_value = clause.right_constant
+    supported = _compare_hypothesis_values(left_value, right_value, clause.comparator, clause.minimum_delta)
+    comparator_name = clause.comparator.value if hasattr(clause.comparator, "value") else str(clause.comparator)
+    evidence = (
+        f"{clause.left.metric}={left_value:.4f} "
+        f"{comparator_name} "
+        f"{right_value:.4f} with minimum_delta={clause.minimum_delta:.4f}"
+    )
+    return {"status": "ok", "supported": supported, "evidence": evidence}
+
+
+def _metric_value(
+    metric_ref: HypothesisMetricRef,
+    strategy_rows: pd.DataFrame,
+    stability_report: pd.DataFrame,
 ) -> float | None:
-    subset = frame[frame["kernel_family"] == kernel_family]
-    improved_metric = _mean_strategy_value(subset, improved)
-    baseline_metric = _mean_strategy_value(subset, baseline)
-    if improved_metric is None or baseline_metric is None:
+    source_name = metric_ref.source.value if hasattr(metric_ref.source, "value") else str(metric_ref.source)
+    frame = strategy_rows if source_name == "strategy_rows" else stability_report
+    if frame.empty or metric_ref.metric not in frame.columns:
         return None
-    return improved_metric - baseline_metric
-
-
-def _mean_strategy_value(frame: pd.DataFrame, strategy_id: str) -> float | None:
-    if frame.empty:
-        return None
-    values = frame[frame["strategy_id"] == strategy_id]["geomean_speedup_vs_default_config"].dropna()
+    subset = frame.copy()
+    for field in [
+        "group_id",
+        "strategy_id",
+        "kernel_family",
+        "workload_class",
+        "selector_version",
+        "selector_revision_id",
+        "counter_set_id",
+        "budget_id",
+    ]:
+        expected = getattr(metric_ref, field)
+        if expected is not None and field in subset.columns:
+            subset = subset[subset[field] == expected]
+    values = pd.to_numeric(subset[metric_ref.metric], errors="coerce").dropna()
     if values.empty:
         return None
-    return float(values.mean())
+    if metric_ref.reduction == ReductionMode.MEAN:
+        return float(values.mean())
+    if metric_ref.reduction == ReductionMode.MEDIAN:
+        return float(values.median())
+    if metric_ref.reduction == ReductionMode.MIN:
+        return float(values.min())
+    if metric_ref.reduction == ReductionMode.MAX:
+        return float(values.max())
+    return None
+
+
+def _compare_hypothesis_values(
+    left: float,
+    right: float,
+    comparator: HypothesisComparator,
+    minimum_delta: float,
+) -> bool:
+    name = comparator.value if hasattr(comparator, "value") else str(comparator)
+    if name == HypothesisComparator.GREATER_THAN.value:
+        return left > right + minimum_delta
+    if name == HypothesisComparator.GREATER_THAN_OR_EQUAL.value:
+        return left >= right + minimum_delta
+    if name == HypothesisComparator.LESS_THAN.value:
+        return left < right - minimum_delta
+    if name == HypothesisComparator.LESS_THAN_OR_EQUAL.value:
+        return left <= right - minimum_delta
+    raise ValueError(f"unsupported hypothesis comparator '{comparator}'")
 
 
 def _aggregate_opportunities(run_payloads: list[dict[str, Any]]) -> pd.DataFrame:
@@ -480,19 +580,114 @@ def _aggregate_opportunities(run_payloads: list[dict[str, Any]]) -> pd.DataFrame
 def _strategy_summary(strategy_rows: pd.DataFrame) -> list[dict[str, Any]]:
     if strategy_rows.empty:
         return []
-    aggregated = (
-        strategy_rows.groupby(["group_id", "kernel_family", "workload_class", "strategy_id"], dropna=False)
-        .agg(
-            run_count=("run_id", "nunique"),
-            geomean_speedup_vs_default_config=("geomean_speedup_vs_default_config", "mean"),
-            speedup_vs_naive_random_search=("speedup_vs_naive_random_search", "mean"),
-            speedup_vs_naive_grid_search=("speedup_vs_naive_grid_search", "mean"),
-            winner_rate=("winner_rate", "mean"),
-            regret_vs_best_measured_calibration=("regret_vs_best_measured_calibration", "mean"),
-        )
-        .reset_index()
+    rows: list[dict[str, Any]] = []
+    grouped = strategy_rows.groupby(
+        [
+            "group_id",
+            "kernel_family",
+            "workload_class",
+            "strategy_id",
+            "selector_version",
+            "selector_revision_id",
+            "counter_set_id",
+            "budget_id",
+        ],
+        dropna=False,
     )
-    return aggregated.to_dict(orient="records")
+    for keys, subset in grouped:
+        (
+            group_id,
+            kernel_family,
+            workload_class,
+            strategy_id,
+            selector_version,
+            selector_revision_id,
+            counter_set_id,
+            budget_id,
+        ) = keys
+        primary_values = pd.to_numeric(subset["geomean_speedup_vs_default_config"], errors="coerce").dropna()
+        ci_low, ci_high = _bootstrap_interval(primary_values.tolist())
+        rows.append(
+            {
+                "group_id": group_id,
+                "kernel_family": kernel_family,
+                "workload_class": workload_class,
+                "strategy_id": strategy_id,
+                "selector_version": selector_version,
+                "selector_revision_id": selector_revision_id,
+                "counter_set_id": counter_set_id,
+                "budget_id": budget_id,
+                "run_count": int(subset["run_id"].nunique()),
+                "geomean_speedup_vs_default_config": float(primary_values.mean()) if not primary_values.empty else None,
+                "primary_metric_ci_low": ci_low,
+                "primary_metric_ci_high": ci_high,
+                "speedup_vs_naive_random_search": float(subset["speedup_vs_naive_random_search"].dropna().mean())
+                if subset["speedup_vs_naive_random_search"].dropna().size
+                else None,
+                "speedup_vs_naive_grid_search": float(subset["speedup_vs_naive_grid_search"].dropna().mean())
+                if subset["speedup_vs_naive_grid_search"].dropna().size
+                else None,
+                "winner_rate": float(subset["winner_rate"].dropna().mean()) if subset["winner_rate"].dropna().size else None,
+                "regret_vs_best_measured_calibration": (
+                    float(subset["regret_vs_best_measured_calibration"].dropna().mean())
+                    if subset["regret_vs_best_measured_calibration"].dropna().size
+                    else None
+                ),
+            }
+        )
+    return rows
+
+
+def _bootstrap_interval(values: list[float], *, samples: int = 200, alpha: float = 0.05) -> tuple[float | None, float | None]:
+    if not values:
+        return None, None
+    if len(values) == 1:
+        return values[0], values[0]
+    rng = random.Random(0)
+    estimates: list[float] = []
+    for _ in range(samples):
+        draw = [values[rng.randrange(len(values))] for _ in range(len(values))]
+        estimates.append(sum(draw) / len(draw))
+    estimates.sort()
+    low_index = max(0, int((alpha / 2.0) * len(estimates)) - 1)
+    high_index = min(len(estimates) - 1, int((1.0 - (alpha / 2.0)) * len(estimates)) - 1)
+    return estimates[low_index], estimates[high_index]
+
+
+def _build_evidence_bundle(
+    strategy_rows: pd.DataFrame,
+    stability_report: pd.DataFrame,
+    hypothesis_results: pd.DataFrame,
+    run_payloads: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "run_count": len(run_payloads),
+        "runs": [
+            {
+                "group_id": payload["group_id"],
+                "run_id": payload["summary"]["run_id"],
+                "experiment_id": payload["experiment_spec"].experiment_id,
+                "run_dir": str(payload["run_dir"]),
+                "run_labels": payload.get("run_labels") or {},
+            }
+            for payload in run_payloads
+        ],
+        "strategy_summary": _strategy_summary(strategy_rows),
+        "stability_report": stability_report.to_dict(orient="records"),
+        "hypothesis_results": hypothesis_results.to_dict(orient="records"),
+    }
+
+
+def _build_figure_manifest(store: RunStore, comparison_plot: str | None) -> dict[str, Any]:
+    return {
+        "figures": [
+            {
+                "figure_id": "comparison_primary_metric",
+                "path": str(store.run_dir / comparison_plot) if comparison_plot else "",
+                "supports_claim": "Cross-run primary metric by kernel and strategy",
+            }
+        ]
+    }
 
 
 def _write_comparison_plot(store: RunStore, strategy_rows: pd.DataFrame) -> str | None:

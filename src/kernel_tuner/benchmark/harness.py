@@ -221,26 +221,33 @@ def benchmark_experiment(
     kernel_spec = load_kernel_spec(kernel_config_path(experiment_spec.kernels[0], experiment_path))
     kernel = resolve_kernel(kernel_spec)
     candidates = generate_candidate_records(experiment_spec, experiment_path=experiment_path)
-    first_shape = experiment_spec.shapes[0]
-    shape_candidates = [
-        candidate for candidate in candidates if candidate.shape_id == first_shape.shape_id
-    ]
-    default_candidate = next(
-        (
-            candidate
-            for candidate in shape_candidates
-            if config_dict_from_record(candidate) == (kernel_spec.default_config or {})
-        ),
-        shape_candidates[0],
-    )
-    outcome = benchmark_candidate(
-        run_id="standalone",
-        strategy_id="benchmark_cli",
-        kernel=kernel,
-        shape=first_shape,
-        candidate=default_candidate,
-        settings=experiment_spec.benchmark_settings,
-        seed=experiment_spec.seed,
-        measurement_phase=MeasurementPhase.CALIBRATION,
-    )
-    return outcome.measurement.model_dump(mode="json")
+    results = []
+    for index, shape in enumerate(experiment_spec.shapes):
+        shape_candidates = [
+            candidate for candidate in candidates if candidate.shape_id == shape.shape_id
+        ]
+        default_candidate = next(
+            (
+                candidate
+                for candidate in shape_candidates
+                if config_dict_from_record(candidate) == (kernel_spec.default_config or {})
+            ),
+            shape_candidates[0],
+        )
+        outcome = benchmark_candidate(
+            run_id="standalone",
+            strategy_id="benchmark_cli",
+            kernel=kernel,
+            shape=shape,
+            candidate=default_candidate,
+            settings=experiment_spec.benchmark_settings,
+            seed=experiment_spec.seed + index,
+            measurement_phase=MeasurementPhase.CALIBRATION,
+            measurement_order_index=index,
+        )
+        results.append(outcome.measurement.model_dump(mode="json"))
+    return {
+        "experiment_id": experiment_spec.experiment_id,
+        "shape_count": len(results),
+        "measurements": results,
+    }

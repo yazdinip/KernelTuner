@@ -1,0 +1,30 @@
+revision_id: v2_validation
+parent_selector_mode: prune_rank_profiled
+linked_opportunity_tags:
+  - selector_revision_candidate
+  - reduce_num_stages_or_tile_size
+  - increase_pipeline_staging_or_reduce_wave_pressure
+  - rework_shared_layout_or_block_shape
+ranking_features:
+  - feature_name: warps_active
+    source: profile
+    direction: desc
+  - feature_name: tensor_ops
+    source: profile
+    direction: desc
+  - feature_name: long_scoreboard_stall
+    source: profile
+    direction: asc
+  - feature_name: lg_throttle
+    source: profile
+    direction: asc
+  - feature_name: shared_conflicts
+    source: profile
+    direction: asc
+  - feature_name: register_count
+    source: compile
+    direction: asc
+tie_break_relative_tolerance: 0.02
+notes: >
+  Validation-phase selector revision that externalizes the current opportunity-guided
+  ranking priorities into a versioned rule pack.

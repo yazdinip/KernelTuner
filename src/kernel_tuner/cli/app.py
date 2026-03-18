@@ -7,15 +7,24 @@ from pathlib import Path
 
 import typer
 
-from kernel_tuner.analysis.comparison import compare_runs_from_path
+from kernel_tuner.analysis.comparison import compare_runs_from_path, validate_study_from_path
 from kernel_tuner.analysis.reporting import summarize_run
 from kernel_tuner.benchmark.harness import benchmark_experiment
-from kernel_tuner.common.config import load_experiment_spec, load_kernel_spec
+from kernel_tuner.common.config import (
+    load_experiment_spec,
+    load_kernel_spec,
+)
 from kernel_tuner.common.logging_utils import configure_logging
 from kernel_tuner.config_space.generator import generate_candidate_configs
+from kernel_tuner.experiments.campaigns import (
+    materialize_campaign_from_path,
+    resume_campaign_from_path,
+    run_campaign_from_path,
+)
 from kernel_tuner.experiments.orchestrator import run_experiment
 from kernel_tuner.kernels.registry import resolve_kernel
 from kernel_tuner.profiling.adapter import profile_experiment, profile_once_entrypoint
+from kernel_tuner.profiling.compatibility import validate_counter_set_from_path
 from kernel_tuner.selector.engine import select_for_experiment
 from kernel_tuner.signals.collector import collect_signals_for_experiment
 
@@ -74,6 +83,16 @@ def profile(
     typer.echo(json.dumps(result, indent=2))
 
 
+@app.command("validate-counter-set")
+def validate_counter_set(
+    experiment: Path = typer.Option(..., "--experiment", exists=True, dir_okay=False),
+    verbose: bool = False,
+) -> None:
+    configure_logging(verbose)
+    result = validate_counter_set_from_path(experiment)
+    typer.echo(json.dumps(result, indent=2))
+
+
 @app.command("select")
 def select(
     experiment: Path = typer.Option(..., "--experiment", exists=True, dir_okay=False),
@@ -111,6 +130,46 @@ def compare_runs(
 ) -> None:
     configure_logging(verbose)
     result = compare_runs_from_path(spec)
+    typer.echo(json.dumps(result, indent=2))
+
+
+@app.command("validate-study")
+def validate_study(
+    spec: Path = typer.Option(..., "--spec", exists=True, dir_okay=False),
+    verbose: bool = False,
+) -> None:
+    configure_logging(verbose)
+    result = validate_study_from_path(spec)
+    typer.echo(json.dumps(result, indent=2))
+
+
+@app.command("materialize-campaign")
+def materialize_campaign(
+    spec: Path = typer.Option(..., "--spec", exists=True, dir_okay=False),
+    verbose: bool = False,
+) -> None:
+    configure_logging(verbose)
+    result = materialize_campaign_from_path(spec)
+    typer.echo(json.dumps(result, indent=2))
+
+
+@app.command("run-campaign")
+def run_campaign(
+    spec: Path = typer.Option(..., "--spec", exists=True, dir_okay=False),
+    verbose: bool = False,
+) -> None:
+    configure_logging(verbose)
+    result = run_campaign_from_path(spec)
+    typer.echo(json.dumps(result, indent=2))
+
+
+@app.command("resume-campaign")
+def resume_campaign(
+    spec: Path = typer.Option(..., "--spec", exists=True, dir_okay=False),
+    verbose: bool = False,
+) -> None:
+    configure_logging(verbose)
+    result = resume_campaign_from_path(spec)
     typer.echo(json.dumps(result, indent=2))
 
 

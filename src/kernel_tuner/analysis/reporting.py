@@ -299,6 +299,10 @@ def summarize_run(run_dir: str | Path) -> dict[str, object]:
         counter_set = load_counter_set(counter_set_path(experiment_spec.counter_set_id, source_experiment_path))
     requested_counters = counter_set.counters if counter_set else []
     minimum_availability = counter_set.minimum_availability if counter_set else 1.0
+    compatibility_path = run_path / "counter_compatibility.json"
+    counter_compatibility = {}
+    if compatibility_path.exists():
+        counter_compatibility = json.loads(compatibility_path.read_text(encoding="utf-8"))
     availability_records = build_counter_availability_records(
         run_id=manifest.run_id,
         profile_measurements=profile_measurements,
@@ -400,6 +404,7 @@ def summarize_run(run_dir: str | Path) -> dict[str, object]:
         experiment_spec.study_kind == "reportable"
         and held_out_shape_count > 0
         and all(value == "matched_budget" for value in comparison_class_by_strategy.values())
+        and (not counter_compatibility or counter_compatibility.get("acceptable", True))
         and (not counter_availability_ok or all(counter_availability_ok.values()))
     )
 
@@ -458,6 +463,10 @@ def summarize_run(run_dir: str | Path) -> dict[str, object]:
             "counter_set_id": experiment_spec.counter_set_id,
             "seed": experiment_spec.seed,
             "selection_stability": selection_stability,
+            "selector_revision_id": experiment_spec.selector_revision_id,
+            "repeat_index": manifest.invocation.repeat_index,
+            "campaign_id": manifest.invocation.campaign_id,
+            "workload_matrix_id": manifest.labels.workload_matrix_id,
         },
         comparison_warnings=manifest.warnings,
         reportability={
@@ -465,6 +474,7 @@ def summarize_run(run_dir: str | Path) -> dict[str, object]:
             "is_reportable": is_reportable,
             "comparison_class": "matched_budget" if is_reportable else "non_comparable",
             "counter_set_accepted": all(counter_availability_ok.values()) if counter_availability_ok else True,
+            "counter_compatibility": counter_compatibility,
         },
         uncertainty_metrics={
             "interpretation_notes": interpretation_notes,
@@ -490,7 +500,9 @@ def summarize_run(run_dir: str | Path) -> dict[str, object]:
             ),
             "heuristic_candidates": str(store.run_dir / "heuristic_candidates.yaml"),
             "strategy_speedups_plot": str(store.run_dir / speedup_plot) if speedup_plot else "",
+            "counter_compatibility": str(compatibility_path) if compatibility_path.exists() else "",
         },
+        run_labels=manifest.labels.model_dump(mode="json"),
     )
     store.write_summary(result)
     return result.model_dump(mode="json")

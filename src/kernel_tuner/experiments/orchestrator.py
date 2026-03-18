@@ -6,6 +6,7 @@ import json
 import os
 import random
 import subprocess
+import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,10 +16,12 @@ from kernel_tuner.baselines.strategies import run_baseline_mode
 from kernel_tuner.benchmark.harness import benchmark_candidate
 from kernel_tuner.common.config import (
     counter_set_path,
-    kernel_config_path,
     load_counter_set,
+    kernel_config_path,
     load_kernel_spec,
+    load_selector_revision_spec,
     resolve_artifact_root,
+    selector_revision_path,
 )
 from kernel_tuner.common.ids import make_run_id
 from kernel_tuner.common.provenance import (
@@ -30,17 +33,24 @@ from kernel_tuner.common.provenance import (
 )
 from kernel_tuner.common.schema import (
     CandidateConfig,
+    ComparisonClass,
+    CounterCompatibilityRecord,
     ExperimentSpec,
     Manifest,
     MeasurementPhase,
     ProfileMeasurement,
     ProfileStatus,
+    RunLabels,
     RunStatus,
+    RuntimeStatus,
     RuntimeMeasurement,
+    SelectorRevisionSpec,
+    StudyKind,
 )
 from kernel_tuner.config_space.generator import generate_candidate_records
 from kernel_tuner.kernels.registry import resolve_kernel
 from kernel_tuner.profiling.adapter import profile_candidate
+from kernel_tuner.profiling.compatibility import validate_counter_set_for_experiment
 from kernel_tuner.selector.engine import run_selector_mode
 from kernel_tuner.signals.collector import collect_compile_signals
 from kernel_tuner.storage import RunStore
@@ -54,13 +64,35 @@ def _shape_split(spec: ExperimentSpec):
     ordered = sorted(spec.shapes, key=lambda shape: shape.shape_id)
     if len(ordered) <= 1 or spec.held_out_split <= 0.0:
         return ordered, []
-    rng = random.Random(spec.seed)
-    shuffled = ordered[:]
-    rng.shuffle(shuffled)
-    calibration_count = round(len(shuffled) * spec.calibration_split)
-    calibration_count = max(1, min(len(shuffled) - 1, calibration_count))
-    calibration = sorted(shuffled[:calibration_count], key=lambda shape: shape.shape_id)
-    held_out = sorted(shuffled[calibration_count:], key=lambda shape: shape.shape_id)
+    should_stratify = spec.reportability_policy.require_stratified_split or (
+        spec.study_kind == StudyKind.REPORTABLE and any(shape.workload_class for shape in ordered)
+    )
+    if not should_stratify:
+        rng = random.Random(spec.seed)
+        shuffled = ordered[:]
+        rng.shuffle(shuffled)
+        calibration_count = round(len(shuffled) * spec.calibration_split)
+        calibration_count = max(1, min(len(shuffled) - 1, calibration_count))
+        calibration = sorted(shuffled[:calibration_count], key=lambda shape: shape.shape_id)
+        held_out = sorted(shuffled[calibration_count:], key=lambda shape: shape.shape_id)
+        return calibration, held_out
+
+    calibration: list = []
+    held_out: list = []
+    grouped: dict[str, list] = {}
+    for shape in ordered:
+        grouped.setdefault(shape.workload_class or "__unlabeled__", []).append(shape)
+    for workload_class, shapes in sorted(grouped.items()):
+        if len(shapes) <= 1:
+            calibration.extend(shapes)
+            continue
+        rng = random.Random(f"{spec.seed}:{workload_class}")
+        shuffled = shapes[:]
+        rng.shuffle(shuffled)
+        calibration_count = round(len(shuffled) * spec.calibration_split)
+        calibration_count = max(1, min(len(shuffled) - 1, calibration_count))
+        calibration.extend(sorted(shuffled[:calibration_count], key=lambda shape: shape.shape_id))
+        held_out.extend(sorted(shuffled[calibration_count:], key=lambda shape: shape.shape_id))
     return calibration, held_out
 
 
@@ -77,6 +109,112 @@ def _validate_environment(spec: ExperimentSpec, environment) -> None:
     cuda_home = spec.execution_settings.cuda_home
     if cuda_home and not Path(cuda_home).exists():
         raise RuntimeError(f"configured cuda_home '{cuda_home}' does not exist")
+
+
+def _profile_shapes(spec: ExperimentSpec, calibration_shapes) -> list:
+    if not calibration_shapes:
+        return []
+    policy = spec.profile_policy
+    if policy is None:
+        return [calibration_shapes[0]]
+    mode = policy.shape_sampling_mode
+    if mode == "all_calibration":
+        selected = list(calibration_shapes)
+    elif mode == "explicit_shape_ids":
+        explicit_ids = set(policy.explicit_shape_ids)
+        selected = [shape for shape in calibration_shapes if shape.shape_id in explicit_ids]
+    elif mode == "per_workload_class_top1":
+        by_class: dict[str, list] = {}
+        for shape in calibration_shapes:
+            by_class.setdefault(shape.workload_class or "__unlabeled__", []).append(shape)
+        selected = [
+            sorted(shapes, key=lambda shape: shape.shape_id)[0]
+            for _, shapes in sorted(by_class.items())
+            if shapes
+        ]
+    else:
+        selected = [sorted(calibration_shapes, key=lambda shape: shape.shape_id)[0]]
+    max_shapes = policy.max_shapes_per_config if policy else None
+    if max_shapes is not None:
+        selected = selected[:max_shapes]
+    return selected
+
+
+def _run_labels(
+    *,
+    experiment_spec: ExperimentSpec,
+    kernel_family: str,
+    counter_set_id: str | None,
+    repeat_index: int | None,
+    campaign_id: str | None,
+    round_id: str | None,
+) -> RunLabels:
+    return RunLabels(
+        kernel_family=kernel_family,
+        workload_matrix_id=experiment_spec.analysis_settings.workload_id,
+        counter_set_id=counter_set_id,
+        selector_version=experiment_spec.selector_version,
+        selector_revision_id=experiment_spec.selector_revision_id,
+        budget_id=experiment_spec.budget_id,
+        seed=experiment_spec.seed,
+        repeat_index=repeat_index,
+        campaign_id=campaign_id,
+        round_id=round_id,
+        execution_mode=experiment_spec.study_kind,
+        reportability_mode=(
+            "matched_budget" if experiment_spec.study_kind == StudyKind.REPORTABLE else experiment_spec.study_kind
+        ),
+        workload_classes=sorted(
+            {shape.workload_class for shape in experiment_spec.shapes if shape.workload_class is not None}
+        ),
+    )
+
+
+def _comparison_class_for_run(
+    experiment_spec: ExperimentSpec,
+    counter_compatibility: CounterCompatibilityRecord | None,
+) -> ComparisonClass:
+    if experiment_spec.study_kind == StudyKind.REPORTABLE:
+        if counter_compatibility is not None and not counter_compatibility.acceptable:
+            return ComparisonClass.NON_COMPARABLE
+        return ComparisonClass.MATCHED_BUDGET
+    return ComparisonClass.NON_COMPARABLE
+
+
+def _validate_reportability_contract(
+    spec: ExperimentSpec,
+    calibration_shapes,
+    held_out_shapes,
+    compatibility: CounterCompatibilityRecord | None,
+) -> None:
+    policy = spec.reportability_policy
+    if not policy.enforce_preflight:
+        return
+    if spec.study_kind == StudyKind.REPORTABLE:
+        if len(calibration_shapes) < policy.minimum_calibration_shapes:
+            raise RuntimeError(
+                f"reportable run requires at least {policy.minimum_calibration_shapes} calibration shapes"
+            )
+        if len(held_out_shapes) < policy.minimum_held_out_shapes:
+            raise RuntimeError(
+                f"reportable run requires at least {policy.minimum_held_out_shapes} held-out shapes"
+            )
+        if policy.require_workload_class_labels and any(not shape.workload_class for shape in spec.shapes):
+            raise RuntimeError("reportable run requires workload_class labels on all shapes")
+        if policy.minimum_held_out_per_workload_class > 0:
+            by_class: dict[str, int] = {}
+            for shape in held_out_shapes:
+                by_class[shape.workload_class or "__unlabeled__"] = by_class.get(
+                    shape.workload_class or "__unlabeled__", 0
+                ) + 1
+            if any(count < policy.minimum_held_out_per_workload_class for count in by_class.values()):
+                raise RuntimeError(
+                    "reportable run does not satisfy minimum held-out shapes per workload class"
+                )
+        if compatibility is not None and policy.abort_on_incompatible_counter_set and not compatibility.acceptable:
+            raise RuntimeError(
+                f"counter set '{compatibility.counter_set_id}' is not acceptable for reportable use"
+            )
 
 
 @contextmanager
@@ -152,6 +290,9 @@ class StrategyBroker:
         held_out_shapes,
         experiment_spec: ExperimentSpec,
         counter_set,
+        profile_shapes,
+        selector_revision: SelectorRevisionSpec | None,
+        deadline_s: float | None,
     ) -> None:
         self.store = store
         self.run_id = run_id
@@ -160,8 +301,11 @@ class StrategyBroker:
         self.kernel_id = kernel_id
         self.calibration_shapes = list(calibration_shapes)
         self.held_out_shapes = list(held_out_shapes)
+        self.profile_shapes = list(profile_shapes)
         self.experiment_spec = experiment_spec
         self.counter_set = counter_set
+        self.selector_revision = selector_revision
+        self.deadline_s = deadline_s
         self._candidate_lookup = {
             (candidate.shape_id, candidate.config_id): candidate for candidate in candidate_records
         }
@@ -170,6 +314,9 @@ class StrategyBroker:
         self.runtime_records: list[RuntimeMeasurement] = []
         self.profile_records: list[ProfileMeasurement] = []
         self._measurement_order_index = 0
+
+    def _budget_exhausted(self) -> bool:
+        return self.deadline_s is not None and time.perf_counter() >= self.deadline_s
 
     def benchmark_calibration(self, config_id: str) -> list[RuntimeMeasurement]:
         return self._benchmark_shapes(config_id, self.calibration_shapes, MeasurementPhase.CALIBRATION)
@@ -184,6 +331,31 @@ class StrategyBroker:
 
         records: list[RuntimeMeasurement] = []
         for index, shape in enumerate(shapes):
+            if self._budget_exhausted():
+                skipped = RuntimeMeasurement(
+                    run_id=self.run_id,
+                    strategy_id=self.strategy_id,
+                    measurement_phase=phase,
+                    kernel_id=self.kernel.spec.kernel_id,
+                    shape_id=shape.shape_id,
+                    config_id=config_id,
+                    warmup_count=self.experiment_spec.benchmark_settings.warmup_iterations,
+                    timed_run_count=self.experiment_spec.benchmark_settings.timed_iterations,
+                    latency_median_us=None,
+                    latency_mean_us=None,
+                    latency_std_us=None,
+                    latency_p95_us=None,
+                    throughput_value=None,
+                    throughput_unit=None,
+                    status=RuntimeStatus.SKIPPED_BUDGET,
+                    timing_backend=self.experiment_spec.benchmark_settings.timing_backend,
+                    measurement_order_index=self._measurement_order_index,
+                    error_message="wall_clock_limit_s exhausted before benchmark",
+                )
+                records.append(skipped)
+                self.runtime_records.append(skipped)
+                self._measurement_order_index += 1
+                continue
             candidate = self._candidate_lookup[(shape.shape_id, config_id)]
             outcome = benchmark_candidate(
                 run_id=self.run_id,
@@ -210,43 +382,86 @@ class StrategyBroker:
         return records
 
     def profile_calibration(self, config_id: str) -> list[ProfileMeasurement]:
-        if self.counter_set is None or not self.calibration_shapes:
+        if self.counter_set is None or not self.profile_shapes:
             return []
         if config_id in self._profile_cache:
             return self._profile_cache[config_id]
 
-        shape = self.calibration_shapes[0]
-        candidate = self._candidate_lookup[(shape.shape_id, config_id)]
-        outcome = profile_candidate(
-            run_id=self.run_id,
-            strategy_id=self.strategy_id,
-            kernel_id=self.kernel_id,
-            shape=shape,
-            candidate=candidate,
-            counter_set=self.counter_set,
-            experiment_spec=self.experiment_spec,
-        )
-        measurement = _register_profile_logs(
-            self.store,
-            self.strategy_id,
-            outcome.measurement,
-            stdout=outcome.stdout,
-            stderr=outcome.stderr,
-        )
-        self.profile_records.append(measurement)
-        self._profile_cache[config_id] = [measurement]
-        return [measurement]
+        measurements: list[ProfileMeasurement] = []
+        for shape in self.profile_shapes:
+            if self._budget_exhausted():
+                measurement = ProfileMeasurement(
+                    run_id=self.run_id,
+                    strategy_id=self.strategy_id,
+                    kernel_id=self.kernel_id,
+                    shape_id=shape.shape_id,
+                    config_id=config_id,
+                    counter_set_id=self.counter_set.counter_set_id,
+                    profile_status=ProfileStatus.SKIPPED_BUDGET,
+                    notes="wall_clock_limit_s exhausted before profiling",
+                )
+                self.profile_records.append(measurement)
+                measurements.append(measurement)
+                continue
+            candidate = self._candidate_lookup[(shape.shape_id, config_id)]
+            outcome = profile_candidate(
+                run_id=self.run_id,
+                strategy_id=self.strategy_id,
+                kernel_id=self.kernel_id,
+                shape=shape,
+                candidate=candidate,
+                counter_set=self.counter_set,
+                experiment_spec=self.experiment_spec,
+            )
+            measurement = _register_profile_logs(
+                self.store,
+                self.strategy_id,
+                outcome.measurement,
+                stdout=outcome.stdout,
+                stderr=outcome.stderr,
+            )
+            self.profile_records.append(measurement)
+            measurements.append(measurement)
+        self._profile_cache[config_id] = measurements
+        return measurements
 
 
 def run_experiment(
     experiment_spec: ExperimentSpec,
     *,
     experiment_path: str | Path | None = None,
+    run_id: str | None = None,
+    repeat_index: int | None = None,
+    campaign_id: str | None = None,
+    round_id: str | None = None,
 ) -> dict[str, object]:
     artifact_root = resolve_artifact_root(experiment_spec.artifact_root, experiment_path)
-    run_id = make_run_id()
+    run_id = run_id or make_run_id()
     store = RunStore(artifact_root, experiment_spec.experiment_id, run_id)
     environment = capture_environment_metadata(Path.cwd())
+    kernel_spec = load_kernel_spec(kernel_config_path(experiment_spec.kernels[0], experiment_path))
+    counter_set = (
+        load_counter_set(counter_set_path(experiment_spec.counter_set_id, experiment_path))
+        if experiment_spec.counter_set_id
+        else None
+    )
+    counter_compatibility = validate_counter_set_for_experiment(
+        experiment_spec,
+        experiment_path=experiment_path,
+    )
+    selector_revision = (
+        load_selector_revision_spec(selector_revision_path(experiment_spec.selector_revision_id, experiment_path))
+        if experiment_spec.selector_revision_id
+        else None
+    )
+    labels = _run_labels(
+        experiment_spec=experiment_spec,
+        kernel_family=kernel_spec.family,
+        counter_set_id=counter_set.counter_set_id if counter_set is not None else None,
+        repeat_index=repeat_index,
+        campaign_id=campaign_id,
+        round_id=round_id,
+    )
     manifest = Manifest(
         experiment_id=experiment_spec.experiment_id,
         run_id=run_id,
@@ -264,17 +479,34 @@ def run_experiment(
                 else None
             ),
             seed=experiment_spec.seed,
+            repeat_index=repeat_index,
+            selector_revision_id=experiment_spec.selector_revision_id,
+            campaign_id=campaign_id,
         ),
         slurm=capture_slurm_metadata(),
         artifact_files=[],
         status=RunStatus.CREATED,
         warnings=[],
+        labels=labels,
     )
     store.initialize_manifest(manifest)
 
     try:
         _validate_environment(experiment_spec, environment)
+        calibration_shapes, held_out_shapes = _shape_split(experiment_spec)
+        _validate_reportability_contract(
+            experiment_spec,
+            calibration_shapes,
+            held_out_shapes,
+            counter_compatibility,
+        )
         store.write_experiment_spec(experiment_spec)
+        if counter_compatibility is not None:
+            store.write_json_artifact(
+                "counter_compatibility",
+                counter_compatibility.model_dump(mode="json"),
+                filename="counter_compatibility.json",
+            )
 
         pip_freeze = subprocess.run(
             [python_command(), "-m", "pip", "freeze"],
@@ -285,14 +517,13 @@ def run_experiment(
         if pip_freeze.stdout:
             store.register_log_file("pip_freeze.txt", pip_freeze.stdout)
 
-        kernel_spec = load_kernel_spec(kernel_config_path(experiment_spec.kernels[0], experiment_path))
         kernel = resolve_kernel(kernel_spec)
-        counter_set = (
-            load_counter_set(counter_set_path(experiment_spec.counter_set_id, experiment_path))
-            if experiment_spec.counter_set_id
+        profile_shapes = _profile_shapes(experiment_spec, calibration_shapes)
+        deadline_s = (
+            time.perf_counter() + experiment_spec.budgets.wall_clock_limit_s
+            if experiment_spec.budgets.wall_clock_limit_s is not None
             else None
         )
-        calibration_shapes, held_out_shapes = _shape_split(experiment_spec)
         candidate_records = generate_candidate_records(experiment_spec, experiment_path=experiment_path)
         store.write_table("candidates", candidate_records)
 
@@ -338,6 +569,9 @@ def run_experiment(
                 held_out_shapes=held_out_shapes,
                 experiment_spec=experiment_spec,
                 counter_set=counter_set,
+                profile_shapes=profile_shapes,
+                selector_revision=selector_revision,
+                deadline_s=deadline_s,
             )
             with _isolated_caches(experiment_spec, store):
                 decision = run_selector_mode(
@@ -350,9 +584,14 @@ def run_experiment(
                     budgets=experiment_spec.budgets,
                     request_benchmark=broker.benchmark_calibration,
                     request_profile=broker.profile_calibration if counter_set is not None else None,
+                    selector_revision=selector_revision,
                 )
                 if decision.selected_config_id and held_out_shapes:
                     broker.benchmark_held_out(decision.selected_config_id)
+            decision.comparison_class = _comparison_class_for_run(
+                experiment_spec,
+                counter_compatibility,
+            )
             selection_decisions.append(decision)
             runtime_measurements.extend(broker.runtime_records)
             profile_measurements.extend(broker.profile_records)
@@ -372,6 +611,9 @@ def run_experiment(
                 held_out_shapes=held_out_shapes,
                 experiment_spec=experiment_spec,
                 counter_set=None,
+                profile_shapes=[],
+                selector_revision=None,
+                deadline_s=deadline_s,
             )
             with _isolated_caches(experiment_spec, store):
                 decision = run_baseline_mode(
@@ -387,6 +629,10 @@ def run_experiment(
                 )
                 if decision.selected_config_id and held_out_shapes:
                     broker.benchmark_held_out(decision.selected_config_id)
+            decision.comparison_class = _comparison_class_for_run(
+                experiment_spec,
+                counter_compatibility,
+            )
             selection_decisions.append(decision)
             runtime_measurements.extend(broker.runtime_records)
             profile_measurements.extend(broker.profile_records)
