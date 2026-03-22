@@ -237,13 +237,17 @@ def summarize_run(run_dir: str | Path) -> dict[str, object]:
     manifest = _load_required_manifest(run_path)
     store = RunStore.from_run_dir(run_path)
     experiment_spec_path = run_path / "experiment_spec.yaml"
-    if not experiment_spec_path.exists():
-        raise FileNotFoundError(f"run directory '{run_path}' is missing experiment_spec.yaml")
     source_experiment_path = experiment_spec_path
+    if not experiment_spec_path.exists():
+        source_experiment_path = None
     if manifest.invocation.experiment_config_path:
         candidate = Path(manifest.invocation.experiment_config_path)
         if candidate.exists():
             source_experiment_path = candidate
+    if source_experiment_path is None or not Path(source_experiment_path).exists():
+        raise FileNotFoundError(
+            f"run directory '{run_path}' is missing experiment_spec.yaml and manifest fallback is unavailable"
+        )
     experiment_spec = load_experiment_spec(source_experiment_path)
     kernel_spec = load_kernel_spec(kernel_config_path(experiment_spec.kernels[0], source_experiment_path))
 
