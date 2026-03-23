@@ -120,7 +120,7 @@ def _parse_counter_map(
     counters: list[str],
     *,
     kernel_name_regex: str | None,
-) -> tuple[dict[str, float | None], list[str], str | None]:
+) -> tuple[dict[str, float | None], list[str], str | None, dict[str, Any]]:
     rows = _extract_csv_rows(stdout)
     row, diagnostics = _choose_kernel_row(rows, kernel_name_regex=kernel_name_regex)
     if row is None:
@@ -298,13 +298,14 @@ def profile_candidate(
     )
     status = ProfileStatus.SUCCESS
     notes = None
+    attribution_failed = matched_kernel_name is None or diagnostics.get("kernel_attribution_status") != "matched"
     if completed.returncode != 0 and unsupported_metric:
         status = ProfileStatus.UNSUPPORTED_COUNTER
         notes = completed.stderr.strip() or completed.stdout.strip() or "unsupported counter"
     elif completed.returncode != 0:
         status = ProfileStatus.INVOCATION_FAILED
         notes = completed.stderr.strip() or completed.stdout.strip() or "ncu invocation failed"
-    elif diagnostics.get("matched_row_count", 0) == 0:
+    elif attribution_failed:
         status = ProfileStatus.NO_PROFILE_DATA
         notes = f"no attributable profiler row: {diagnostics.get('kernel_attribution_status')}"
     elif missing_counters:

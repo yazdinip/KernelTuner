@@ -6,8 +6,8 @@ target_processes: all
 diagnostic_only: true
 minimum_availability: 0.9
 counters:
-  - l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld
-  - l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st
-  - l1tex__data_pipe_lsu_wavefronts_mem_shared
-  - smsp__warp_issue_stalled_short_scoreboard_per_warp_active
+  - l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.avg
+  - l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.avg
+  - l1tex__data_pipe_lsu_wavefronts_mem_shared.avg
+  - smsp__warp_issue_stalled_short_scoreboard_per_warp_active.pct
 notes: This set is diagnostic-only and should not be treated as matched-budget reportable evidence.

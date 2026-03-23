@@ -114,6 +114,7 @@ def _validate_environment(spec: ExperimentSpec, environment) -> None:
 def _profile_shapes(spec: ExperimentSpec, calibration_shapes) -> list:
     if not calibration_shapes:
         return []
+    first_calibration = calibration_shapes[0]
 
     def _shape_work_score(shape) -> tuple[int, str]:
         score = 1
@@ -127,13 +128,15 @@ def _profile_shapes(spec: ExperimentSpec, calibration_shapes) -> list:
 
     policy = spec.profile_policy
     if policy is None:
-        return [_representative_shape(calibration_shapes)]
+        return [first_calibration]
     mode = policy.shape_sampling_mode
     if mode == "all_calibration":
         selected = list(calibration_shapes)
     elif mode == "explicit_shape_ids":
         explicit_ids = set(policy.explicit_shape_ids)
         selected = [shape for shape in calibration_shapes if shape.shape_id in explicit_ids]
+    elif mode == "first_calibration":
+        selected = [first_calibration]
     elif mode == "per_workload_class_top1":
         by_class: dict[str, list] = {}
         for shape in calibration_shapes:
@@ -144,7 +147,7 @@ def _profile_shapes(spec: ExperimentSpec, calibration_shapes) -> list:
             if shapes
         ]
     else:
-        selected = [_representative_shape(calibration_shapes)]
+        selected = [first_calibration]
     max_shapes = policy.max_shapes_per_config if policy else None
     if max_shapes is not None:
         selected = selected[:max_shapes]
@@ -197,10 +200,11 @@ def _validate_reportability_contract(
     calibration_shapes,
     held_out_shapes,
     compatibility: CounterCompatibilityRecord | None,
-) -> None:
+) -> list[str]:
     policy = spec.reportability_policy
+    warnings: list[str] = []
     if not policy.enforce_preflight:
-        return
+        return warnings
     if spec.study_kind == StudyKind.REPORTABLE:
         if len(calibration_shapes) < policy.minimum_calibration_shapes:
             raise RuntimeError(
@@ -223,9 +227,20 @@ def _validate_reportability_contract(
                     "reportable run does not satisfy minimum held-out shapes per workload class"
                 )
         if compatibility is not None and policy.abort_on_incompatible_counter_set and not compatibility.acceptable:
-            raise RuntimeError(
-                f"counter set '{compatibility.counter_set_id}' is not acceptable for reportable use"
-            )
+            if (
+                spec.profile_policy is not None
+                and spec.profile_policy.availability_failure_mode == "downgrade_to_diagnostic"
+            ):
+                warnings.append(
+                    "counter set "
+                    f"'{compatibility.counter_set_id}' is not acceptable for reportable use; "
+                    "downgrading this run to diagnostic/non-comparable evidence"
+                )
+            else:
+                raise RuntimeError(
+                    f"counter set '{compatibility.counter_set_id}' is not acceptable for reportable use"
+                )
+    return warnings
 
 
 def _strategy_deadline(limit_s: float | None) -> float | None:
@@ -536,7 +551,7 @@ def run_experiment(
     try:
         _validate_environment(experiment_spec, environment)
         calibration_shapes, held_out_shapes = _shape_split(experiment_spec)
-        _validate_reportability_contract(
+        warnings = _validate_reportability_contract(
             experiment_spec,
             calibration_shapes,
             held_out_shapes,
@@ -590,9 +605,7 @@ def run_experiment(
 
         selection_decisions = []
         strategy_brokers: dict[str, StrategyBroker] = {}
-        warnings: list[str] = []
         measurement_order_counter = [0]
-
         for selector_mode in experiment_spec.selector_modes:
             strategy_id = _mode_name(selector_mode)
             broker = StrategyBroker(

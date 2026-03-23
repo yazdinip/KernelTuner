@@ -16,6 +16,17 @@ from kernel_tuner.common.config import (
 from kernel_tuner.common.schema import CounterCompatibilityRecord, ExperimentSpec
 
 
+def _metric_match(counter: str, discovered: set[str]) -> bool:
+    if counter in discovered:
+        return True
+    parts = counter.split(".")
+    while len(parts) > 1:
+        parts = parts[:-1]
+        if ".".join(parts) in discovered:
+            return True
+    return False
+
+
 def validate_counter_set_for_experiment(
     experiment_spec: ExperimentSpec,
     *,
@@ -87,8 +98,8 @@ def validate_counter_set(
     if completed is not None and completed.returncode == 0:
         metrics_blob = f"{completed.stdout}\n{completed.stderr}"
         discovered = set(re.findall(r"([A-Za-z0-9_.]+)", metrics_blob))
-        available = [counter for counter in requested if counter in discovered]
-        missing = [counter for counter in requested if counter not in discovered]
+        available = [counter for counter in requested if _metric_match(counter, discovered)]
+        missing = [counter for counter in requested if counter not in available]
     elif completed is not None:
         backend = "ncu_query_failed"
         notes_parts.append(completed.stderr.strip() or completed.stdout.strip() or "ncu --query-metrics failed")

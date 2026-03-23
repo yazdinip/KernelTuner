@@ -331,6 +331,35 @@ def test_aggregate_opportunities_uses_weighted_regret_and_preserves_provenance()
     assert row["strategy_ids"] == "prune_rank,prune_rank_revised"
 
 
+def test_aggregate_opportunities_handles_legacy_catalog_rows_without_new_columns():
+    aggregated = _aggregate_opportunities(
+        [
+            {
+                "group_id": "gemm_representative",
+                "summary": {"run_id": "run_legacy"},
+                "experiment_spec": type("Spec", (), {"experiment_id": "gemm_reportable"})(),
+                "opportunity_catalog": pd.DataFrame(
+                    [
+                        {
+                            "opportunity_tag": "selector_revision_candidate",
+                            "occurrences": 3,
+                            "selected_regret_count": 1,
+                            "avg_regret_to_best_measured": 0.25,
+                            "recommended_actions": "investigate",
+                        }
+                    ]
+                ),
+            }
+        ]
+    )
+
+    row = aggregated.iloc[0]
+    assert row["occurrences"] == 3
+    assert row["regret_weight"] == 3
+    assert row["avg_regret_to_best_measured"] == 0.25
+    assert row["run_ids"] == "run_legacy"
+
+
 def test_opportunity_catalog_contains_expected_template():
     experiment_spec = load_experiment_spec(Path("configs/experiments/gemm_development.yaml"))
     compile_signals = pd.DataFrame(

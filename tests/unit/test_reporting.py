@@ -12,19 +12,94 @@ from kernel_tuner.common.schema import Manifest
 from kernel_tuner.storage import RunStore
 
 
+def _write_minimal_required_tables(store: RunStore, *, include_profile: bool = False) -> None:
+    pd.DataFrame(columns=["config_id", "occupancy_estimate", "register_count", "shared_memory_bytes"]).to_parquet(
+        store.run_dir / "compile_signals.parquet",
+        index=False,
+    )
+    pd.DataFrame(
+        columns=[
+            "measurement_phase",
+            "status",
+            "shape_id",
+            "strategy_id",
+            "latency_median_us",
+            "throughput_value",
+            "config_id",
+        ]
+    ).to_parquet(
+        store.run_dir / "runtime_measurements.parquet",
+        index=False,
+    )
+    pd.DataFrame(
+        columns=[
+            "strategy_id",
+            "selected_config_id",
+            "benchmarks_requested",
+            "profiles_requested",
+            "decision_status",
+            "comparison_class",
+        ]
+    ).to_parquet(
+        store.run_dir / "selection_decisions.parquet",
+        index=False,
+    )
+    if include_profile:
+        pd.DataFrame(
+            columns=["strategy_id", "counter_set_id", "profile_status", "counter_map", "config_id"]
+        ).to_parquet(
+            store.run_dir / "profile_measurements.parquet",
+            index=False,
+        )
+
+
 def test_pairwise_speedups_uses_geometric_mean_of_per_shape_ratios():
     strategy_metrics = pd.DataFrame(
         [
-            {"strategy_id": "default_config", "held_out_latency_mean_us": 15.0, "held_out_throughput_mean": 1.0, "held_out_measurements": 2},
-            {"strategy_id": "candidate", "held_out_latency_mean_us": 15.0, "held_out_throughput_mean": 1.0, "held_out_measurements": 2},
+            {
+                "strategy_id": "default_config",
+                "held_out_latency_mean_us": 15.0,
+                "held_out_throughput_mean": 1.0,
+                "held_out_measurements": 2,
+            },
+            {
+                "strategy_id": "candidate",
+                "held_out_latency_mean_us": 15.0,
+                "held_out_throughput_mean": 1.0,
+                "held_out_measurements": 2,
+            },
         ]
     )
     runtime_measurements = pd.DataFrame(
         [
-            {"measurement_phase": "held_out", "status": "success", "shape_id": "shape_a", "strategy_id": "default_config", "latency_median_us": 10.0},
-            {"measurement_phase": "held_out", "status": "success", "shape_id": "shape_b", "strategy_id": "default_config", "latency_median_us": 20.0},
-            {"measurement_phase": "held_out", "status": "success", "shape_id": "shape_a", "strategy_id": "candidate", "latency_median_us": 5.0},
-            {"measurement_phase": "held_out", "status": "success", "shape_id": "shape_b", "strategy_id": "candidate", "latency_median_us": 30.0},
+            {
+                "measurement_phase": "held_out",
+                "status": "success",
+                "shape_id": "shape_a",
+                "strategy_id": "default_config",
+                "latency_median_us": 10.0,
+            },
+            {
+                "measurement_phase": "held_out",
+                "status": "success",
+                "shape_id": "shape_b",
+                "strategy_id": "default_config",
+                "latency_median_us": 20.0,
+            },
+            {
+                "measurement_phase": "held_out",
+                "status": "success",
+                "shape_id": "shape_a",
+                "strategy_id": "candidate",
+                "latency_median_us": 5.0,
+            },
+            {
+                "measurement_phase": "held_out",
+                "status": "success",
+                "shape_id": "shape_b",
+                "strategy_id": "candidate",
+                "latency_median_us": 30.0,
+            },
         ]
     )
 
@@ -40,6 +115,28 @@ def test_load_table_raises_for_required_missing_artifact(tmp_path):
 
     with pytest.raises(FileNotFoundError):
         _load_table(store, "runtime_measurements", required=True)
+
+
+def test_summarize_run_falls_back_to_manifest_experiment_config(tmp_path):
+    store = RunStore(tmp_path / "artifacts", "test_experiment", "run_001")
+    manifest = Manifest(
+        experiment_id="test_experiment",
+        run_id="run_001",
+        created_at_utc=datetime.now(timezone.utc),
+        environment=capture_environment_metadata("."),
+        invocation=capture_invocation_metadata(
+            "pytest",
+            experiment_config_path=str(Path("configs/experiments/gemm_smoke.example.yaml").resolve()),
+        ),
+        artifact_files=[],
+    )
+    store.initialize_manifest(manifest)
+    _write_minimal_required_tables(store, include_profile=True)
+
+    summary = summarize_run(store.run_dir)
+
+    assert summary["experiment_id"] == "gemm_smoke"
+    assert summary["run_id"] == "run_001"
 
 
 def test_summarize_run_marks_budget_limited_runs_non_reportable(tmp_path):
@@ -135,3 +232,36 @@ def test_summarize_run_marks_budget_limited_runs_non_reportable(tmp_path):
 
     assert summary["reportability"]["is_reportable"] is False
     assert summary["reportability"]["budget_limited_decision_present"] is True
+
+
+def test_summarize_run_marks_counter_set_unaccepted_when_compatibility_fails(tmp_path):
+    experiment_path = Path("configs/experiments/gemm_reportable.yaml").resolve()
+    experiment_spec = load_experiment_spec(experiment_path)
+    store = RunStore(tmp_path / "artifacts", "test_experiment", "run_compat")
+    manifest = Manifest(
+        experiment_id="test_experiment",
+        run_id="run_compat",
+        created_at_utc=datetime.now(timezone.utc),
+        environment=capture_environment_metadata("."),
+        invocation=capture_invocation_metadata(
+            "pytest",
+            experiment_config_path=str(experiment_path),
+        ),
+        artifact_files=[],
+    )
+    store.initialize_manifest(manifest)
+    store.write_experiment_spec(experiment_spec)
+    _write_minimal_required_tables(store, include_profile=True)
+    store.write_json_artifact(
+        "counter_compatibility",
+        {
+            "counter_set_id": "shared_diag",
+            "acceptable": False,
+            "diagnostic_only": True,
+        },
+        filename="counter_compatibility.json",
+    )
+
+    summary = summarize_run(store.run_dir)
+
+    assert summary["reportability"]["counter_set_accepted"] is False

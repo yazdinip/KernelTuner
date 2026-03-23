@@ -559,14 +559,52 @@ def _compare_hypothesis_values(
 
 
 def _aggregate_opportunities(run_payloads: list[dict[str, Any]]) -> pd.DataFrame:
+    legacy_defaults: dict[str, object] = {
+        "occurrences": 0,
+        "selected_regret_count": 0,
+        "regret_weight": 0,
+        "avg_regret_to_best_measured": None,
+        "kernel_ids": "",
+        "workload_classes": "",
+        "strategy_ids": "",
+        "run_ids": "",
+        "config_ids": "",
+        "recommended_actions": "",
+    }
+
+    def _join_unique(values: pd.Series) -> str:
+        return ",".join(
+            sorted(
+                {
+                    item
+                    for value in values.dropna()
+                    for item in str(value).split(",")
+                    if item
+                }
+            )
+        )
+
     rows: list[pd.DataFrame] = []
     for payload in run_payloads:
         frame = payload["opportunity_catalog"]
         if frame.empty:
             continue
         decorated = frame.copy()
+        for column, default in legacy_defaults.items():
+            if column not in decorated.columns:
+                decorated[column] = default
+        decorated["occurrences"] = pd.to_numeric(decorated["occurrences"], errors="coerce").fillna(0).astype(int)
+        decorated["selected_regret_count"] = (
+            pd.to_numeric(decorated["selected_regret_count"], errors="coerce").fillna(0).astype(int)
+        )
+        decorated["regret_weight"] = pd.to_numeric(decorated["regret_weight"], errors="coerce").fillna(0).astype(int)
+        missing_regret_weight = decorated["regret_weight"] <= 0
+        decorated.loc[missing_regret_weight, "regret_weight"] = decorated.loc[missing_regret_weight, "occurrences"]
         decorated["group_id"] = payload["group_id"]
         decorated["run_id"] = payload["summary"]["run_id"]
+        if "run_ids" in decorated.columns:
+            missing_run_ids = decorated["run_ids"].astype(str).eq("") | decorated["run_ids"].isna()
+            decorated.loc[missing_run_ids, "run_ids"] = payload["summary"]["run_id"]
         decorated["experiment_id"] = payload["experiment_spec"].experiment_id
         rows.append(decorated)
     if not rows:
@@ -584,11 +622,11 @@ def _aggregate_opportunities(run_payloads: list[dict[str, Any]]) -> pd.DataFrame
             regret_weight=("regret_weight", "sum"),
             weighted_regret_sum=("weighted_regret_sum", "sum"),
             avg_regret_to_best_measured=("avg_regret_to_best_measured", "mean"),
-            kernel_ids=("kernel_ids", lambda values: ",".join(sorted({item for value in values for item in str(value).split(",") if item}))),
-            workload_classes=("workload_classes", lambda values: ",".join(sorted({item for value in values for item in str(value).split(",") if item}))),
-            strategy_ids=("strategy_ids", lambda values: ",".join(sorted({item for value in values for item in str(value).split(",") if item}))),
-            run_ids=("run_ids", lambda values: ",".join(sorted({item for value in values for item in str(value).split(",") if item}))),
-            config_ids=("config_ids", lambda values: ",".join(sorted({item for value in values for item in str(value).split(",") if item}))),
+            kernel_ids=("kernel_ids", _join_unique),
+            workload_classes=("workload_classes", _join_unique),
+            strategy_ids=("strategy_ids", _join_unique),
+            run_ids=("run_ids", _join_unique),
+            config_ids=("config_ids", _join_unique),
             recommended_actions=("recommended_actions", lambda values: "; ".join(sorted(set(values)))),
         )
         .reset_index()

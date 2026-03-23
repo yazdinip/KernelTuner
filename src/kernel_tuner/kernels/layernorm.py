@@ -30,7 +30,7 @@ def _load_triton_components():
         mask = cols < hidden_size
         x = tl.load(x_ptrs, mask=mask, other=0.0).to(tl.float32)
         mean = tl.sum(x, axis=0) / hidden_size
-        centered = x - mean
+        centered = tl.where(mask, x - mean, 0.0)
         variance = tl.sum(centered * centered, axis=0) / hidden_size
         inv_std = tl.rsqrt(variance + eps)
         y = centered * inv_std
