@@ -114,9 +114,20 @@ def _validate_environment(spec: ExperimentSpec, environment) -> None:
 def _profile_shapes(spec: ExperimentSpec, calibration_shapes) -> list:
     if not calibration_shapes:
         return []
+
+    def _shape_work_score(shape) -> tuple[int, str]:
+        score = 1
+        for value in shape.dimensions.values():
+            score *= value
+        return score, shape.shape_id
+
+    def _representative_shape(shapes):
+        ordered = sorted(shapes, key=_shape_work_score)
+        return ordered[len(ordered) // 2]
+
     policy = spec.profile_policy
     if policy is None:
-        return [calibration_shapes[0]]
+        return [_representative_shape(calibration_shapes)]
     mode = policy.shape_sampling_mode
     if mode == "all_calibration":
         selected = list(calibration_shapes)
@@ -128,12 +139,12 @@ def _profile_shapes(spec: ExperimentSpec, calibration_shapes) -> list:
         for shape in calibration_shapes:
             by_class.setdefault(shape.workload_class or "__unlabeled__", []).append(shape)
         selected = [
-            sorted(shapes, key=lambda shape: shape.shape_id)[0]
+            _representative_shape(shapes)
             for _, shapes in sorted(by_class.items())
             if shapes
         ]
     else:
-        selected = [sorted(calibration_shapes, key=lambda shape: shape.shape_id)[0]]
+        selected = [_representative_shape(calibration_shapes)]
     max_shapes = policy.max_shapes_per_config if policy else None
     if max_shapes is not None:
         selected = selected[:max_shapes]
@@ -217,6 +228,12 @@ def _validate_reportability_contract(
             )
 
 
+def _strategy_deadline(limit_s: float | None) -> float | None:
+    if limit_s is None:
+        return None
+    return time.perf_counter() + limit_s
+
+
 @contextmanager
 def _isolated_caches(spec: ExperimentSpec, store: RunStore):
     previous = os.environ.get("TRITON_CACHE_DIR")
@@ -293,6 +310,7 @@ class StrategyBroker:
         profile_shapes,
         selector_revision: SelectorRevisionSpec | None,
         deadline_s: float | None,
+        measurement_order_counter: list[int],
     ) -> None:
         self.store = store
         self.run_id = run_id
@@ -306,6 +324,9 @@ class StrategyBroker:
         self.counter_set = counter_set
         self.selector_revision = selector_revision
         self.deadline_s = deadline_s
+        self.measurement_order_counter = measurement_order_counter
+        self.remaining_benchmarks = experiment_spec.budgets.max_benchmarks
+        self.remaining_profiles = experiment_spec.budgets.max_profiles
         self._candidate_lookup = {
             (candidate.shape_id, candidate.config_id): candidate for candidate in candidate_records
         }
@@ -313,10 +334,20 @@ class StrategyBroker:
         self._profile_cache: dict[str, list[ProfileMeasurement]] = {}
         self.runtime_records: list[RuntimeMeasurement] = []
         self.profile_records: list[ProfileMeasurement] = []
-        self._measurement_order_index = 0
+
+    def _next_measurement_order_index(self) -> int:
+        index = self.measurement_order_counter[0]
+        self.measurement_order_counter[0] += 1
+        return index
 
     def _budget_exhausted(self) -> bool:
         return self.deadline_s is not None and time.perf_counter() >= self.deadline_s
+
+    def _benchmark_budget_exhausted(self) -> bool:
+        return self.remaining_benchmarks <= 0
+
+    def _profile_budget_exhausted(self) -> bool:
+        return self.remaining_profiles <= 0
 
     def benchmark_calibration(self, config_id: str) -> list[RuntimeMeasurement]:
         return self._benchmark_shapes(config_id, self.calibration_shapes, MeasurementPhase.CALIBRATION)
@@ -325,13 +356,14 @@ class StrategyBroker:
         return self._benchmark_shapes(config_id, self.held_out_shapes, MeasurementPhase.HELD_OUT)
 
     def _benchmark_shapes(self, config_id: str, shapes, phase: MeasurementPhase) -> list[RuntimeMeasurement]:
-        cache_key = (config_id, phase)
+        cache_key = (config_id, phase, tuple(shape.shape_id for shape in shapes))
         if cache_key in self._runtime_cache:
             return self._runtime_cache[cache_key]
 
         records: list[RuntimeMeasurement] = []
         for index, shape in enumerate(shapes):
-            if self._budget_exhausted():
+            enforce_budget = phase == MeasurementPhase.CALIBRATION
+            if enforce_budget and (self._budget_exhausted() or self._benchmark_budget_exhausted()):
                 skipped = RuntimeMeasurement(
                     run_id=self.run_id,
                     strategy_id=self.strategy_id,
@@ -349,14 +381,20 @@ class StrategyBroker:
                     throughput_unit=None,
                     status=RuntimeStatus.SKIPPED_BUDGET,
                     timing_backend=self.experiment_spec.benchmark_settings.timing_backend,
-                    measurement_order_index=self._measurement_order_index,
-                    error_message="wall_clock_limit_s exhausted before benchmark",
+                    measurement_order_index=self._next_measurement_order_index(),
+                    error_message=(
+                        "wall_clock_limit_s exhausted before benchmark"
+                        if self._budget_exhausted()
+                        else "benchmark budget exhausted before measurement"
+                    ),
                 )
                 records.append(skipped)
                 self.runtime_records.append(skipped)
-                self._measurement_order_index += 1
                 continue
             candidate = self._candidate_lookup[(shape.shape_id, config_id)]
+            if enforce_budget:
+                self.remaining_benchmarks -= 1
+            measurement_order_index = self._next_measurement_order_index()
             outcome = benchmark_candidate(
                 run_id=self.run_id,
                 strategy_id=self.strategy_id,
@@ -366,7 +404,7 @@ class StrategyBroker:
                 settings=self.experiment_spec.benchmark_settings,
                 seed=self.experiment_spec.seed + index,
                 measurement_phase=phase,
-                measurement_order_index=self._measurement_order_index,
+                measurement_order_index=measurement_order_index,
             )
             measurement = _register_raw_samples(
                 self.store,
@@ -377,7 +415,6 @@ class StrategyBroker:
             )
             records.append(measurement)
             self.runtime_records.append(measurement)
-            self._measurement_order_index += 1
         self._runtime_cache[cache_key] = records
         return records
 
@@ -389,7 +426,7 @@ class StrategyBroker:
 
         measurements: list[ProfileMeasurement] = []
         for shape in self.profile_shapes:
-            if self._budget_exhausted():
+            if self._budget_exhausted() or self._profile_budget_exhausted():
                 measurement = ProfileMeasurement(
                     run_id=self.run_id,
                     strategy_id=self.strategy_id,
@@ -398,12 +435,17 @@ class StrategyBroker:
                     config_id=config_id,
                     counter_set_id=self.counter_set.counter_set_id,
                     profile_status=ProfileStatus.SKIPPED_BUDGET,
-                    notes="wall_clock_limit_s exhausted before profiling",
+                    notes=(
+                        "wall_clock_limit_s exhausted before profiling"
+                        if self._budget_exhausted()
+                        else "profile budget exhausted before measurement"
+                    ),
                 )
                 self.profile_records.append(measurement)
                 measurements.append(measurement)
                 continue
             candidate = self._candidate_lookup[(shape.shape_id, config_id)]
+            self.remaining_profiles -= 1
             outcome = profile_candidate(
                 run_id=self.run_id,
                 strategy_id=self.strategy_id,
@@ -519,11 +561,6 @@ def run_experiment(
 
         kernel = resolve_kernel(kernel_spec)
         profile_shapes = _profile_shapes(experiment_spec, calibration_shapes)
-        deadline_s = (
-            time.perf_counter() + experiment_spec.budgets.wall_clock_limit_s
-            if experiment_spec.budgets.wall_clock_limit_s is not None
-            else None
-        )
         candidate_records = generate_candidate_records(experiment_spec, experiment_path=experiment_path)
         store.write_table("candidates", candidate_records)
 
@@ -551,10 +588,10 @@ def run_experiment(
             record for record in compile_signal_records if record.shape_id in {shape.shape_id for shape in calibration_shapes}
         ]
 
-        runtime_measurements: list[RuntimeMeasurement] = []
-        profile_measurements: list[ProfileMeasurement] = []
         selection_decisions = []
+        strategy_brokers: dict[str, StrategyBroker] = {}
         warnings: list[str] = []
+        measurement_order_counter = [0]
 
         for selector_mode in experiment_spec.selector_modes:
             strategy_id = _mode_name(selector_mode)
@@ -571,7 +608,8 @@ def run_experiment(
                 counter_set=counter_set,
                 profile_shapes=profile_shapes,
                 selector_revision=selector_revision,
-                deadline_s=deadline_s,
+                deadline_s=_strategy_deadline(experiment_spec.budgets.wall_clock_limit_s),
+                measurement_order_counter=measurement_order_counter,
             )
             with _isolated_caches(experiment_spec, store):
                 decision = run_selector_mode(
@@ -586,15 +624,12 @@ def run_experiment(
                     request_profile=broker.profile_calibration if counter_set is not None else None,
                     selector_revision=selector_revision,
                 )
-                if decision.selected_config_id and held_out_shapes:
-                    broker.benchmark_held_out(decision.selected_config_id)
             decision.comparison_class = _comparison_class_for_run(
                 experiment_spec,
                 counter_compatibility,
             )
+            strategy_brokers[strategy_id] = broker
             selection_decisions.append(decision)
-            runtime_measurements.extend(broker.runtime_records)
-            profile_measurements.extend(broker.profile_records)
             if decision.decision_status.startswith("failed"):
                 warnings.append(f"{strategy_id}: {decision.decision_status}")
 
@@ -613,7 +648,8 @@ def run_experiment(
                 counter_set=None,
                 profile_shapes=[],
                 selector_revision=None,
-                deadline_s=deadline_s,
+                deadline_s=_strategy_deadline(experiment_spec.budgets.wall_clock_limit_s),
+                measurement_order_counter=measurement_order_counter,
             )
             with _isolated_caches(experiment_spec, store):
                 decision = run_baseline_mode(
@@ -627,17 +663,32 @@ def run_experiment(
                     default_config=kernel_spec.default_config,
                     request_benchmark=broker.benchmark_calibration,
                 )
-                if decision.selected_config_id and held_out_shapes:
-                    broker.benchmark_held_out(decision.selected_config_id)
             decision.comparison_class = _comparison_class_for_run(
                 experiment_spec,
                 counter_compatibility,
             )
+            strategy_brokers[strategy_id] = broker
             selection_decisions.append(decision)
-            runtime_measurements.extend(broker.runtime_records)
-            profile_measurements.extend(broker.profile_records)
             if decision.decision_status.startswith("failed"):
                 warnings.append(f"{strategy_id}: {decision.decision_status}")
+
+        if held_out_shapes:
+            held_out_plan = [
+                (decision.strategy_id, strategy_brokers[decision.strategy_id], decision.selected_config_id)
+                for decision in selection_decisions
+                if decision.selected_config_id and decision.strategy_id in strategy_brokers
+            ]
+            for index, shape in enumerate(held_out_shapes):
+                ordered_plan = held_out_plan if index % 2 == 0 else list(reversed(held_out_plan))
+                for _, broker, config_id in ordered_plan:
+                    broker._benchmark_shapes(config_id, [shape], MeasurementPhase.HELD_OUT)
+
+        runtime_measurements: list[RuntimeMeasurement] = []
+        profile_measurements: list[ProfileMeasurement] = []
+        for strategy_id in [decision.strategy_id for decision in selection_decisions]:
+            broker = strategy_brokers[strategy_id]
+            runtime_measurements.extend(broker.runtime_records)
+            profile_measurements.extend(broker.profile_records)
 
         store.write_table("runtime_measurements", runtime_measurements)
         store.write_table("profile_measurements", profile_measurements)

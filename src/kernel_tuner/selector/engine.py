@@ -564,13 +564,27 @@ def run_selector_mode(
 
     runtime_scores = aggregate_runtime_scores(runtime_records)
     selected = _select_with_tolerance(runtime_scores, benchmark_order)
+    consumed_benchmarks = sum(
+        1
+        for record in runtime_records
+        if record.measurement_phase == MeasurementPhase.CALIBRATION
+        and record.status != RuntimeStatus.SKIPPED_BUDGET
+    )
+    consumed_profiles = sum(
+        1
+        for record in profiled_records
+        if record.profile_status != ProfileStatus.SKIPPED_BUDGET
+    )
+    budget_limited = any(
+        record.status == RuntimeStatus.SKIPPED_BUDGET for record in runtime_records
+    ) or any(record.profile_status == ProfileStatus.SKIPPED_BUDGET for record in profiled_records)
     if selected is None:
         decision_status = "failed_no_successful_measurements"
         rationale.append("no successful calibration measurements were available")
     else:
-        decision_status = "selected"
+        decision_status = "selected_budget_limited" if budget_limited else "selected"
         rationale.append(
-            f"benchmarked {len(benchmark_ids)} configs and selected the best score within a 2% tie band"
+            f"consumed {consumed_benchmarks} calibration benchmark rows and selected the best score within a 2% tie band"
         )
 
     return SelectionDecision(
@@ -585,10 +599,8 @@ def run_selector_mode(
         ranked_config_ids=benchmark_order,
         pruned_config_ids=pruned_ids,
         candidates_considered=len(candidate_groups),
-        benchmarks_requested=len(benchmark_ids),
-        profiles_requested=len(
-            {record.config_id for record in profiled_records if record.profile_status != ProfileStatus.SKIPPED_BUDGET}
-        ),
+        benchmarks_requested=consumed_benchmarks,
+        profiles_requested=consumed_profiles,
         decision_wall_clock_s=time.perf_counter() - started,
         rationale_summary="; ".join(rationale),
         decision_status=decision_status,

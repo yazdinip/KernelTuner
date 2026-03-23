@@ -67,6 +67,14 @@ def _percentile(sorted_samples: list[float], percentile: float) -> float:
     return sorted_samples[index]
 
 
+def _classify_launch_failure(exc: Exception) -> RuntimeStatus:
+    text = str(exc).lower()
+    compile_markers = ["compile", "ptx", "ptxas", "nvrtc", "llvm", "codegen"]
+    if any(marker in text for marker in compile_markers):
+        return RuntimeStatus.COMPILE_FAILED
+    return RuntimeStatus.RUNTIME_FAILED
+
+
 def benchmark_candidate(
     *,
     run_id: str,
@@ -113,14 +121,46 @@ def benchmark_candidate(
                 shape_id=shape.shape_id,
                 config_id=candidate.config_id,
                 settings=settings,
-                status=RuntimeStatus.COMPILE_FAILED,
+                status=_classify_launch_failure(exc),
                 measurement_order_index=measurement_order_index,
                 error_message=str(exc),
             )
         )
 
-    reference = kernel.reference_impl(inputs, kernel.spec.correctness_policy)
-    if not kernel.validate_output(output, reference, kernel.spec.correctness_policy):
+    try:
+        reference = kernel.reference_impl(inputs, kernel.spec.correctness_policy)
+        if not kernel.validate_output(output, reference, kernel.spec.correctness_policy):
+            return BenchmarkOutcome(
+                measurement=_status_measurement(
+                    run_id=run_id,
+                    strategy_id=strategy_id,
+                    measurement_phase=measurement_phase,
+                    kernel_id=kernel.spec.kernel_id,
+                    shape_id=shape.shape_id,
+                    config_id=candidate.config_id,
+                    settings=settings,
+                    status=RuntimeStatus.RUNTIME_FAILED,
+                    measurement_order_index=measurement_order_index,
+                    error_message="correctness validation failed",
+                )
+            )
+
+        stream = torch.cuda.Stream()
+        with torch.cuda.stream(stream):
+            for _ in range(settings.warmup_iterations):
+                kernel.run_kernel(inputs, shape, config)
+            stream.synchronize()
+
+            samples: list[float] = []
+            for _ in range(settings.timed_iterations):
+                start = torch.cuda.Event(enable_timing=True)
+                end = torch.cuda.Event(enable_timing=True)
+                start.record(stream)
+                kernel.run_kernel(inputs, shape, config)
+                end.record(stream)
+                end.synchronize()
+                samples.append(start.elapsed_time(end) * 1000.0)
+    except Exception as exc:
         return BenchmarkOutcome(
             measurement=_status_measurement(
                 run_id=run_id,
@@ -132,25 +172,9 @@ def benchmark_candidate(
                 settings=settings,
                 status=RuntimeStatus.RUNTIME_FAILED,
                 measurement_order_index=measurement_order_index,
-                error_message="correctness validation failed",
+                error_message=str(exc),
             )
         )
-
-    stream = torch.cuda.Stream()
-    with torch.cuda.stream(stream):
-        for _ in range(settings.warmup_iterations):
-            kernel.run_kernel(inputs, shape, config)
-        stream.synchronize()
-
-        samples: list[float] = []
-        for _ in range(settings.timed_iterations):
-            start = torch.cuda.Event(enable_timing=True)
-            end = torch.cuda.Event(enable_timing=True)
-            start.record(stream)
-            kernel.run_kernel(inputs, shape, config)
-            end.record(stream)
-            end.synchronize()
-            samples.append(start.elapsed_time(end) * 1000.0)
 
     sorted_samples = sorted(samples)
     median_us = statistics.median(sorted_samples)

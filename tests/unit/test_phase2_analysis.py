@@ -4,11 +4,19 @@ from pathlib import Path
 import pandas as pd
 
 from kernel_tuner.analysis.comparison import (
+    _aggregate_opportunities,
     _build_stability_report,
     _build_strategy_rows,
+    _compare_hypothesis_values,
     _evaluate_hypotheses,
 )
-from kernel_tuner.common.schema import HypothesisClause, HypothesisMetricRef, HypothesisSpec, StudySpec
+from kernel_tuner.common.schema import (
+    HypothesisClause,
+    HypothesisComparator,
+    HypothesisMetricRef,
+    HypothesisSpec,
+    StudySpec,
+)
 from kernel_tuner.analysis.opportunities import (
     build_bottleneck_signatures,
     build_counter_availability_records,
@@ -254,6 +262,73 @@ def test_evaluate_hypotheses_uses_clause_based_metrics():
     results = _evaluate_hypotheses(study, strategy_rows, stability_report)
 
     assert results.iloc[0]["status"] == "supported"
+
+
+def test_less_than_or_equal_comparator_allows_small_regression_within_delta():
+    supported = _compare_hypothesis_values(
+        1.01,
+        1.00,
+        HypothesisComparator.LESS_THAN_OR_EQUAL,
+        0.02,
+    )
+
+    assert supported is True
+
+
+def test_aggregate_opportunities_uses_weighted_regret_and_preserves_provenance():
+    aggregated = _aggregate_opportunities(
+        [
+            {
+                "group_id": "gemm_representative",
+                "summary": {"run_id": "run_a"},
+                "experiment_spec": type("Spec", (), {"experiment_id": "gemm_reportable"})(),
+                "opportunity_catalog": pd.DataFrame(
+                    [
+                        {
+                            "opportunity_tag": "selector_revision_candidate",
+                            "occurrences": 2,
+                            "selected_regret_count": 1,
+                            "regret_weight": 2,
+                            "avg_regret_to_best_measured": 0.20,
+                            "kernel_ids": "gemm",
+                            "workload_classes": "square_compute",
+                            "strategy_ids": "prune_rank",
+                            "run_ids": "run_a",
+                            "config_ids": "cfg_a",
+                            "recommended_actions": "investigate",
+                        }
+                    ]
+                ),
+            },
+            {
+                "group_id": "gemm_representative",
+                "summary": {"run_id": "run_b"},
+                "experiment_spec": type("Spec", (), {"experiment_id": "gemm_reportable"})(),
+                "opportunity_catalog": pd.DataFrame(
+                    [
+                        {
+                            "opportunity_tag": "selector_revision_candidate",
+                            "occurrences": 1,
+                            "selected_regret_count": 1,
+                            "regret_weight": 1,
+                            "avg_regret_to_best_measured": 0.05,
+                            "kernel_ids": "gemm",
+                            "workload_classes": "m_dominant",
+                            "strategy_ids": "prune_rank_revised",
+                            "run_ids": "run_b",
+                            "config_ids": "cfg_b",
+                            "recommended_actions": "investigate",
+                        }
+                    ]
+                ),
+            },
+        ]
+    )
+
+    row = aggregated.iloc[0]
+    assert row["avg_regret_to_best_measured"] == (0.20 * 2 + 0.05 * 1) / 3
+    assert row["run_ids"] == "run_a,run_b"
+    assert row["strategy_ids"] == "prune_rank,prune_rank_revised"
 
 
 def test_opportunity_catalog_contains_expected_template():

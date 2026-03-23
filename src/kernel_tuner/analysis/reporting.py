@@ -38,9 +38,11 @@ def _load_required_manifest(run_dir: Path):
     return RunStore.from_run_dir(run_dir).load_manifest()
 
 
-def _load_table(store: RunStore, logical_name: str) -> pd.DataFrame:
+def _load_table(store: RunStore, logical_name: str, *, required: bool = False) -> pd.DataFrame:
     path = store.run_dir / f"{logical_name}.parquet"
     if not path.exists():
+        if required:
+            raise FileNotFoundError(f"run directory '{store.run_dir}' is missing required artifact '{logical_name}.parquet'")
         return pd.DataFrame()
     return store.load_table(logical_name)
 
@@ -247,10 +249,14 @@ def summarize_run(run_dir: str | Path) -> dict[str, object]:
     experiment_spec = load_experiment_spec(source_experiment_path)
     kernel_spec = load_kernel_spec(kernel_config_path(experiment_spec.kernels[0], source_experiment_path))
 
-    compile_signals = _load_table(store, "compile_signals")
-    runtime_measurements = _load_table(store, "runtime_measurements")
-    profile_measurements = _load_table(store, "profile_measurements")
-    selection_decisions = _load_table(store, "selection_decisions")
+    compile_signals = _load_table(store, "compile_signals", required=True)
+    runtime_measurements = _load_table(store, "runtime_measurements", required=True)
+    profile_measurements = _load_table(
+        store,
+        "profile_measurements",
+        required=bool(experiment_spec.counter_set_id),
+    )
+    selection_decisions = _load_table(store, "selection_decisions", required=True)
 
     selection_decisions = _decode_jsonish_columns(selection_decisions, ["score_map", "calibration_metadata"])
     profile_measurements = _decode_jsonish_columns(profile_measurements, ["counter_map", "profiler_metadata"])
@@ -400,12 +406,30 @@ def summarize_run(run_dir: str | Path) -> dict[str, object]:
         and "shape_id" in runtime_measurements.columns
         else 0
     )
+    policy = experiment_spec.reportability_policy
+    held_out_per_class = (
+        held_out_per_shape.groupby("workload_class", dropna=False)["shape_id"].nunique().to_dict()
+        if not held_out_per_shape.empty and "workload_class" in held_out_per_shape.columns
+        else {}
+    )
+    comparison_classes = {value for value in comparison_class_by_strategy.values() if value is not None}
+    matched_budget_only = bool(comparison_classes) and comparison_classes == {"matched_budget"}
+    decision_statuses = set(selection_decisions["decision_status"].dropna().astype(str)) if "decision_status" in selection_decisions.columns else set()
+    has_budget_limited_decision = any(status.endswith("budget_limited") for status in decision_statuses)
     is_reportable = bool(
         experiment_spec.study_kind == "reportable"
-        and held_out_shape_count > 0
-        and all(value == "matched_budget" for value in comparison_class_by_strategy.values())
+        and held_out_shape_count >= policy.minimum_held_out_shapes
+        and matched_budget_only
+        and not has_budget_limited_decision
         and (not counter_compatibility or counter_compatibility.get("acceptable", True))
         and (not counter_availability_ok or all(counter_availability_ok.values()))
+        and (
+            policy.minimum_held_out_per_workload_class == 0
+            or (
+                held_out_per_class
+                and all(count >= policy.minimum_held_out_per_workload_class for count in held_out_per_class.values())
+            )
+        )
     )
 
     winner_rates = (
@@ -454,6 +478,7 @@ def summarize_run(run_dir: str | Path) -> dict[str, object]:
             "profile_failures": profile_failures,
             "comparison_class_by_strategy": comparison_class_by_strategy,
             "held_out_shape_count": held_out_shape_count,
+            "held_out_shape_count_by_workload_class": held_out_per_class,
             "counter_availability": counter_availability_ok,
             "winner_rates": winner_rates,
             "opportunity_counts": summarize_opportunity_counts(signatures_frame),
@@ -473,6 +498,8 @@ def summarize_run(run_dir: str | Path) -> dict[str, object]:
             "target": experiment_spec.analysis_settings.reportability_target,
             "is_reportable": is_reportable,
             "comparison_class": "matched_budget" if is_reportable else "non_comparable",
+            "matched_budget_only": matched_budget_only,
+            "budget_limited_decision_present": has_budget_limited_decision,
             "counter_set_accepted": all(counter_availability_ok.values()) if counter_availability_ok else True,
             "counter_compatibility": counter_compatibility,
         },

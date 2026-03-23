@@ -73,7 +73,11 @@ def compare_runs(
     store.initialize_manifest(manifest)
     try:
         run_payloads = _resolve_run_payloads(study_spec, study_path)
+        if not run_payloads:
+            raise ValueError("no study runs matched the configured groups and filters")
         strategy_rows = _build_strategy_rows(run_payloads)
+        if strategy_rows.empty:
+            raise ValueError("no held-out strategy rows were available after loading matched study runs")
         stability_report = _build_stability_report(strategy_rows)
         hypothesis_results = _evaluate_hypotheses(study_spec, strategy_rows, stability_report)
         opportunity_catalog = _aggregate_opportunities(run_payloads)
@@ -288,7 +292,10 @@ def _build_strategy_rows(run_payloads: list[dict[str, Any]]) -> pd.DataFrame:
             if not counter_availability.empty
             else {}
         )
-        for workload_class in sorted(held_out["workload_class"].dropna().unique()):
+        workload_classes = sorted(held_out["workload_class"].dropna().unique())
+        if not workload_classes:
+            continue
+        for workload_class in workload_classes:
             subset = held_out[held_out["workload_class"] == workload_class].copy()
             pivot = subset.pivot(index="shape_id", columns="strategy_id", values="latency_median_us")
             for strategy_id in pivot.columns:
@@ -486,10 +493,12 @@ def _evaluate_clause(
         right_value = clause.right_constant
     supported = _compare_hypothesis_values(left_value, right_value, clause.comparator, clause.minimum_delta)
     comparator_name = clause.comparator.value if hasattr(clause.comparator, "value") else str(clause.comparator)
+    delta = left_value - right_value
     evidence = (
         f"{clause.left.metric}={left_value:.4f} "
         f"{comparator_name} "
-        f"{right_value:.4f} with minimum_delta={clause.minimum_delta:.4f}"
+        f"{right_value:.4f} with minimum_delta={clause.minimum_delta:.4f} "
+        f"(observed_delta={delta:.4f})"
     )
     return {"status": "ok", "supported": supported, "evidence": evidence}
 
@@ -543,9 +552,9 @@ def _compare_hypothesis_values(
     if name == HypothesisComparator.GREATER_THAN_OR_EQUAL.value:
         return left >= right + minimum_delta
     if name == HypothesisComparator.LESS_THAN.value:
-        return left < right - minimum_delta
+        return left < right + minimum_delta
     if name == HypothesisComparator.LESS_THAN_OR_EQUAL.value:
-        return left <= right - minimum_delta
+        return left <= right + minimum_delta
     raise ValueError(f"unsupported hypothesis comparator '{comparator}'")
 
 
@@ -563,17 +572,37 @@ def _aggregate_opportunities(run_payloads: list[dict[str, Any]]) -> pd.DataFrame
     if not rows:
         return pd.DataFrame()
     combined = pd.concat(rows, ignore_index=True)
+    combined["weighted_regret_sum"] = (
+        pd.to_numeric(combined.get("avg_regret_to_best_measured"), errors="coerce").fillna(0.0)
+        * pd.to_numeric(combined.get("regret_weight"), errors="coerce").fillna(0.0)
+    )
     aggregated = (
         combined.groupby("opportunity_tag", dropna=False)
         .agg(
             occurrences=("occurrences", "sum"),
             selected_regret_count=("selected_regret_count", "sum"),
+            regret_weight=("regret_weight", "sum"),
+            weighted_regret_sum=("weighted_regret_sum", "sum"),
             avg_regret_to_best_measured=("avg_regret_to_best_measured", "mean"),
+            kernel_ids=("kernel_ids", lambda values: ",".join(sorted({item for value in values for item in str(value).split(",") if item}))),
+            workload_classes=("workload_classes", lambda values: ",".join(sorted({item for value in values for item in str(value).split(",") if item}))),
+            strategy_ids=("strategy_ids", lambda values: ",".join(sorted({item for value in values for item in str(value).split(",") if item}))),
+            run_ids=("run_ids", lambda values: ",".join(sorted({item for value in values for item in str(value).split(",") if item}))),
+            config_ids=("config_ids", lambda values: ",".join(sorted({item for value in values for item in str(value).split(",") if item}))),
             recommended_actions=("recommended_actions", lambda values: "; ".join(sorted(set(values)))),
         )
         .reset_index()
         .sort_values(by=["selected_regret_count", "occurrences", "opportunity_tag"], ascending=[False, False, True])
     )
+    aggregated["avg_regret_to_best_measured"] = aggregated.apply(
+        lambda row: (
+            row["weighted_regret_sum"] / row["regret_weight"]
+            if row["regret_weight"] and not pd.isna(row["regret_weight"])
+            else row["avg_regret_to_best_measured"]
+        ),
+        axis=1,
+    )
+    aggregated = aggregated.drop(columns=["weighted_regret_sum"])
     return aggregated
 
 
@@ -660,6 +689,7 @@ def _build_evidence_bundle(
     hypothesis_results: pd.DataFrame,
     run_payloads: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    opportunity_catalog = _aggregate_opportunities(run_payloads)
     return {
         "run_count": len(run_payloads),
         "runs": [
@@ -675,6 +705,7 @@ def _build_evidence_bundle(
         "strategy_summary": _strategy_summary(strategy_rows),
         "stability_report": stability_report.to_dict(orient="records"),
         "hypothesis_results": hypothesis_results.to_dict(orient="records"),
+        "opportunity_catalog": opportunity_catalog.to_dict(orient="records"),
     }
 
 
