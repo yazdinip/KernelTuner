@@ -5,6 +5,7 @@ import math
 import pandas as pd
 
 from kernel_tuner.analysis.reporting import _pairwise_speedups, summarize_run
+from kernel_tuner.common.config import load_experiment_spec
 from kernel_tuner.common.provenance import capture_environment_metadata, capture_invocation_metadata
 from kernel_tuner.common.schema import Manifest
 from kernel_tuner.storage import RunStore
@@ -52,3 +53,35 @@ def test_summarize_run_falls_back_to_manifest_experiment_config(tmp_path):
 
     assert summary["experiment_id"] == "gemm_smoke"
     assert summary["run_id"] == "run_001"
+
+
+def test_summarize_run_marks_counter_set_unaccepted_when_compatibility_fails(tmp_path):
+    experiment_path = Path("configs/experiments/gemm_reportable.yaml").resolve()
+    experiment_spec = load_experiment_spec(experiment_path)
+    store = RunStore(tmp_path / "artifacts", "test_experiment", "run_compat")
+    manifest = Manifest(
+        experiment_id="test_experiment",
+        run_id="run_compat",
+        created_at_utc=datetime.now(timezone.utc),
+        environment=capture_environment_metadata("."),
+        invocation=capture_invocation_metadata(
+            "pytest",
+            experiment_config_path=str(experiment_path),
+        ),
+        artifact_files=[],
+    )
+    store.initialize_manifest(manifest)
+    store.write_experiment_spec(experiment_spec)
+    store.write_json_artifact(
+        "counter_compatibility",
+        {
+            "counter_set_id": "shared_diag",
+            "acceptable": False,
+            "diagnostic_only": True,
+        },
+        filename="counter_compatibility.json",
+    )
+
+    summary = summarize_run(store.run_dir)
+
+    assert summary["reportability"]["counter_set_accepted"] is False

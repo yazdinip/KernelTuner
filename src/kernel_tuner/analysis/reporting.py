@@ -477,7 +477,8 @@ def summarize_run(run_dir: str | Path) -> dict[str, object]:
             "target": experiment_spec.analysis_settings.reportability_target,
             "is_reportable": is_reportable,
             "comparison_class": "matched_budget" if is_reportable else "non_comparable",
-            "counter_set_accepted": all(counter_availability_ok.values()) if counter_availability_ok else True,
+            "counter_set_accepted": bool(counter_compatibility.get("acceptable", True))
+            and (all(counter_availability_ok.values()) if counter_availability_ok else True),
             "counter_compatibility": counter_compatibility,
         },
         uncertainty_metrics={

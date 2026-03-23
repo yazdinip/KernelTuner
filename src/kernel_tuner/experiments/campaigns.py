@@ -174,6 +174,8 @@ def _materialize_run_matrix(
                                     "selector_revision_id": selector_revision_id or None,
                                     "execution_mode": (
                                         template.execution_mode.value
+                                        if hasattr(template.execution_mode, "value")
+                                        else str(template.execution_mode)
                                         if template.execution_mode is not None
                                         else None
                                     ),
@@ -233,7 +235,19 @@ def _execute_campaign(run_dir: Path) -> dict[str, object]:
 
     if all(job["status"] == "success" for job in jobs):
         study_results = []
+        available_templates = {str(job["template_id"]) for job in jobs if job.get("template_id")}
         for study_binding in campaign_spec.studies:
+            required_templates = set(study_binding.requires_templates)
+            missing_templates = sorted(required_templates - available_templates)
+            if missing_templates:
+                study_results.append(
+                    {
+                        "study_id": study_binding.study_id,
+                        "status": "skipped_requires_templates",
+                        "missing_templates": missing_templates,
+                    }
+                )
+                continue
             study_path = (
                 Path(study_binding.study_path).resolve()
                 if study_binding.study_path

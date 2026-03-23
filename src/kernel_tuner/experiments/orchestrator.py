@@ -186,10 +186,11 @@ def _validate_reportability_contract(
     calibration_shapes,
     held_out_shapes,
     compatibility: CounterCompatibilityRecord | None,
-) -> None:
+) -> list[str]:
     policy = spec.reportability_policy
+    warnings: list[str] = []
     if not policy.enforce_preflight:
-        return
+        return warnings
     if spec.study_kind == StudyKind.REPORTABLE:
         if len(calibration_shapes) < policy.minimum_calibration_shapes:
             raise RuntimeError(
@@ -212,9 +213,20 @@ def _validate_reportability_contract(
                     "reportable run does not satisfy minimum held-out shapes per workload class"
                 )
         if compatibility is not None and policy.abort_on_incompatible_counter_set and not compatibility.acceptable:
-            raise RuntimeError(
-                f"counter set '{compatibility.counter_set_id}' is not acceptable for reportable use"
-            )
+            if (
+                spec.profile_policy is not None
+                and spec.profile_policy.availability_failure_mode == "downgrade_to_diagnostic"
+            ):
+                warnings.append(
+                    "counter set "
+                    f"'{compatibility.counter_set_id}' is not acceptable for reportable use; "
+                    "downgrading this run to diagnostic/non-comparable evidence"
+                )
+            else:
+                raise RuntimeError(
+                    f"counter set '{compatibility.counter_set_id}' is not acceptable for reportable use"
+                )
+    return warnings
 
 
 @contextmanager
@@ -494,7 +506,7 @@ def run_experiment(
     try:
         _validate_environment(experiment_spec, environment)
         calibration_shapes, held_out_shapes = _shape_split(experiment_spec)
-        _validate_reportability_contract(
+        warnings = _validate_reportability_contract(
             experiment_spec,
             calibration_shapes,
             held_out_shapes,
@@ -554,8 +566,6 @@ def run_experiment(
         runtime_measurements: list[RuntimeMeasurement] = []
         profile_measurements: list[ProfileMeasurement] = []
         selection_decisions = []
-        warnings: list[str] = []
-
         for selector_mode in experiment_spec.selector_modes:
             strategy_id = _mode_name(selector_mode)
             broker = StrategyBroker(
