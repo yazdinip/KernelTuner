@@ -1,7 +1,7 @@
 study_id: validation_phase
 hypotheses:
   - hypothesis_id: H1
-    description: Cheap compile signals prune obvious losers, but do not reliably rank near-tied GEMM configs.
+    description: Cheap compile signals prune obvious losers, but produce noticeably unstable ranking quality on representative GEMM workloads.
     clauses:
       - left:
           source: strategy_rows

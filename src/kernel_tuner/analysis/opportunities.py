@@ -7,11 +7,7 @@ from typing import Any
 
 import pandas as pd
 
-from kernel_tuner.common.schema import (
-    BottleneckSignatureRecord,
-    CounterAvailabilityRecord,
-    ExperimentSpec,
-)
+from kernel_tuner.common.schema import BottleneckSignatureRecord, CounterAvailabilityRecord, ExperimentSpec, ProfileStatus
 
 
 def _quantile_bucket(series: pd.Series, value: float | None) -> str:
@@ -40,7 +36,9 @@ def build_counter_availability_records(
         return []
 
     usable = profile_measurements[
-        profile_measurements["profile_status"].isin(["success", "unsupported_counter"])
+        profile_measurements["profile_status"].isin(
+            [ProfileStatus.SUCCESS, ProfileStatus.UNSUPPORTED_COUNTER]
+        )
     ].copy()
     if usable.empty:
         return []
@@ -265,9 +263,13 @@ def build_opportunity_catalog(signatures: pd.DataFrame) -> pd.DataFrame:
                 "opportunity_tag": opportunity_tag,
                 "occurrences": len(subset),
                 "selected_regret_count": int((subset["held_out_outcome"] == "selected_regret").sum()),
+                "regret_weight": int(subset["regret_to_best_measured"].dropna().shape[0]),
                 "avg_regret_to_best_measured": subset["regret_to_best_measured"].dropna().mean(),
                 "kernel_ids": ",".join(sorted(subset["kernel_id"].dropna().unique())),
                 "workload_classes": ",".join(sorted(value for value in subset["workload_class"].dropna().unique())),
+                "strategy_ids": ",".join(sorted(value for value in subset["strategy_id"].dropna().astype(str).unique())),
+                "run_ids": ",".join(sorted(value for value in subset["run_id"].dropna().astype(str).unique())),
+                "config_ids": ",".join(sorted(value for value in subset["config_id"].dropna().astype(str).unique())),
                 "recommended_actions": "; ".join(action),
             }
         )

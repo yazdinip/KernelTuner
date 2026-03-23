@@ -11,7 +11,9 @@ from kernel_tuner.common.schema import (
     BaselineMode,
     CandidateConfig,
     ComparisonClass,
+    MeasurementPhase,
     RuntimeMeasurement,
+    RuntimeStatus,
     SelectionDecision,
 )
 from kernel_tuner.config_space.generator import config_dict_from_record
@@ -145,7 +147,17 @@ def run_baseline_mode(
         runtime_records.extend(request_benchmark(config_id))
     runtime_scores = aggregate_runtime_scores(runtime_records)
     selected = min(runtime_scores, key=lambda config_id: (runtime_scores[config_id], config_id)) if runtime_scores else None
-    decision_status = "selected" if selected is not None else "failed_no_successful_measurements"
+    consumed_benchmarks = sum(
+        1
+        for record in runtime_records
+        if record.measurement_phase == MeasurementPhase.CALIBRATION
+        and record.status != RuntimeStatus.SKIPPED_BUDGET
+    )
+    budget_limited = any(record.status == RuntimeStatus.SKIPPED_BUDGET for record in runtime_records)
+    if selected is None:
+        decision_status = "failed_no_successful_measurements"
+    else:
+        decision_status = "selected_budget_limited" if budget_limited else "selected"
     return SelectionDecision(
         run_id=run_id,
         strategy_id=strategy_id,
@@ -159,7 +171,7 @@ def run_baseline_mode(
         ranked_config_ids=benchmark_ids,
         pruned_config_ids=[],
         candidates_considered=len(ordered_ids),
-        benchmarks_requested=len(benchmark_ids),
+        benchmarks_requested=consumed_benchmarks,
         profiles_requested=0,
         decision_wall_clock_s=time.perf_counter() - started,
         rationale_summary="; ".join(rationale),
