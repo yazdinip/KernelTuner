@@ -44,6 +44,19 @@ Depends On: [01_research_program.md](01_research_program.md), [06_hypotheses_and
 | `F7` | opportunity-guided revised selector case study | measured failure analysis can motivate a better heuristic | revised-selector comparison plus opportunity log |
 | `F8` | bottleneck or opportunity distribution across workload classes | failure modes are structured rather than random | bottleneck signatures and opportunity catalog |
 
+## Current Figure Readiness
+
+| Figure ID | Current Readiness | Notes |
+| --- | --- | --- |
+| `F1` | Provisionally backed | the first validation batch already contains representative GEMM strategy results by workload class; a second confirmation batch would strengthen it |
+| `F2` | Provisionally backed | aligned-vs-representative evidence exists from the first validation batch, but the paired comparison should be tightened before paper freeze |
+| `F3` | Not ready | the first batch did not support `H2`; targeted LayerNorm follow-up is still required |
+| `F4` | Provisionally backed | repeatability and robustness evidence exists, but final paper usage should rely on archived or reproduced artifacts |
+| `F5` | Provisionally backed | Tier 1 counter-set acceptance has live evidence on the current A6000 stack |
+| `F6` | Provisionally backed | first-batch correlation artifacts exist; they still need interpretation and likely pruning for the final paper |
+| `F7` | Not ready | the current revised-selector batch did not justify the figure yet |
+| `F8` | Provisionally backed | bottleneck-signature and opportunity artifacts exist, but the opportunity log still needs one more evidence-backed cycle |
+
 ## Figure Readiness Rules
 
 A figure is ready for the paper only when:
@@ -51,6 +64,11 @@ A figure is ready for the paper only when:
 - its source study is reportable or explicitly labeled diagnostic,
 - the relevant hypothesis status is up to date,
 - and the figure can be reproduced from recorded artifacts without manual hidden steps.
+
+Current caution:
+
+- the first validation batch is useful for planning and interpretation, but some artifacts still live in expiring scratch paths
+- any figure promoted into the final paper should come from archived or rerun evidence with stable provenance
 
 ## What Counts As Unproductive Experimentation
 

@@ -84,6 +84,22 @@ A hypothesis remains inconclusive when:
 - the run matrix is incomplete,
 - or the observed effect size is too unstable to distinguish from noise.
 
+## Status Interpretation Discipline
+
+Generated study outputs use the labels `supported`, `unsupported`, and `inconclusive` for the current evaluated batch.
+
+Interpret these labels carefully:
+
+- `supported` means the current batch satisfied the pre-registered support criterion
+- `unsupported` means the current batch did not satisfy the support criterion
+- `unsupported` does **not** automatically mean the project should treat the hypothesis as finally rejected
+- promotion from a batch-level result to a stronger project-level conclusion must pass through the evidence registry and survive at least one appropriate confirmation or follow-up batch
+
+Practical rule:
+
+- the study output is the automated comparison result
+- the evidence registry is the authoritative record of how much confidence the project currently places in that result
+
 ## Hypothesis Cross-Reference
 
 | Hypothesis | Required Workloads | Required Signals | Required Runs | Required Figures |

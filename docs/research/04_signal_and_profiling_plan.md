@@ -48,30 +48,45 @@ Used for GEMM reportable studies.
 
 - `sm__warps_active.avg.pct_of_peak_sustained_active`
 - `smsp__inst_executed.sum`
-- `smsp__inst_executed_pipe_tensor_op_hmma`
-- `smsp__pipe_tensor_op_hmma_cycles_active`
-- `smsp__warp_issue_stalled_math_pipe_throttle_per_warp_active`
-- `smsp__warp_issue_stalled_long_scoreboard_per_warp_active`
+- `smsp__inst_executed_pipe_tensor_op_hmma.avg`
+- `smsp__pipe_tensor_op_hmma_cycles_active.avg`
+- `smsp__warp_issue_stalled_math_pipe_throttle_per_warp_active.pct`
+- `smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct`
+
+Operational notes:
+
+- reportable use now assumes `kernel_name_regex: matmul_kernel`
+- live validation on the pinned `RTX A6000` stack established `6/6` counter availability when `ncu` is on `PATH`
 
 ### `memory_lite`
 
 Used for LayerNorm reportable studies.
 
-- `dram__bytes`
-- `dram__throughput`
-- `l1tex__t_bytes_pipe_lsu_mem_global_op_ld`
+- `dram__bytes.avg`
+- `dram__throughput.avg.pct_of_peak_sustained_elapsed`
+- `l1tex__t_bytes_pipe_lsu_mem_global_op_ld.avg`
 - `l1tex__t_sector_pipe_lsu_mem_global_op_ld_hit_rate`
-- `smsp__warp_issue_stalled_lg_throttle_per_warp_active`
-- `smsp__warp_issue_stalled_long_scoreboard_per_warp_active`
+- `smsp__warp_issue_stalled_lg_throttle_per_warp_active.pct`
+- `smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct`
+
+Operational notes:
+
+- reportable use now assumes `kernel_name_regex: layer_norm_kernel`
+- live validation on the pinned `RTX A6000` stack established `6/6` counter availability when `ncu` is on `PATH`
 
 ### `shared_diag`
 
 Diagnostic-only.
 
-- `l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld`
-- `l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st`
-- `l1tex__data_pipe_lsu_wavefronts_mem_shared`
-- `smsp__warp_issue_stalled_short_scoreboard_per_warp_active`
+- `l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.avg`
+- `l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.avg`
+- `l1tex__data_pipe_lsu_wavefronts_mem_shared.avg`
+- `smsp__warp_issue_stalled_short_scoreboard_per_warp_active.pct`
+
+Operational notes:
+
+- this set remains diagnostic-only even when availability is high
+- it is appropriate for explanation and case studies, not matched-budget superiority claims
 
 ## Signal Family Plan
 
@@ -87,11 +102,49 @@ Diagnostic-only.
 | lg throttle | is the LSU path saturated or pressured? | memory latency and LSU pressure | different access granularity, more reuse, staging | often needs to be interpreted together with throughput and scoreboard |
 | shared-memory conflict counters | is local memory organization itself a limiter? | shared-memory conflict/pressure | layout changes, block-shape changes | diagnostic-only until availability and stability are proven |
 
+## Attribution And Status Discipline
+
+Tier 1 profiling is only scientifically useful if the profiler row can be attributed to the intended Triton kernel.
+
+Current rules:
+
+- reportable Tier 1 counter sets must declare `kernel_name_regex`
+- the profiler must either attribute one intended kernel row or mark the measurement as unusable
+- ambiguous or unattributable profiler output should be recorded explicitly rather than treated as partially successful evidence
+
+Current profiler status meanings:
+
+| Status | Meaning | Reportable Tier 1 Use |
+| --- | --- | --- |
+| `success` | counters were collected and attributed cleanly | yes |
+| `unsupported_counter` | Nsight ran but one or more requested counters were unavailable | only if the counter-availability threshold still passes |
+| `no_profile_data` | profiler output could not be attributed to the intended kernel row | no |
+| `timeout` | profiling exceeded the configured timeout | no |
+| `invocation_failed` | Nsight invocation failed for reasons other than unsupported counters | no |
+| `tool_unavailable` | `ncu` is not available in the environment | no |
+
 ## Reportable Signal Rules
 
 - Tier 1 counters only count as reportable evidence if the configured availability threshold is met.
+- Tier 1 counters only count as reportable evidence if kernel attribution is defensible.
 - If a counter set falls below the threshold, it is downgraded to diagnostic-only for that batch.
 - Diagnostic-only results may explain a case study, but they may not support matched-budget superiority claims by themselves.
+
+## Current Operational Status
+
+As of March 26, 2026:
+
+- `compute_lite` and `memory_lite` have both passed live validation on the current `RTX A6000` environment
+- `shared_diag` remains intentionally diagnostic-only
+- a fresh GPU shell may still require explicit CUDA path export before `ncu` is visible
+
+Operational requirement on fresh shells:
+
+- use `scripts/bootstrap_env.sh` when possible
+- if the shell still does not expose `ncu`, export:
+  - `CUDA_HOME=/usr/local/cuda-12.9`
+  - `PATH=$CUDA_HOME/bin:$PATH`
+  - `LD_LIBRARY_PATH=$CUDA_HOME/lib64:${LD_LIBRARY_PATH:-}`
 
 ## Counter Availability Risk
 

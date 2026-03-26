@@ -25,9 +25,15 @@ This package is the paper backbone. It should make it possible to answer:
 ## How To Use This Package
 
 1. Read the backbone docs in order.
-2. Check the living registries to see the current evidence state and open opportunities.
+2. Check the living registries to see the current evidence state, open opportunities, and which hypotheses are only provisionally answered.
 3. Read the latest entries in `logs/` for chronological context.
 4. Cross-reference back to `docs/04_experiment_protocol.md` and `docs/specs/` whenever a research idea implies a new implementation requirement.
+
+Current project phase:
+
+- the backbone is now relatively stable
+- the main moving documents are the evidence registry, opportunity log, and dated logs
+- the package is in execution-and-interpretation mode rather than tooling-definition mode
 
 ## Reading Order
 
