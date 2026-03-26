@@ -610,6 +610,7 @@ class SelectorRevisionSpec(KTModel):
     parent_selector_mode: SelectorMode = SelectorMode.PRUNE_RANK_PROFILED
     linked_opportunity_tags: list[str] = Field(default_factory=list)
     prune_rules: list[SelectorPruneRule] = Field(default_factory=list)
+    frontier_ranking_features: list[SelectorRankingFeature] = Field(default_factory=list)
     ranking_features: list[SelectorRankingFeature] = Field(default_factory=list)
     tie_break_relative_tolerance: float = 0.02
     notes: str | None = None

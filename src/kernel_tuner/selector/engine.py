@@ -324,6 +324,29 @@ def _revised_profile_rank_key(
     )
 
 
+def _config_feature_value(
+    config_id: str,
+    feature_name: str,
+    candidate_groups: dict[str, list[CandidateConfig]],
+) -> float | int | bool | None:
+    candidates = candidate_groups.get(config_id)
+    if not candidates:
+        return None
+    config = candidates[0].config
+    if feature_name in config:
+        return config[feature_name]
+    block_m = config.get("block_m")
+    block_n = config.get("block_n")
+    if feature_name == "tile_area" and block_m is not None and block_n is not None:
+        return block_m * block_n
+    if feature_name == "shape_balance" and block_m is not None and block_n is not None:
+        larger = max(block_m, block_n)
+        if larger <= 0:
+            return None
+        return min(block_m, block_n) / larger
+    return None
+
+
 def _metric_value(
     *,
     config_id: str,
@@ -331,11 +354,14 @@ def _metric_value(
     source: str,
     compile_summary: dict[str, dict[str, float | int | bool | None]],
     profile_metrics: dict[str, dict[str, float | None]],
+    candidate_groups: dict[str, list[CandidateConfig]],
 ) -> float | int | bool | None:
     if source == "compile":
         return compile_summary.get(config_id, {}).get(feature_name)
     if source == "profile":
         return profile_metrics.get(config_id, {}).get(feature_name)
+    if source == "config":
+        return _config_feature_value(config_id, feature_name, candidate_groups)
     raise ValueError(f"unsupported selector feature source '{source}'")
 
 
@@ -358,20 +384,22 @@ def _compare_rule(value: float | int | bool | None, comparator: str, threshold: 
     raise ValueError(f"unsupported prune comparator '{comparator}'")
 
 
-def _revision_rank_key(
+def _feature_rank_key(
     config_id: str,
-    selector_revision: SelectorRevisionSpec,
+    ranking_features,
     compile_summary: dict[str, dict[str, float | int | bool | None]],
     profile_metrics: dict[str, dict[str, float | None]],
+    candidate_groups: dict[str, list[CandidateConfig]],
 ) -> tuple[object, ...]:
     key: list[object] = []
-    for feature in selector_revision.ranking_features:
+    for feature in ranking_features:
         value = _metric_value(
             config_id=config_id,
             feature_name=feature.feature_name,
             source=feature.source,
             compile_summary=compile_summary,
             profile_metrics=profile_metrics,
+            candidate_groups=candidate_groups,
         )
         if value is None:
             fallback: float = (
@@ -387,11 +415,28 @@ def _revision_rank_key(
     return tuple(key)
 
 
+def _revision_rank_key(
+    config_id: str,
+    selector_revision: SelectorRevisionSpec,
+    compile_summary: dict[str, dict[str, float | int | bool | None]],
+    profile_metrics: dict[str, dict[str, float | None]],
+    candidate_groups: dict[str, list[CandidateConfig]],
+) -> tuple[object, ...]:
+    return _feature_rank_key(
+        config_id,
+        selector_revision.ranking_features,
+        compile_summary,
+        profile_metrics,
+        candidate_groups,
+    )
+
+
 def _apply_revision_prunes(
     config_ids: list[str],
     selector_revision: SelectorRevisionSpec,
     compile_summary: dict[str, dict[str, float | int | bool | None]],
     profile_metrics: dict[str, dict[str, float | None]],
+    candidate_groups: dict[str, list[CandidateConfig]],
 ) -> tuple[list[str], dict[str, str]]:
     surviving: list[str] = []
     reasons: dict[str, str] = {}
@@ -404,6 +449,7 @@ def _apply_revision_prunes(
                 source=rule.source,
                 compile_summary=compile_summary,
                 profile_metrics=profile_metrics,
+                candidate_groups=candidate_groups,
             )
             if _compare_rule(value, rule.comparator, rule.threshold):
                 reasons[config_id] = rule.prune_reason
@@ -434,6 +480,25 @@ def run_selector_mode(
     requested_mode = _mode_name(selector_mode)
     actual_mode = requested_mode
     rationale = [f"started with {len(candidate_groups)} candidate configs", f"pruned {len(pruned_ids)} configs"]
+
+    if (
+        requested_mode == SelectorMode.PRUNE_RANK_REVISED.value
+        and selector_revision is not None
+        and selector_revision.frontier_ranking_features
+    ):
+        ranked_ids = sorted(
+            ranked_ids,
+            key=lambda config_id: _feature_rank_key(
+                config_id,
+                selector_revision.frontier_ranking_features,
+                compile_summary,
+                {},
+                candidate_groups,
+            ),
+        )
+        rationale.append(
+            f"re-ranked compile frontier using revision '{selector_revision.revision_id}' before profiling"
+        )
 
     if not ranked_ids:
         return SelectionDecision(
@@ -521,6 +586,7 @@ def run_selector_mode(
                             selector_revision,
                             compile_summary,
                             profile_metrics,
+                            candidate_groups,
                         )
                         pruned_ids.extend(sorted(revision_prunes))
                         prune_reasons.update(revision_prunes)
@@ -541,6 +607,7 @@ def run_selector_mode(
                                     selector_revision,
                                     compile_summary,
                                     profile_metrics,
+                                    candidate_groups,
                                 ),
                             )
                             rationale.append(
