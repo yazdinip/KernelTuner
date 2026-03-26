@@ -3,6 +3,7 @@ description: Compute-oriented Nsight Compute counter set for reportable GEMM stu
 tool: ncu
 replay_mode: kernel
 target_processes: all
+kernel_name_regex: matmul_kernel
 kernel_family_filters:
   - gemm
 counters:

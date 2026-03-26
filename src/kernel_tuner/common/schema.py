@@ -61,6 +61,9 @@ class ProfileStatus(StrEnum):
     SUCCESS = "success"
     UNSUPPORTED_COUNTER = "unsupported_counter"
     TOOL_UNAVAILABLE = "tool_unavailable"
+    TIMEOUT = "timeout"
+    INVOCATION_FAILED = "invocation_failed"
+    NO_PROFILE_DATA = "no_profile_data"
     PROFILE_FAILED = "profile_failed"
     SKIPPED_BUDGET = "skipped_budget"
 

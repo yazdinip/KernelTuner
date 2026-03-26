@@ -564,11 +564,14 @@ def run_selector_mode(
 
     runtime_scores = aggregate_runtime_scores(runtime_records)
     selected = _select_with_tolerance(runtime_scores, benchmark_order)
+    budget_limited = any(
+        record.status == RuntimeStatus.SKIPPED_BUDGET for record in runtime_records
+    ) or any(record.profile_status == ProfileStatus.SKIPPED_BUDGET for record in profiled_records)
     if selected is None:
         decision_status = "failed_no_successful_measurements"
         rationale.append("no successful calibration measurements were available")
     else:
-        decision_status = "selected"
+        decision_status = "selected_budget_limited" if budget_limited else "selected"
         rationale.append(
             f"benchmarked {len(benchmark_ids)} configs and selected the best score within a 2% tie band"
         )
