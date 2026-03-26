@@ -12,6 +12,7 @@ from kernel_tuner.common.schema import (
     CandidateConfig,
     ComparisonClass,
     RuntimeMeasurement,
+    RuntimeStatus,
     SelectionDecision,
 )
 from kernel_tuner.config_space.generator import config_dict_from_record

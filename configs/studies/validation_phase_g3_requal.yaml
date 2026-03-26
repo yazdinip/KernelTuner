@@ -1,0 +1,175 @@
+study_id: validation_phase_g3_requal
+hypotheses:
+  - hypothesis_id: H1
+    description: Cheap compile signals prune obvious losers, but do not reliably rank near-tied GEMM configs.
+    clauses:
+      - left:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_representative
+          kernel_family: gemm
+          strategy_id: prune_rank
+          reduction: mean
+        comparator: greater_than_or_equal
+        right:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_representative
+          kernel_family: gemm
+          strategy_id: prune_only
+          reduction: mean
+        minimum_delta: 0.0
+      - left:
+          source: stability_report
+          metric: stability_band
+          group_id: gemm_representative
+          kernel_family: gemm
+          strategy_id: prune_rank
+          reduction: mean
+        comparator: greater_than
+        right_constant: 0.05
+  - hypothesis_id: H2
+    description: Limited profiling helps more on LayerNorm than on GEMM under matched budget.
+    clauses:
+      - left:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: layernorm_representative
+          kernel_family: layernorm
+          strategy_id: prune_rank_profiled
+          reduction: mean
+        comparator: greater_than
+        right:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: layernorm_representative
+          kernel_family: layernorm
+          strategy_id: prune_rank
+          reduction: mean
+        minimum_delta: 0.02
+      - left:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_representative
+          kernel_family: gemm
+          strategy_id: prune_rank_profiled
+          reduction: mean
+        comparator: less_than_or_equal
+        right:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_representative
+          kernel_family: gemm
+          strategy_id: prune_rank
+          reduction: mean
+        minimum_delta: 0.02
+  - hypothesis_id: H3
+    description: The aligned GEMM workload overstates selector quality relative to the representative workload.
+    clauses:
+      - left:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_current_aligned
+          kernel_family: gemm
+          strategy_id: prune_rank
+          reduction: mean
+        comparator: greater_than
+        right:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_representative
+          kernel_family: gemm
+          strategy_id: prune_rank
+          reduction: mean
+        minimum_delta: 0.02
+  - hypothesis_id: H4
+    description: Opportunity-guided heuristic revisions improve held-out performance more reliably than the current selector.
+    clauses:
+      - left:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_representative
+          kernel_family: gemm
+          strategy_id: prune_rank_revised
+          reduction: mean
+        comparator: greater_than
+        right:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_representative
+          kernel_family: gemm
+          strategy_id: prune_rank
+          reduction: mean
+        minimum_delta: 0.02
+      - left:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: layernorm_representative
+          kernel_family: layernorm
+          strategy_id: prune_rank_revised
+          reduction: mean
+        comparator: greater_than
+        right:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: layernorm_representative
+          kernel_family: layernorm
+          strategy_id: prune_rank
+          reduction: mean
+        minimum_delta: 0.02
+run_groups:
+  - group_id: gemm_current_aligned
+    experiment_ids: [gemm_aligned_reportable_g3_requal]
+    include_latest_runs: 3
+    kernel_family: gemm
+    workload_class: aligned
+    selector_version: v2_validation
+    selector_revision_id: v2_validation
+    counter_set_id: compute_lite
+    budget_id: gemm_aligned_matched_v2
+    seeds: [7]
+    repeat_indices: [0, 1, 2]
+  - group_id: gemm_representative
+    experiment_ids: [gemm_reportable_g3_requal]
+    include_latest_runs: 3
+    kernel_family: gemm
+    workload_class: representative
+    selector_version: v2_validation
+    selector_revision_id: v2_validation
+    counter_set_id: compute_lite
+    budget_id: gemm_reportable_matched_v2
+    seeds: [7, 19, 43]
+  - group_id: layernorm_representative
+    experiment_ids: [layernorm_reportable_g3_requal]
+    include_latest_runs: 3
+    kernel_family: layernorm
+    workload_class: representative
+    selector_version: v2_validation
+    selector_revision_id: v2_validation
+    counter_set_id: memory_lite
+    budget_id: layernorm_reportable_matched_v2
+    seeds: [7, 19, 43]
+group_by:
+  - kernel_family
+  - workload_class
+  - selector_version
+  - counter_set_id
+  - budget_id
+  - seed
+primary_metric: geomean_speedup_vs_default_config
+secondary_metrics:
+  - speedup_vs_naive_random_search
+  - speedup_vs_naive_grid_search
+  - winner_rate
+  - regret_vs_best_measured_calibration
+  - selection_agreement
+  - stability_band
+  - signal_runtime_correlation
+  - counter_availability
+reportability_filter: true
+environment_filter:
+  gpu_name: NVIDIA RTX A6000
+comparison_rules:
+  repeatability_runs: 3
+  robustness_seeds: [7, 19, 43]
+output_root: artifacts/studies
