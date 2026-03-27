@@ -33,7 +33,11 @@ Current project phase:
 
 - the backbone is now relatively stable
 - the main moving documents are the evidence registry, opportunity log, and dated logs
-- the package is in execution-and-interpretation mode rather than tooling-definition mode
+- the package is in Phase 2 deepening mode rather than tooling-definition mode
+- `gpunode2` and `gpunode3` are now treated as one qualified `RTX A6000` pool for new primary studies
+- the latest detailed execution record is [logs/2026-03-26_g3_requalification_and_followup_execution.md](logs/2026-03-26_g3_requalification_and_followup_execution.md)
+- the latest corrective follow-up record is [logs/2026-03-27_g3_followup_baselinefix_and_v3_retry.md](logs/2026-03-27_g3_followup_baselinefix_and_v3_retry.md)
+- the latest implementation-side execution-preparation record is [logs/2026-03-27_phase2_deepening_implementation.md](logs/2026-03-27_phase2_deepening_implementation.md)
 
 ## Reading Order
 

@@ -19,25 +19,28 @@ The runnable experiment pipeline exists now. The repo currently provides:
 The main practical distinction is no longer "implemented vs not implemented." It is:
 
 - smoke and development runs for iteration,
-- reportable runs pinned to the designated node,
+- reportable runs on the qualified homogeneous `RTX A6000` pool,
 - study comparisons built from completed reportable runs.
 
 ## Supported Benchmark Environment
 
-Per [03_execution_environment.md](03_execution_environment.md), authoritative runs for v1 are:
+Per [03_execution_environment.md](03_execution_environment.md), authoritative runs for the
+current phase are:
 
 - Linux `x86_64`
 - Python `3.12.3` via system `python3`
-- one `NVIDIA RTX A6000` on `gpunode2`
+- one `NVIDIA RTX A6000` on `gpunode2` or `gpunode3`
 - CUDA `12.9` via `/usr/local/cuda-12.9`
 - `torch==2.10.0` and `triton==3.6.0` in the same virtualenv
 - Nsight Compute CLI (`ncu`) `2025.2.1`
 
-For reportable runs, stay on one designated host or one explicitly homogeneous node class. In the current project baseline, that means pinning to `gpunode2`.
+For reportable runs, stay on one designated host or one explicitly homogeneous node class.
+In the current project phase, that means the qualified `RTX A6000` pool made up of
+`gpunode2` and `gpunode3`.
 
 ## Pinned Baseline
 
-- Authoritative node: `gpunode2`
+- Qualified nodes: `gpunode2`, `gpunode3`
 - Partition: `gpunodes`
 - GPU type: `rtx_a6000`
 - GPU name: `NVIDIA RTX A6000`
@@ -72,6 +75,9 @@ Kernel and experiment configs:
 - `configs/experiments/gemm_smoke.yaml`
 - `configs/experiments/gemm_reportable.yaml`
 - `configs/experiments/layernorm_reportable.yaml`
+- `configs/experiments/gemm_v2_reportable.yaml`
+- `configs/experiments/layernorm_v2_small_reportable.yaml`
+- `configs/experiments/layernorm_v2_large_reportable.yaml`
 - `configs/studies/validation_phase.yaml`
 
 Counter sets:
@@ -103,7 +109,7 @@ sinfo -p gpunodes -N -o "%15N %5t %10m %10G %8c %16e"
 
 ## Start an Interactive GPU Shell
 
-For reportable work, request the pinned node directly:
+For reportable work, request one node from the qualified pool directly:
 
 ```bash
 srun --partition=gpunodes \
@@ -224,7 +230,8 @@ The repo ships two helper scripts:
 - `scripts/slurm/submit_kerneltuner.sh`
 - `scripts/slurm/run_kerneltuner_array.sbatch`
 
-They are suitable for both development and reportable runs, provided reportable submissions pin the authoritative node explicitly with `--nodelist gpunode2`.
+They are suitable for both development and reportable runs, provided reportable submissions
+stay within the qualified `RTX A6000` pool and record the exact node in the manifest.
 
 Basic pinned submission example:
 
@@ -266,9 +273,9 @@ Important operational notes:
 
 For reportable runs:
 
-- pin `--nodelist=gpunode2`
+- pin one node from the qualified `RTX A6000` pool
 - keep one GPU per run
-- do not mix `gpunode2` with `gpunode3` within one comparative study
+- do not mix non-`RTX A6000` GPU classes within one comparative study
 - preserve `pip freeze` and environment provenance
 - do not treat `shared_diag` as matched-budget reportable evidence unless the protocol explicitly marks it diagnostic-only
 
@@ -279,7 +286,7 @@ If something fails unexpectedly, check:
 1. `CUDA_HOME`, `PATH`, and `LD_LIBRARY_PATH` are exported correctly.
 2. `ncu --version` works inside the allocation.
 3. the virtualenv is active and contains `torch` and `triton`.
-4. you are on `gpunode2` for reportable work.
+4. you are on `gpunode2` or `gpunode3` for reportable A6000-pool work.
 5. the experiment config points to the intended artifact root and counter set.
 
 ## What This Guide Is Not

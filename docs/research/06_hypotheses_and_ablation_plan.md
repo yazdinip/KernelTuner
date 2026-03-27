@@ -100,6 +100,19 @@ Practical rule:
 - the study output is the automated comparison result
 - the evidence registry is the authoritative record of how much confidence the project currently places in that result
 
+Latest evaluated batches:
+
+- the current project-level interpretation of the completed `gpunode2` and `gpunode3` execution blocks lives in [08_evidence_registry.md](08_evidence_registry.md)
+- the detailed chronological record of the `gpunode3` long execution block should be kept in the dated logs under `logs/`
+- the corrected LayerNorm follow-up is recorded in `h2_followup_g3_baselinefix` study `run_20260327T025533Z_0d0e6750`
+- the frontier-aware GEMM retry is recorded in `h4_retry_g3` study `run_20260327T035659Z_10f9baec`
+
+Current Phase 2 deepening rule:
+
+- no new top-level hypotheses are admitted
+- `H1`, `H2`, and `H4` are deepened through larger-space or regime-aware follow-up studies
+- `H3` remains an evaluation-context hypothesis and should be refreshed only as a supporting comparison workload
+
 ## Hypothesis Cross-Reference
 
 | Hypothesis | Required Workloads | Required Signals | Required Runs | Required Figures |

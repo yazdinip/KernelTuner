@@ -30,6 +30,7 @@ These signals may be used by the tuner during real selection, but only on a cali
 | --- | --- | --- |
 | `compute_lite` | GEMM | is the kernel compute-limited, tensor-underutilized, or stalled by pipeline/scoreboard effects? |
 | `memory_lite` | LayerNorm | is the kernel bandwidth-limited, latency-limited on memory, or suffering from poor memory efficiency? |
+| `memory_activity_lite` | LayerNorm | can one lightweight activity-aware recipe distinguish bandwidth-heavy and latency-sensitive LayerNorm regimes better than `memory_lite` alone? |
 
 ### Tier 2: diagnostic-only profiling
 
@@ -88,6 +89,24 @@ Operational notes:
 - this set remains diagnostic-only even when availability is high
 - it is appropriate for explanation and case studies, not matched-budget superiority claims
 
+### `memory_activity_lite`
+
+Phase 2 LayerNorm profiling set for regime-aware follow-up studies.
+
+- `dram__bytes.avg`
+- `dram__throughput.avg.pct_of_peak_sustained_elapsed`
+- `l1tex__t_bytes_pipe_lsu_mem_global_op_ld.avg`
+- `l1tex__t_sector_pipe_lsu_mem_global_op_ld_hit_rate.pct`
+- `sm__warps_active.avg.pct_of_peak_sustained_active`
+- `smsp__warp_issue_stalled_lg_throttle_per_warp_active.pct`
+- `smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct`
+
+Operational notes:
+
+- this set extends `memory_lite` with one activity/occupancy signal
+- it is intended for the split `small_batch` / `large_batch` Phase 2 LayerNorm studies
+- it should be preferred over `memory_lite` for new LayerNorm v2 reportable work
+
 ## Signal Family Plan
 
 | Signal Family | Question It Answers | Bottlenecks It Helps Distinguish | Tuning Decisions It Can Justify | Trust Limits |
@@ -145,6 +164,32 @@ Operational requirement on fresh shells:
   - `CUDA_HOME=/usr/local/cuda-12.9`
   - `PATH=$CUDA_HOME/bin:$PATH`
   - `LD_LIBRARY_PATH=$CUDA_HOME/lib64:${LD_LIBRARY_PATH:-}`
+
+## Methodological Notes From The First Long Execution Block
+
+The completed `gpunode3` requalification and follow-up campaigns added two practical constraints that should inform future reportable studies:
+
+- The current representative LayerNorm workload spans at least two profiling regimes.
+  - `large_batch, hidden=4096` behaves like a bandwidth-heavy case with very high DRAM throughput.
+  - `small_batch, hidden=4096` shows lower throughput and stronger long-scoreboard behavior.
+  - Future LayerNorm interpretation should therefore remain workload-class-aware, and the next diagnostic cycle may need one additional activity or occupancy signal before a strong paper claim is made.
+
+- Default baselines must be valid for every held-out shape in a workload program.
+  - If the declared `default_config` is invalid for part of the workload matrix, cross-run primary metrics may become partially missing and the resulting study should remain provisional.
+  - This now matters concretely for LayerNorm and should be treated as part of future reportability discipline.
+
+## Methodological Notes From The Corrected Follow-up Cycle
+
+The March 27, 2026 corrective follow-up cycle added two more signal-level conclusions:
+
+- Fixing the LayerNorm baseline removed the main methodological confound, but did not reverse the `H2` result.
+  - The corrected `h2_followup_g3_baselinefix` study still left `H2` unsupported.
+  - LayerNorm profiling did produce a positive matched-budget gain over `prune_rank`, but the gain was too small to satisfy the pre-registered margin.
+  - Current implication: `memory_lite` is usable and directionally informative, but it is not yet strong enough to support the intended “profiling helps LayerNorm more than GEMM” paper claim under the present budget and selector logic.
+
+- The most successful selector improvement so far was not a richer profile rule, but a better compile-frontier construction rule.
+  - The `v3_h4_targeted` revision succeeded by changing which GEMM configs entered the benchmarked frontier before profiling.
+  - Current implication: for representative GEMM, Tier 0 and config-derived shape features are now more important to the next tuning step than adding more Tier 1 profiling complexity.
 
 ## Counter Availability Risk
 

@@ -22,9 +22,11 @@ Algorithmic or kernel-variant tuning is allowed later only if the schedule-first
 | --- | --- | --- | --- | --- | --- |
 | `block_m`, `block_n` | output tile geometry and reuse footprint | better reuse, better tensor-core utilization, fewer launches | larger shared-memory footprint, register pressure, masked-edge inefficiency | GEMM | In scope now |
 | `block_k` | reduction depth per tile | better reuse and fewer memory rounds | larger live state, more register pressure, occupancy loss | GEMM | In scope now |
+| `group_size_m` | grouped launch ordering along the M dimension | better wave ordering and cache/locality behavior on asymmetric GEMM shapes | weak benefit on square cases, extra search burden if admitted too early | GEMM | In scope now |
 | `num_warps` | work distribution and issue width per program | better latency hiding and throughput | occupancy collapse, math-pipe throttling, oversubscription | GEMM, LayerNorm | In scope now |
 | `num_stages` | software pipelining depth | hides latency, improves overlap | higher register use, higher shared-memory pressure | GEMM, LayerNorm | In scope now |
 | `block_size` | per-row work granularity and reduction footprint | better normalization throughput, fewer loop trips | wasted work on short rows, pressure on registers and scheduling | LayerNorm | In scope now |
+| `rows_per_program` | how many rows one LayerNorm program handles | better amortization and launch efficiency on larger-row groups | lower flexibility or reduced latency sensitivity on small-batch cases | LayerNorm | In scope now |
 | vectorization/access granularity | bytes moved per instruction and access pattern | better memory efficiency, fewer LSU instructions | alignment sensitivity, wasted bandwidth, higher pressure per wave | GEMM, LayerNorm | Planned later |
 | `split_k` | parallel decomposition along reduction dimension | more parallelism for large reductions | reduction overhead, extra synchronization, launch cost | GEMM | Planned later |
 | persistent/work decomposition choices | residency and wave scheduling pattern | steadier occupancy, better cache behavior on some shapes | starvation, underutilization, harder correctness/debug path | GEMM | Planned later |
@@ -38,6 +40,7 @@ The current and near-term GEMM tuner is expected to reason over:
 
 - output tile geometry: `block_m`, `block_n`
 - reduction tile depth: `block_k`
+- grouped launch ordering: `group_size_m`
 - launch-scale parallelism: `num_warps`
 - pipeline depth: `num_stages`
 
@@ -54,8 +57,11 @@ The current LayerNorm tuner is intentionally narrower:
 - per-row block size: `block_size`
 - warp count: `num_warps`
 - pipeline depth: `num_stages`
+- rows per program: `rows_per_program`
 
-LayerNorm is used as the memory-bound contrast case. The goal is not to create a maximal LayerNorm search space, but to test whether profiling adds more value on a kernel whose bottlenecks differ from GEMM.
+LayerNorm remains the memory-bound contrast case, but the current evidence shows that it
+must be interpreted as at least two regimes (`small_batch` and `large_batch`) rather than
+as one pooled result.
 
 ## What A Proper Kernel Tuner Looks Like In This Project
 

@@ -15,17 +15,23 @@ Depends On: [../06_implementation_roadmap.md](../06_implementation_roadmap.md), 
 
 ## Current Stage
 
-As of March 26, 2026:
+As of March 27, 2026:
 
-- the implementation and research-execution machinery has passed its first real validation batch
+- the full `gpunode3` same-class A6000 requalification block has completed
+- the broad `validation_rounds_g3_requal` campaign and both narrow follow-up studies (`h13_confirmation_g3`, `h2_followup_g3`) have completed
+- the post-follow-up LayerNorm diagnostic profiling passes have completed
+- the corrected `h2_followup_g3_baselinefix` rerun has completed
+- the frontier-aware `h4_retry_g3` rerun has completed
 - `R0` is operationally satisfied for continued execution
-- `R1`, `R2`, and `R3` have first-pass evidence, but not final project conclusions
-- the next phase is targeted long-run execution and interpretation, not broad tooling expansion
+- `R1` is materially stronger than before
+- `R2` has repeated non-support on a corrected LayerNorm baseline
+- `R3` has now produced a same-class A6000 revision win through the frontier-aware `v3_h4_targeted` selector
 
 Current implication:
 
-- the project should now spend most of its time running narrower, better-justified study batches
-- new implementation work should be admitted only when an evidence-backed follow-up requires it
+- the project has enough evidence to justify a controlled Phase 2 deepening pass
+- Phase 2 should expand the code-backed tuning surface where current evidence identified hard ceilings
+- the next work is still hypothesis-driven, but it should use v2 kernel/config families rather than only rerunning the narrow v1 space
 
 ## Repeatability And Robustness Modes
 
@@ -50,11 +56,11 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 
 | Round | Current State | Notes |
 | --- | --- | --- |
-| `R0` | First-pass complete | reportable runs, campaign execution, resume paths, profiler validation, and study generation have all been exercised live; archival reproduction is still required before paper promotion |
-| `R1` | Initial evidence exists | first aligned-vs-representative GEMM batch produced a real `H1`/`H3` status, but more confirmation is still valuable |
-| `R2` | Initial evidence exists | Tier 1 profiling is live and accepted; current `H2` evidence is only first-pass |
-| `R3` | Initial evidence exists | one revised selector batch has been evaluated; current `H4` status is not final |
-| `R4` | Not started | paper synthesis and final limits are not yet assembled |
+| `R0` | Operationally complete | broad and narrow live campaigns, profiler validation, reportability checks, and chained study generation have all been exercised on both the original and same-class A6000 confirmation paths |
+| `R1` | Strengthened | original validation plus the completed `gpunode3` broad and focused batches all support the view that compile signals prune but do not rank representative GEMM well enough |
+| `R2` | Repeated non-support on corrected baseline | the corrected `h2_followup_g3_baselinefix` rerun still left `H2` unsupported; the LayerNorm baseline-validity confound has been removed, so this is now a materially stronger negative-result candidate for the current profiling recipe |
+| `R3` | Supported on the same-class A6000 confirmation path | the `h4_retry_g3` rerun supported `H4`, showing that a frontier-aware representative GEMM revision can improve held-out performance under unchanged budget |
+| `R4` | Entering synthesis and controlled deepening | the main next tasks are to preserve the current evidence, expand the v2 GEMM and LayerNorm spaces, and run focused follow-up studies on the qualified A6000 pool |
 
 ## Current Run Matrix
 
@@ -63,6 +69,20 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 - `configs/experiments/gemm_reportable.yaml`
 - `configs/experiments/gemm_aligned_reportable.yaml`
 - `configs/experiments/layernorm_reportable.yaml`
+
+### Same-class A6000 requalification studies
+
+- `configs/experiments/gemm_reportable_g3_requal.yaml`
+- `configs/experiments/gemm_aligned_reportable_g3_requal.yaml`
+- `configs/experiments/layernorm_reportable_g3_requal.yaml`
+
+### Corrected follow-up studies
+
+- `configs/experiments/gemm_reportable_g3_h2followup.yaml`
+- `configs/experiments/layernorm_reportable_g3_baselinefix.yaml`
+- `configs/experiments/gemm_reportable_g3_h4parent.yaml`
+- `configs/experiments/gemm_reportable_g3_v3h4.yaml`
+- `configs/experiments/layernorm_diag_regimes_g3.yaml`
 
 ### Development studies
 
@@ -77,10 +97,24 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 ### Cross-run study
 
 - `configs/studies/validation_phase.yaml`
+- `configs/studies/validation_phase_g3_requal.yaml`
+- `configs/studies/h13_confirmation_g3.yaml`
+- `configs/studies/h2_followup_g3.yaml`
+- `configs/studies/h2_followup_g3_baselinefix.yaml`
+- `configs/studies/h4_retry_g3.yaml`
 
 ### Current campaign entrypoint
 
 - `configs/campaigns/validation_rounds.yaml`
+- `configs/campaigns/validation_rounds_g3_requal.yaml`
+- `configs/campaigns/h13_confirmation_g3.yaml`
+- `configs/campaigns/h2_followup_g3.yaml`
+- `configs/campaigns/h2_followup_g3_baselinefix.yaml`
+- `configs/campaigns/h4_retry_g3.yaml`
+- `configs/campaigns/gemm_v2_baseline_mapping.yaml`
+- `configs/campaigns/gemm_v2_selector_ablation.yaml`
+- `configs/campaigns/layernorm_v2_regime_studies.yaml`
+- `configs/campaigns/gemm_v2_aligned_reference.yaml`
 
 ## Required Artifacts Per Round
 
@@ -94,25 +128,31 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 
 ## Immediate Execution Queue
 
-The next execution phase should be narrower than the initial validation batch.
+The next queue is a controlled Phase 2 deepening pass.
 
-### Batch A: `H1` / `H3` confirmation
+### Step 1: freeze and promote the current follow-up state
 
-- rerun representative GEMM and aligned GEMM under the current validated profiler/reportability stack
-- keep the same strategy ladder
-- goal: strengthen the claims that cheap compile signals prune but do not fully rank, and that aligned workloads overstate selector quality
+- commit the supported `v3_h4_targeted` revision and corrected LayerNorm follow-up configs
+- preserve the strongest completed studies in stable artifact references
+- treat `gpunode2` and `gpunode3` as one qualified `RTX A6000` pool for new primary studies
 
-### Batch B: targeted `H2` follow-up
+### Step 2: fix the candidate-generation bottleneck
 
-- run a LayerNorm-focused profiled batch with the same matched-budget discipline
-- keep `memory_lite` fixed unless a profiler acceptance failure forces demotion
-- goal: determine whether the current non-support for `H2` is a real result, a workload issue, or a too-weak selector use of the counters
+- remove silent pre-validation truncation from config generation
+- fail explicitly when the valid config space exceeds `budgets.max_candidates`
+- record raw and valid config counts in generation provenance
 
-### Batch C: one disciplined `H4` retry
+### Step 3: run Phase 2 GEMM-first expansion
 
-- admit at most one new revised-selector batch
-- require a concrete opportunity-log entry and explicit rationale before running it
-- compare only against the parent selector under unchanged budget
+- `configs/campaigns/gemm_v2_baseline_mapping.yaml`
+- `configs/campaigns/gemm_v2_selector_ablation.yaml`
+- optional aligned reference rerun only after the representative GEMM v2 batches finish
+
+### Step 4: run regime-aware LayerNorm follow-up
+
+- `configs/campaigns/layernorm_v2_regime_studies.yaml`
+- use `memory_activity_lite`
+- keep `small_batch` and `large_batch` separated in study interpretation
 
 ## Long-Run Execution Discipline
 
@@ -123,8 +163,7 @@ Required rules:
 - run `validate-study` and `validate-counter-set` before any promotable campaign
 - keep exploratory or branch-testing artifacts separate from promotable evidence roots
 - do not mix heterogeneous GPU classes in one comparative study
-- treat `gpunode2` as the current reportable baseline unless the research docs explicitly re-qualify a broader homogeneous `RTX A6000` pool
-- treat `gpunode3` as development or requalification capacity unless a campaign is explicitly labeled as a separate homogeneous block
+- keep reportable runs inside the qualified `RTX A6000` pool
 - update the evidence registry, opportunity log, and a dated log entry after each completed batch that changes interpretation
 - archive or reproduce important evidence that currently lives only in expiring scratch storage before using it in final paper claims
 

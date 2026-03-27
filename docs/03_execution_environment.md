@@ -11,7 +11,7 @@ This document defines the supported runtime and tooling assumptions for `KernelT
 | Host OS | Linux x86_64 |
 | Recommended distro | Ubuntu 24.04 LTS or a comparable recent Linux distribution |
 | Python | Python 3.12.3 via system `python3` on the benchmark node |
-| GPU | One NVIDIA RTX A6000 48 GB on `gpunode2` |
+| GPU | One NVIDIA RTX A6000 48 GB on the qualified pool `gpunode2` / `gpunode3` |
 | CUDA | CUDA 12.9 via `/usr/local/cuda-12.9` |
 | Triton runtime | `triton==3.6.0` for the initial implementation milestone |
 | Tensor runtime | `torch==2.10.0` for the initial implementation milestone |
@@ -19,7 +19,7 @@ This document defines the supported runtime and tooling assumptions for `KernelT
 | Optional diagnostic profiler | Nsight Systems (`nsys`) for development diagnostics only, not as a primary matched-budget signal source |
 | Artifact formats | YAML, JSON, CSV, PNG, Parquet |
 
-## Pinned Milestone 0 Baseline
+## Historical Milestone 0 Baseline
 
 The initial implementation milestone is pinned to one concrete execution baseline so implementation does not start against moving environment targets.
 
@@ -46,18 +46,31 @@ Pinned Python package set for initial implementation:
 - `typer==0.24.1`
 - `matplotlib==3.10.8`
 
-Operational policy for this baseline:
+Operational policy for this historical baseline:
 
 - Reportable runs are pinned to `gpunode2`.
 - `gpunode3` may be used only for development or for explicit requalification when `gpunode2` is unavailable.
 - A single comparative study must not mix `gpunode2` and `gpunode3`.
 - Clock control is not assumed for the initial milestone; the implementation should record observed clock behavior and persistence state rather than require clock locking.
 
+## Current Phase 2 Pool Policy
+
+As of March 27, 2026, the project treats `gpunode2` and `gpunode3` as one qualified
+homogeneous `RTX A6000` pool for Phase 2 reportable work.
+
+Current policy:
+
+- reportable Phase 2 runs may use either `gpunode2` or `gpunode3`
+- a comparative study must still stay within the homogeneous `RTX A6000` pool
+- experiment manifests must continue to record the exact node name for every run
+- historical v1 baseline studies remain identifiable as `gpunode2`-pinned evidence
+
 ## Operating Model
 
 - Development may happen from any machine.
-- Benchmarking and profiling are supported only on the designated Linux CUDA host in v1.
-- For the initial implementation milestone, the designated host is `gpunode2`.
+- Benchmarking and profiling are supported only on the designated Linux CUDA hosts in v1/Phase 2.
+- For the current phase, the designated homogeneous host class is the `RTX A6000` pool
+  made up of `gpunode2` and `gpunode3`.
 - Native Windows is not a supported execution environment for v1 experiments.
 - Windows plus WSL is acceptable for editing and light validation, but authoritative measurements must be run on the Linux host.
 - If Slurm is used, one authoritative host or one explicitly homogeneous node class must be designated for reportable runs.
@@ -92,9 +105,9 @@ Before treating a host as authoritative for reportable measurements, verify:
 
 When fixed clocks or similar controls are not possible on the cluster, the run manifest must still record the observed environment and any known limitations.
 
-For the initial implementation milestone, the expected qualification values are:
+For the current project phase, the expected qualification values are:
 
-- node: `gpunode2`
+- node: `gpunode2` or `gpunode3`
 - GPU: `NVIDIA RTX A6000`
 - Python: `3.12.3`
 - CUDA toolkit root: `/usr/local/cuda-12.9`
@@ -104,8 +117,9 @@ For the initial implementation milestone, the expected qualification values are:
 ## Slurm and Cluster Policy
 
 - Slurm is an execution convenience, not a relaxation of the single-host, single-GPU study contract.
-- Reportable runs should prefer one designated node when feasible.
-- For the initial implementation milestone, reportable runs should pin `--nodelist=gpunode2`.
+- Reportable runs should prefer one designated node or one explicitly homogeneous node class.
+- For the current phase, reportable runs may pin `--nodelist=gpunode2` or `--nodelist=gpunode3`,
+  or otherwise restrict scheduling to the homogeneous `RTX A6000` pool.
 - If a single node cannot be guaranteed, runs may use a homogeneous node class only if GPU model, driver, CUDA stack, and partition remain identical across comparisons.
 - Slurm metadata must be recorded per run, including job ID, task ID, partition, node name, GRES allocation, CPU count, memory allocation, and `CUDA_VISIBLE_DEVICES` when available.
 - Preemptible or time-limited queues may be used for development or smoke runs, but reportable runs must document any preemption risk and partial-run handling policy.
@@ -113,7 +127,8 @@ For the initial implementation milestone, the expected qualification values are:
 Current repo-specific policy:
 
 - The existing Slurm helper scripts are acceptable for development, smoke, and reportable runs.
-- Reportable helper-based submissions must still pin `--nodelist=gpunode2` explicitly and preserve full environment provenance.
+- Reportable helper-based submissions must still preserve full environment provenance and stay
+  within the qualified `RTX A6000` pool.
 
 ## Recommended Host Characteristics
 
@@ -180,7 +195,7 @@ For the current cluster image, assume:
 ## Stable Contracts
 
 - Linux x86_64 plus one NVIDIA GPU is the only supported benchmark environment in v1.
-- Python 3.12.3 on `gpunode2` is the baseline language runtime for the initial implementation milestone.
+- Python 3.12.3 on the `RTX A6000` pool is the baseline language runtime for the current phase.
 - Profiling is defined in terms of Nsight Compute CLI.
 - Environment metadata is part of the required run manifest.
 - Slurm use must still satisfy the single-host or homogeneous-node-class comparability requirement.
@@ -189,5 +204,4 @@ For the current cluster image, assume:
 ## Exploratory Areas
 
 - Package revisions after the initial implementation baseline is working
-- Whether the project later broadens from one pinned node to a homogeneous node class
 - Optional use of containers once implementation begins
