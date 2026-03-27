@@ -17,7 +17,7 @@ Depends On: [../06_implementation_roadmap.md](../06_implementation_roadmap.md), 
 
 As of March 27, 2026:
 
-- the full `gpunode3` same-class A6000 requalification block has completed
+- the full `gpunode3` homogeneous-A6000 requalification block has completed
 - the broad `validation_rounds_g3_requal` campaign and both narrow follow-up studies (`h13_confirmation_g3`, `h2_followup_g3`) have completed
 - the post-follow-up LayerNorm diagnostic profiling passes have completed
 - the corrected `h2_followup_g3_baselinefix` rerun has completed
@@ -63,7 +63,7 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 
 | Round | Current State | Notes |
 | --- | --- | --- |
-| `R0` | Operationally complete | broad and narrow live campaigns, profiler validation, reportability checks, and chained study generation have all been exercised on both the original and same-class A6000 confirmation paths |
+| `R0` | Operationally complete | broad and narrow live campaigns, profiler validation, reportability checks, and chained study generation have all been exercised across the qualified homogeneous A6000 pool |
 | `R1` | Strong and expanded-space reinforced | original validation, `gpunode3` confirmation, and the completed `gemm_v2_baseline_mapping` study all support the view that compile signals prune but do not rank representative GEMM well enough |
 | `R2` | Regime-split negative or weak | the corrected pooled rerun remained unsupported; the Phase 2 split studies show only a marginal small-batch profiling gain and an outright large-batch regression under `memory_activity_lite` |
 | `R3` | Mixed after expansion | the narrower representative GEMM retry supported `H4`, but the expanded v2 GEMM baseline mapping and selector ablation show that the current frontier-aware revision does not generalize cleanly to the larger space |

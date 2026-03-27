@@ -113,7 +113,7 @@ For reportable work, request one node from the qualified pool directly:
 
 ```bash
 srun --partition=gpunodes \
-     --nodelist=gpunode2 \
+     --nodelist=<gpunode2-or-gpunode3> \
      --gres=gpu:rtx_a6000:1 \
      --cpus-per-task=8 \
      --mem=24G \
@@ -241,7 +241,7 @@ chmod +x scripts/slurm/submit_kerneltuner.sh
 scripts/slurm/submit_kerneltuner.sh \
   --list configs/experiments/slurm_experiment_list.example.txt \
   --partition gpunodes \
-  --nodelist gpunode2 \
+  --nodelist <gpunode2-or-gpunode3> \
   --gpu-type rtx_a6000 \
   --gpus 1 \
   --time 0-04:00 \

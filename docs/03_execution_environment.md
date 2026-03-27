@@ -21,12 +21,12 @@ This document defines the supported runtime and tooling assumptions for `KernelT
 
 ## Historical Milestone 0 Baseline
 
-The initial implementation milestone is pinned to one concrete execution baseline so implementation does not start against moving environment targets.
+The initial implementation milestone was pinned to one concrete execution baseline so implementation did not start against moving environment targets.
 
 Selected authoritative benchmark target:
 
 - Slurm partition: `gpunodes`
-- Authoritative node: `gpunode2`
+- Historical baseline node: `gpunode2`
 - GPU model: `NVIDIA RTX A6000` with `49140 MiB`
 - Node OS: Ubuntu 24.04 LTS class image
 - Python: `3.12.3`
@@ -48,9 +48,9 @@ Pinned Python package set for initial implementation:
 
 Operational policy for this historical baseline:
 
-- Reportable runs are pinned to `gpunode2`.
-- `gpunode3` may be used only for development or for explicit requalification when `gpunode2` is unavailable.
-- A single comparative study must not mix `gpunode2` and `gpunode3`.
+- The original v1 baseline artifacts were pinned to `gpunode2`.
+- This historical pinning is preserved only to explain older artifact provenance.
+- It is not the active policy for current reportable work.
 - Clock control is not assumed for the initial milestone; the implementation should record observed clock behavior and persistence state rather than require clock locking.
 
 ## Current Phase 2 Pool Policy
@@ -61,7 +61,7 @@ homogeneous `RTX A6000` pool for Phase 2 reportable work.
 Current policy:
 
 - reportable Phase 2 runs may use either `gpunode2` or `gpunode3`
-- a comparative study must still stay within the homogeneous `RTX A6000` pool
+- comparative studies may use either host as long as they stay within the homogeneous `RTX A6000` pool
 - experiment manifests must continue to record the exact node name for every run
 - historical v1 baseline studies remain identifiable as `gpunode2`-pinned evidence
 
@@ -116,10 +116,11 @@ For the current project phase, the expected qualification values are:
 
 ## Slurm and Cluster Policy
 
-- Slurm is an execution convenience, not a relaxation of the single-host, single-GPU study contract.
-- Reportable runs should prefer one designated node or one explicitly homogeneous node class.
-- For the current phase, reportable runs may pin `--nodelist=gpunode2` or `--nodelist=gpunode3`,
-  or otherwise restrict scheduling to the homogeneous `RTX A6000` pool.
+- Slurm is an execution convenience, not a relaxation of the single-GPU study contract.
+- Reportable runs should stay within one explicitly homogeneous node class.
+- For the current phase, reportable runs may pin `--nodelist=gpunode2`, `--nodelist=gpunode3`,
+  `--nodelist=<gpunode2-or-gpunode3>`, or otherwise restrict scheduling to the homogeneous
+  `RTX A6000` pool.
 - If a single node cannot be guaranteed, runs may use a homogeneous node class only if GPU model, driver, CUDA stack, and partition remain identical across comparisons.
 - Slurm metadata must be recorded per run, including job ID, task ID, partition, node name, GRES allocation, CPU count, memory allocation, and `CUDA_VISIBLE_DEVICES` when available.
 - Preemptible or time-limited queues may be used for development or smoke runs, but reportable runs must document any preemption risk and partial-run handling policy.

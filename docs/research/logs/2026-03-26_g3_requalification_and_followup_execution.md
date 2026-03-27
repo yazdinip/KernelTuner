@@ -13,11 +13,16 @@ Depends On: [../07_experiment_campaign_plan.md](../07_experiment_campaign_plan.m
 - CUDA: `12.9`
 - Nsight Compute: `2025.2.1`
 - allocation: Slurm job `86379`
-- execution mode: same-class A6000 requalification and follow-up, not automatic replacement for the original `gpunode2` reportable baseline
+- execution mode at run time: same-hardware A6000 requalification and follow-up
+
+Later policy note:
+
+- the current repo policy treats `gpunode2` and `gpunode3` as one homogeneous `RTX A6000` pool
+- the `gpunode3` wording below is retained as exact execution provenance, not as an active limitation on using these results in the current project phase
 
 ## Completed Execution Chain
 
-### 1. Broad same-class requalification
+### 1. Broad homogeneous-A6000 requalification
 
 - campaign: `validation_rounds_g3_requal`
 - campaign run: `run_20260326T211132Z_0f6bd67a`

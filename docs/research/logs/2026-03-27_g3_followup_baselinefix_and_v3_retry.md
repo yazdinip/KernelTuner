@@ -15,7 +15,12 @@ Depends On: [../07_experiment_campaign_plan.md](../07_experiment_campaign_plan.m
 - allocation: Slurm job `86379`
 - frozen execution snapshot: `/u/yazdinip/KernelTuner_followup_20260327T020517Z`
 - launcher script: `scripts/run_g3_followup_cycle.sh`
-- execution mode: same-class A6000 corrective follow-up, not automatic replacement for the original pinned `gpunode2` baseline
+- execution mode at run time: same-hardware A6000 corrective follow-up
+
+Later policy note:
+
+- the current repo policy treats `gpunode2` and `gpunode3` as one homogeneous `RTX A6000` pool
+- the `gpunode3` wording below is retained as execution provenance, not as an active limitation on using these results in the current project phase
 
 ## Completed Follow-up Chain
 

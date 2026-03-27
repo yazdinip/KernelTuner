@@ -128,7 +128,7 @@ Example:
 scripts/slurm/submit_kerneltuner.sh \
   --list configs/experiments/slurm_experiment_list.example.txt \
   --partition gpunodes \
-  --nodelist gpunode2 \
+  --nodelist <gpunode2-or-gpunode3> \
   --gpu-type rtx_a6000 \
   --gpus 1 \
   --time 0-04:00 \
