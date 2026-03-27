@@ -1,0 +1,39 @@
+revision_id: v3_h4_targeted
+parent_selector_mode: prune_rank_profiled
+linked_opportunity_tags:
+  - selector_revision_candidate
+  - frontier_construction_failure
+  - representative_gemm_large_square_tile
+frontier_ranking_features:
+  - feature_name: tile_area
+    source: config
+    direction: desc
+  - feature_name: shape_balance
+    source: config
+    direction: desc
+  - feature_name: num_stages
+    source: config
+    direction: desc
+  - feature_name: num_warps
+    source: config
+    direction: asc
+ranking_features:
+  - feature_name: warps_active
+    source: profile
+    direction: desc
+  - feature_name: tensor_ops
+    source: profile
+    direction: desc
+  - feature_name: long_scoreboard_stall
+    source: profile
+    direction: asc
+  - feature_name: register_count
+    source: compile
+    direction: asc
+tie_break_relative_tolerance: 0.02
+notes: >
+  Frontier-aware follow-up revision for representative GEMM. The first validation
+  batches showed that the main failure is compile-frontier construction, with the
+  winning 128x128x32, stages=4, warps=4 family often excluded from the profiled
+  prefix. This revision biases the frontier toward larger, more balanced tiles
+  before profiling, while retaining a lightweight profile-aware reranking stage.

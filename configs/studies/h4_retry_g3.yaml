@@ -1,0 +1,66 @@
+study_id: h4_retry_g3
+hypotheses:
+  - hypothesis_id: H4
+    description: >
+      A frontier-aware opportunity-guided revision improves held-out representative
+      GEMM performance under the same budget relative to the current selector.
+    clauses:
+      - left:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_v3_followup
+          kernel_family: gemm
+          strategy_id: prune_rank_revised
+          reduction: mean
+        comparator: greater_than
+        right:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_parent_followup
+          kernel_family: gemm
+          strategy_id: prune_rank
+          reduction: mean
+        minimum_delta: 0.02
+run_groups:
+  - group_id: gemm_parent_followup
+    experiment_ids: [gemm_reportable_g3_h4parent]
+    include_latest_runs: 6
+    kernel_family: gemm
+    workload_class: representative
+    selector_version: v2_validation
+    selector_revision_id: v2_validation
+    counter_set_id: compute_lite
+    budget_id: gemm_reportable_matched_v2
+  - group_id: gemm_v3_followup
+    experiment_ids: [gemm_reportable_g3_v3h4]
+    include_latest_runs: 6
+    kernel_family: gemm
+    workload_class: representative
+    selector_version: v3_h4_targeted
+    selector_revision_id: v3_h4_targeted
+    counter_set_id: compute_lite
+    budget_id: gemm_reportable_matched_v2
+group_by:
+  - kernel_family
+  - workload_class
+  - selector_version
+  - counter_set_id
+  - budget_id
+  - seed
+primary_metric: geomean_speedup_vs_default_config
+secondary_metrics:
+  - speedup_vs_naive_random_search
+  - speedup_vs_naive_grid_search
+  - winner_rate
+  - regret_vs_best_measured_calibration
+  - selection_agreement
+  - stability_band
+  - signal_runtime_correlation
+  - counter_availability
+reportability_filter: true
+environment_filter:
+  gpu_name: NVIDIA RTX A6000
+comparison_rules:
+  repeatability_runs: 3
+  robustness_seeds: [7, 19, 43]
+output_root: artifacts/studies
