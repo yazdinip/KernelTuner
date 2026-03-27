@@ -40,22 +40,28 @@ Current environment policy:
 | `E-H4-VAL1` | `H4` opportunity-guided revision | original `validation_phase` study `run_20260323T005040Z_99898cc6`, comparing `prune_rank_revised` against `prune_rank` | pinned `gpunode2` reportable batch | first-pass evidence did not support `H4`: the `v2_validation` revised selector did not reliably outperform its parent under unchanged budget | Low | only one revision batch was admitted, and the mechanism of failure was not yet cleanly diagnosed | Yes |
 | `E-H4-G3-MECH` | `H4` mechanism diagnosis | broad and focused `gpunode3` GEMM studies: `validation_phase_g3_requal` `run_20260326T224438Z_672398c0` and `h13_confirmation_g3` `run_20260326T233133Z_7c560d98` | `gpunode3` same-class A6000 confirmation block | the current `v2_validation` revision failed for a principled reason: it reranked inside the already-constructed compile frontier, but the representative GEMM winner consistently sat outside that frontier; this mechanism diagnosis was later validated directly by the successful `v3_h4_targeted` retry | High | this is still same-class `gpunode3` evidence rather than a direct rerun on the original pinned baseline host | No |
 | `E-H4-G3-V3` | `H4` frontier-aware retry | `h4_retry_g3` campaign `run_20260327T025541Z_2f0e9a5e`; study `run_20260327T035659Z_10f9baec` | `gpunode3` same-class A6000 confirmation block | the frontier-aware `v3_h4_targeted` revision supported `H4`: `prune_rank_revised` reached `1.0996x` geometric-mean speedup vs default, beating the parent `prune_rank` at `0.9666x` by a large `0.1331` margin under unchanged budget; this is the clearest tuner-forward win in the project so far | High | the win is currently demonstrated on representative GEMM only, and final paper promotion still depends on archival or a matching `gpunode2` confirmation policy | Yes |
+| `E-P2-INTEGRITY` | `R4` Phase 2 artifact integrity | Phase 2 deepening cycle `phase2_deepening_cycle_20260327T155853Z`; analysis bundle `artifacts/analysis/phase2_20260327/` | qualified homogeneous `RTX A6000` pool | the completed Phase 2 chain is internally consistent: all four campaigns finished successfully, all five studies emitted their full report sets, and the reusable analysis bundle captures campaign integrity, study integrity, strategy means, config-family snapshots, and claim summaries | High | this row only proves completeness and provenance, not scientific direction by itself | No |
+| `E-H1-P2-V2` | `H1` expanded-space representative GEMM | `gemm_v2_baseline_mapping` campaign `run_20260327T155909Z_11e2551b`; study `run_20260327T164637Z_0403b989` | qualified homogeneous `RTX A6000` pool | `H1` stayed supported on the expanded representative GEMM space: `naive_random_search` reached `1.0331x` vs default while `prune_rank` stayed at `0.8265x`; the enlarged space therefore strengthens the conclusion that cheap compile-ranked selection still misses the best reachable held-out family | High | the strongest winner is still delivered by `naive_random_search`, not by a deterministic revised selector | Yes |
+| `E-H4-P2-V2` | `H4` expanded-space representative GEMM | `gemm_v2_baseline_mapping` study `run_20260327T164637Z_0403b989`; `gemm_v2_selector_ablation` study `run_20260327T175823Z_376d6bbc` | qualified homogeneous `RTX A6000` pool | the earlier narrow-space `v3_h4_targeted` win did not generalize to the expanded v2 space: `prune_rank_revised` collapsed to `0.1458x` vs default in the baseline mapping study, and the ablation showed that both `v3_frontier_only` (`0.1432x`) and full `v3_h4_targeted` (`0.1439x`) fail for the same reason | High | this is a controlled expanded-space result rather than a direct contradiction of the earlier narrow-space win; the correct project-level reading is now “mixed transfer” rather than simple support or rejection | Yes |
+| `E-H2-P2-SMALL` | `H2` LayerNorm small-batch regime | `layernorm_v2_small_regime` study `run_20260327T183157Z_53565cba` | qualified homogeneous `RTX A6000` pool | the small-batch LayerNorm regime remained unsupported as a strong profiling win: `prune_rank_profiled` improved only slightly over `prune_rank` (`1.0113x` vs `1.0100x`), far below the pre-registered `+0.02` margin | Medium | the result is directionally positive but very small, so it should be written as a marginal or weak regime rather than a true profiling success | Yes |
+| `E-H2-P2-LARGE` | `H2` LayerNorm large-batch regime | `layernorm_v2_large_regime` study `run_20260327T183158Z_37695a2d` | qualified homogeneous `RTX A6000` pool | the large-batch LayerNorm regime is currently a stronger negative result: `prune_rank` reached `1.0029x` vs default while `prune_rank_profiled` regressed to `0.9856x`; the regime split therefore clarifies that the current profiling recipe is not helping uniformly across LayerNorm workloads | High | the mechanism behind the large-batch regression is still explanatory work rather than settled fact | Yes |
+| `E-H3-P2-CONTEXT` | `H3` expanded-space context | `gemm_v2_baseline_mapping` study `run_20260327T164637Z_0403b989`; `gemm_v2_aligned_reference` study `run_20260327T190124Z_3a34cdc7` | qualified homogeneous `RTX A6000` pool | aligned GEMM remained more flattering than representative GEMM for the compile-ranked selectors in Phase 2: for `prune_rank`, representative GEMM averaged `0.8265x` vs default while aligned GEMM averaged `0.8795x`; the same directional effect held for `prune_rank_profiled` | Medium | this is contextual Phase 2 evidence, not a separately re-pre-registered hypothesis row | Yes |
 | `E-CONF-LN-BASELINE` | evaluation confound | original `layernorm_reportable_g3_requal` run family inside `h2_followup_g3`, later corrected by `layernorm_reportable_g3_baselinefix` | `gpunode3` same-class A6000 confirmation block | the historical LayerNorm `default_config` confound was real and materially affected the first focused `H2` follow-up; it has now been resolved by the corrected baseline rerun and should be retained as a methodological lesson rather than an active blocker | High | no active unresolved confound remains on this issue; the row is retained so the paper can explain why the corrected rerun was necessary | No |
 
 ## Hypothesis Status Snapshot
 
 | Hypothesis | Current Status | Notes |
 | --- | --- | --- |
-| `H1` | Strengthened support | supported by the original validation batch and strengthened by the `gpunode3` broad plus focused confirmation studies; the leading mechanism is now frontier-construction failure on representative GEMM |
-| `H2` | Repeated non-support on a corrected baseline | the original and focused studies failed to support `H2`, and the corrected `h2_followup_g3_baselinefix` rerun also remained unsupported; this is now a much stronger negative-result candidate for the current LayerNorm profiling recipe |
-| `H3` | Broad support, narrow directional confirmation | supported by the broad original and broad `gpunode3` studies; the narrower confirmation batch reproduced the direction but missed the pre-registered margin slightly |
-| `H4` | Supported by the frontier-aware representative GEMM retry | the initial revised selector failed, but the frontier-aware `v3_h4_targeted` retry supported `H4` with a large matched-budget gain over the current selector on representative GEMM |
+| `H1` | Strong support, including the expanded v2 space | supported by the original validation batch, strengthened by the `gpunode3` confirmation runs, and preserved by the completed `gemm_v2_baseline_mapping` study |
+| `H2` | Regime-split weak or negative result | the pooled corrected rerun remained unsupported; the Phase 2 split studies show a marginal small-batch gain and a large-batch regression under the current `memory_activity_lite` recipe |
+| `H3` | Broad support plus Phase 2 contextual reinforcement | supported by the broad original and broad `gpunode3` studies, with the completed aligned-vs-representative v2 reference preserving the same direction |
+| `H4` | Mixed after expansion | the frontier-aware retry succeeded on the narrower representative GEMM space, but the expanded v2 baseline mapping and ablation show that the current revision does not generalize cleanly |
 
 ## Current Next Evidence Targets
 
-- Phase 2 representative GEMM v2 baseline mapping on the expanded space
-- Phase 2 representative GEMM selector ablation isolating frontier construction versus profile-aware reranking
-- Phase 2 LayerNorm regime-separated studies using `memory_activity_lite`
+- preserve the Phase 2 analysis bundle and the dated Phase 2 analysis log as the canonical source for current project-level interpretation
+- decide whether one bounded corrective GEMM revision is justified to address the specific oversized masked-tile failure exposed by Phase 2
+- decide whether one explanatory LayerNorm microstudy is needed for the paper, or whether the current regime-split negative result is sufficient
 
 ## Evidence Source Notes
 
@@ -69,6 +75,16 @@ Current environment policy:
 - The corrected follow-up sources are:
   - `h2_followup_g3_baselinefix` study `run_20260327T025533Z_0d0e6750`
   - `h4_retry_g3` study `run_20260327T035659Z_10f9baec`
+- The completed Phase 2 sources are:
+  - `gemm_v2_baseline_mapping` study `run_20260327T164637Z_0403b989`
+  - `gemm_v2_selector_ablation` study `run_20260327T175823Z_376d6bbc`
+  - `layernorm_v2_small_regime` study `run_20260327T183157Z_53565cba`
+  - `layernorm_v2_large_regime` study `run_20260327T183158Z_37695a2d`
+  - `gemm_v2_aligned_reference` study `run_20260327T190124Z_3a34cdc7`
+- The reusable Phase 2 analysis bundle is:
+  - `artifacts/analysis/phase2_20260327/`
+- The detailed chronological record for the completed Phase 2 analysis is:
+  - `docs/research/logs/2026-03-27_phase2_execution_analysis.md`
 - The detailed chronological record for the full `gpunode3` block should be maintained in a dated log entry under `logs/`.
 - The detailed chronological record for the corrected follow-up block should also be maintained in a dated log entry under `logs/`.
 - Batch-level study outputs remain the automated result source.

@@ -22,16 +22,23 @@ As of March 27, 2026:
 - the post-follow-up LayerNorm diagnostic profiling passes have completed
 - the corrected `h2_followup_g3_baselinefix` rerun has completed
 - the frontier-aware `h4_retry_g3` rerun has completed
+- the full Phase 2 v2 deepening chain has completed:
+  - `gemm_v2_baseline_mapping`
+  - `gemm_v2_selector_ablation`
+  - `layernorm_v2_regime_studies`
+  - `gemm_v2_aligned_reference`
 - `R0` is operationally satisfied for continued execution
 - `R1` is materially stronger than before
 - `R2` has repeated non-support on a corrected LayerNorm baseline
-- `R3` has now produced a same-class A6000 revision win through the frontier-aware `v3_h4_targeted` selector
+- `R3` now has mixed evidence:
+  - the narrower representative GEMM retry supported the frontier-aware `v3_h4_targeted` selector
+  - the expanded v2 GEMM space did not preserve that win
 
 Current implication:
 
-- the project has enough evidence to justify a controlled Phase 2 deepening pass
-- Phase 2 should expand the code-backed tuning surface where current evidence identified hard ceilings
-- the next work is still hypothesis-driven, but it should use v2 kernel/config families rather than only rerunning the narrow v1 space
+- the controlled Phase 2 deepening pass is complete
+- the current work should focus on analysis, documentation, and a bounded decision about whether one additional corrective execution pass is scientifically justified
+- any further execution should now be narrow and mechanism-driven, not another broad search-space expansion by default
 
 ## Repeatability And Robustness Modes
 
@@ -57,10 +64,10 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 | Round | Current State | Notes |
 | --- | --- | --- |
 | `R0` | Operationally complete | broad and narrow live campaigns, profiler validation, reportability checks, and chained study generation have all been exercised on both the original and same-class A6000 confirmation paths |
-| `R1` | Strengthened | original validation plus the completed `gpunode3` broad and focused batches all support the view that compile signals prune but do not rank representative GEMM well enough |
-| `R2` | Repeated non-support on corrected baseline | the corrected `h2_followup_g3_baselinefix` rerun still left `H2` unsupported; the LayerNorm baseline-validity confound has been removed, so this is now a materially stronger negative-result candidate for the current profiling recipe |
-| `R3` | Supported on the same-class A6000 confirmation path | the `h4_retry_g3` rerun supported `H4`, showing that a frontier-aware representative GEMM revision can improve held-out performance under unchanged budget |
-| `R4` | Entering synthesis and controlled deepening | the main next tasks are to preserve the current evidence, expand the v2 GEMM and LayerNorm spaces, and run focused follow-up studies on the qualified A6000 pool |
+| `R1` | Strong and expanded-space reinforced | original validation, `gpunode3` confirmation, and the completed `gemm_v2_baseline_mapping` study all support the view that compile signals prune but do not rank representative GEMM well enough |
+| `R2` | Regime-split negative or weak | the corrected pooled rerun remained unsupported; the Phase 2 split studies show only a marginal small-batch profiling gain and an outright large-batch regression under `memory_activity_lite` |
+| `R3` | Mixed after expansion | the narrower representative GEMM retry supported `H4`, but the expanded v2 GEMM baseline mapping and selector ablation show that the current frontier-aware revision does not generalize cleanly to the larger space |
+| `R4` | Active analysis and bounded corrective planning | the main next tasks are to preserve the Phase 2 evidence, align the docs and figure plan with it, and decide whether one narrow corrective execution pass is justified |
 
 ## Current Run Matrix
 
@@ -84,6 +91,13 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 - `configs/experiments/gemm_reportable_g3_v3h4.yaml`
 - `configs/experiments/layernorm_diag_regimes_g3.yaml`
 
+### Phase 2 v2 studies
+
+- `configs/experiments/gemm_v2_reportable.yaml`
+- `configs/experiments/gemm_v2_aligned_reportable.yaml`
+- `configs/experiments/layernorm_v2_small_reportable.yaml`
+- `configs/experiments/layernorm_v2_large_reportable.yaml`
+
 ### Development studies
 
 - `configs/experiments/gemm_development.yaml`
@@ -102,6 +116,11 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 - `configs/studies/h2_followup_g3.yaml`
 - `configs/studies/h2_followup_g3_baselinefix.yaml`
 - `configs/studies/h4_retry_g3.yaml`
+- `configs/studies/gemm_v2_baseline_mapping.yaml`
+- `configs/studies/gemm_v2_selector_ablation.yaml`
+- `configs/studies/layernorm_v2_small_regime.yaml`
+- `configs/studies/layernorm_v2_large_regime.yaml`
+- `configs/studies/gemm_v2_aligned_reference.yaml`
 
 ### Current campaign entrypoint
 
@@ -126,33 +145,31 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 | `R3` | opportunity catalog, revised-selector comparison, selected failure case studies |
 | `R4` | final cross-run summary, final figure/table source map, final hypothesis status table |
 
-## Immediate Execution Queue
+## Immediate Analysis Queue
 
-The next queue is a controlled Phase 2 deepening pass.
+The immediate queue is no longer a new broad execution pass. It is a Phase 2 analysis and decision pass.
 
-### Step 1: freeze and promote the current follow-up state
+### Step 1: freeze the Phase 2 evidence bundle
 
-- commit the supported `v3_h4_targeted` revision and corrected LayerNorm follow-up configs
-- preserve the strongest completed studies in stable artifact references
-- treat `gpunode2` and `gpunode3` as one qualified `RTX A6000` pool for new primary studies
+- keep `artifacts/analysis/phase2_20260327/` as the canonical reusable summary of the completed Phase 2 chain
+- keep the successful cycle log and status files alongside the bundle
+- reference the canonical analysis log:
+  - `docs/research/logs/2026-03-27_phase2_execution_analysis.md`
 
-### Step 2: fix the candidate-generation bottleneck
+### Step 2: synchronize the living registries
 
-- remove silent pre-validation truncation from config generation
-- fail explicitly when the valid config space exceeds `budgets.max_candidates`
-- record raw and valid config counts in generation provenance
+- update the evidence registry with the completed v2 studies
+- update the opportunity log with the expanded-space GEMM failure and the regime-split LayerNorm outcome
+- update the paper outline and figure plan so the strongest sources point to the completed v2 studies, not only the earlier narrow-space follow-ups
 
-### Step 3: run Phase 2 GEMM-first expansion
+### Step 3: decide whether another execution phase is justified
 
-- `configs/campaigns/gemm_v2_baseline_mapping.yaml`
-- `configs/campaigns/gemm_v2_selector_ablation.yaml`
-- optional aligned reference rerun only after the representative GEMM v2 batches finish
+Only two follow-up directions remain well justified:
 
-### Step 4: run regime-aware LayerNorm follow-up
+- one bounded corrective GEMM revision targeting the specific oversized masked-tile overcorrection seen in Phase 2
+- one explanatory LayerNorm microstudy if the paper needs a stronger second-kernel mechanism section
 
-- `configs/campaigns/layernorm_v2_regime_studies.yaml`
-- use `memory_activity_lite`
-- keep `small_batch` and `large_batch` separated in study interpretation
+Everything broader than those two options should currently be deferred.
 
 ## Long-Run Execution Discipline
 

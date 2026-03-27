@@ -106,21 +106,33 @@ Latest evaluated batches:
 - the detailed chronological record of the `gpunode3` long execution block should be kept in the dated logs under `logs/`
 - the corrected LayerNorm follow-up is recorded in `h2_followup_g3_baselinefix` study `run_20260327T025533Z_0d0e6750`
 - the frontier-aware GEMM retry is recorded in `h4_retry_g3` study `run_20260327T035659Z_10f9baec`
+- the completed Phase 2 expanded-space studies are:
+  - `gemm_v2_baseline_mapping` study `run_20260327T164637Z_0403b989`
+  - `gemm_v2_selector_ablation` study `run_20260327T175823Z_376d6bbc`
+  - `layernorm_v2_small_regime` study `run_20260327T183157Z_53565cba`
+  - `layernorm_v2_large_regime` study `run_20260327T183158Z_37695a2d`
+  - `gemm_v2_aligned_reference` study `run_20260327T190124Z_3a34cdc7`
+- the canonical Phase 2 analysis summary is recorded in [logs/2026-03-27_phase2_execution_analysis.md](logs/2026-03-27_phase2_execution_analysis.md)
 
-Current Phase 2 deepening rule:
+Current post-Phase-2 rule:
 
 - no new top-level hypotheses are admitted
-- `H1`, `H2`, and `H4` are deepened through larger-space or regime-aware follow-up studies
+- `H1` is now stronger because the expanded representative GEMM space preserved the original result direction
+- `H2` should now be interpreted through split LayerNorm regimes rather than one pooled LayerNorm result
+- `H4` should now be interpreted as mixed:
+  - the narrower v1 representative GEMM retry supported the frontier-aware revision
+  - the expanded v2 representative GEMM space did not preserve that win
 - `H3` remains an evaluation-context hypothesis and should be refreshed only as a supporting comparison workload
+- any further execution should be narrowly justified by a concrete Phase 2 mechanism, not by adding a new top-level claim
 
 ## Hypothesis Cross-Reference
 
 | Hypothesis | Required Workloads | Required Signals | Required Runs | Required Figures |
 | --- | --- | --- | --- | --- |
 | `H1` | `gemm_reportable`, `gemm_aligned_reportable` | Tier 0 cheap signals, optional `compute_lite` for diagnosis | repeatability GEMM runs and robustness-seed GEMM runs | per-workload-class speedup, selector stability, signal-runtime correlation |
-| `H2` | `gemm_reportable`, `layernorm_reportable` | `compute_lite`, `memory_lite` | matched-budget profiled runs on both kernel families | cross-kernel profiling-gain comparison, counter availability plot |
+| `H2` | `gemm_reportable`, `layernorm_reportable`; later `layernorm_v2_small_reportable` and `layernorm_v2_large_reportable` | `compute_lite`, `memory_lite`, later `memory_activity_lite` | matched-budget profiled runs on both kernel families, plus regime-split LayerNorm follow-up | cross-kernel profiling-gain comparison, regime-specific LayerNorm comparison, counter availability plot |
 | `H3` | `gemm_aligned_reportable`, `gemm_reportable` | Tier 0 cheap signals and held-out runtime | aligned vs representative GEMM run groups | aligned-vs-representative speedup figure, workload-class breakdown |
-| `H4` | `gemm_reportable`, `layernorm_reportable` | Tier 0 plus whichever Tier 1 signals motivated the revision | revised-selector run groups under unchanged budgets | revised-vs-current selector comparison, opportunity case-study figure |
+| `H4` | `gemm_reportable`, `layernorm_reportable`; later `gemm_v2_reportable` and ablation-only GEMM v2 groups | Tier 0 plus whichever Tier 1 signals motivated the revision | revised-selector run groups under unchanged budgets, later expanded-space ablation runs | revised-vs-current selector comparison, opportunity case-study figure, frontier-only versus full-v3 ablation |
 
 ## Ablation Discipline
 

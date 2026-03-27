@@ -35,66 +35,65 @@ Depends On: [01_research_program.md](01_research_program.md), [06_hypotheses_and
 
 | Figure ID | Figure | Claim It Supports | Source Study / Artifact |
 | --- | --- | --- | --- |
-| `F1` | strategy speedup by workload class on representative GEMM | selector quality is workload-dependent | `gemm_reportable` held-out comparison outputs |
-| `F2` | aligned vs representative GEMM comparison | aligned workloads can overstate selector quality | `gemm_aligned_reportable` vs `gemm_reportable` cross-run comparison |
-| `F3` | profiling-gain comparison for GEMM vs LayerNorm | profiling helps differently by kernel family | `validation_phase` cross-run study |
+| `F1` | strategy speedup by workload class on representative GEMM v2 | selector quality is workload-dependent and the expanded space preserves the representative GEMM miss | `gemm_v2_baseline_mapping` |
+| `F2` | aligned vs representative GEMM comparison under v2 | aligned workloads can overstate selector quality | `gemm_v2_aligned_reference` vs `gemm_v2_baseline_mapping` |
+| `F3` | LayerNorm regime split: `small_batch` vs `large_batch` profiling outcomes | profiling helps differently by LayerNorm regime and not uniformly by kernel family | `layernorm_v2_small_regime` and `layernorm_v2_large_regime` |
 | `F4` | repeated-run stability by strategy | results are or are not stable enough for strong claims | stability reports from repeatability mode |
 | `F5` | counter availability by counter set | reportable vs diagnostic profiling evidence is clearly separated | counter-availability reports |
 | `F6` | signal-to-runtime correlation overview | some cheap signals are informative and others are weak | correlation artifacts from GEMM and LayerNorm runs |
-| `F7` | opportunity-guided revised selector case study | measured failure analysis can motivate a better heuristic | revised-selector comparison plus opportunity log |
+| `F7` | revised-selector transfer ablation | measured failure analysis can motivate a better heuristic, but the same heuristic can fail to transfer when the space expands | `gemm_v2_selector_ablation`, `gemm_v2_baseline_mapping`, plus the earlier `h4_retry_g3` retry as context |
 | `F8` | bottleneck or opportunity distribution across workload classes | failure modes are structured rather than random | bottleneck signatures and opportunity catalog |
 
 ## Current Figure Readiness
 
 | Figure ID | Current Readiness | Notes |
 | --- | --- | --- |
-| `F1` | Strongly provisionally backed | representative GEMM now has the original validation batch plus the completed `gpunode3` broad and focused confirmation batches; this is currently the strongest result path in the project |
-| `F2` | Provisionally backed with a narrow-batch caveat | aligned-vs-representative evidence is supported in the broad studies and reproduced directionally in the focused `H1/H3` batch, but the narrow confirmation missed the pre-registered margin slightly |
-| `F3` | Provisionally backed as a negative-result figure | the corrected `h2_followup_g3_baselinefix` rerun removed the LayerNorm baseline confound and still left `H2` unsupported; the figure can now support a careful negative-result claim about the current profiling recipe, and the next LayerNorm v2 regime studies can deepen that explanation |
-| `F4` | Provisionally backed | repeatability and robustness evidence now exists across the original validation batch and the completed `gpunode3` confirmation block, but final paper usage should rely on archived or reproduced artifacts |
-| `F5` | Provisionally backed | Tier 1 counter-set acceptance has live evidence on the current A6000 stack |
-| `F6` | Provisionally backed | first-batch correlation artifacts exist; they still need interpretation and likely pruning for the final paper |
-| `F7` | Strongly provisionally backed | the `h4_retry_g3` rerun supported `H4`, giving the project its clearest revised-selector success story and a concrete before/after case study for representative GEMM |
-| `F8` | More strongly provisionally backed | bottleneck-signature, opportunity, and diagnostic artifacts now include the completed `gpunode3` broad batch, the focused follow-up studies, and the LayerNorm diagnostic passes |
+| `F1` | Strongly provisionally backed | `gemm_v2_baseline_mapping` is now the strongest representative GEMM source because it preserves the original failure direction on the expanded space and ties that result to stable config families |
+| `F2` | More strongly provisionally backed | the completed `gemm_v2_aligned_reference` study preserves the direction that aligned GEMM flatters the selector ladder more than representative GEMM |
+| `F3` | Strongly provisionally backed as a regime-split negative-result figure | the completed `layernorm_v2_small_regime` and `layernorm_v2_large_regime` studies replace the old pooled LayerNorm story with a cleaner weak-versus-negative regime split |
+| `F4` | Provisionally backed | repeatability and robustness evidence now exists in both the original validation block and the completed v2 studies; final paper usage should rely on archived artifact paths |
+| `F5` | Provisionally backed | Tier 1 counter-set acceptance has live evidence on the current A6000 stack, including `memory_activity_lite` |
+| `F6` | Provisionally backed | correlation artifacts still need interpretation and pruning, but the v2 studies now give a cleaner set of candidate figure sources |
+| `F7` | Strongly provisionally backed as a transfer-failure ablation | the project now has both sides of the story: the narrow-space `h4_retry_g3` success and the expanded-space `gemm_v2_selector_ablation` failure, which together make a stronger mechanism figure than a pure success plot alone |
+| `F8` | Strongly provisionally backed | bottleneck-signature, opportunity, and diagnostic artifacts now include the completed v2 studies and the reusable Phase 2 analysis bundle |
 
 ## Current Strongest Artifact Sources
 
-- Representative GEMM broad confirmation:
-  - `validation_phase_g3_requal` `run_20260326T224438Z_672398c0`
-- Focused aligned-vs-representative GEMM comparison:
-  - `h13_confirmation_g3` `run_20260326T233133Z_7c560d98`
-- Focused GEMM-vs-LayerNorm profiling comparison:
-  - `h2_followup_g3` `run_20260327T001439Z_80ff8355`
-- Corrected GEMM-vs-LayerNorm profiling comparison:
-  - `h2_followup_g3_baselinefix` `run_20260327T025533Z_0d0e6750`
-- Frontier-aware revised-selector comparison:
+- Representative GEMM expanded-space baseline mapping:
+  - `gemm_v2_baseline_mapping` `run_20260327T164637Z_0403b989`
+- Representative GEMM selector ablation:
+  - `gemm_v2_selector_ablation` `run_20260327T175823Z_376d6bbc`
+- LayerNorm regime split:
+  - `layernorm_v2_small_regime` `run_20260327T183157Z_53565cba`
+  - `layernorm_v2_large_regime` `run_20260327T183158Z_37695a2d`
+- Aligned GEMM v2 context:
+  - `gemm_v2_aligned_reference` `run_20260327T190124Z_3a34cdc7`
+- Narrow-space revised-selector success context:
   - `h4_retry_g3` `run_20260327T035659Z_10f9baec`
-- Next deepening studies:
-  - `gemm_v2_baseline_mapping`
-  - `gemm_v2_selector_ablation`
-  - `layernorm_v2_small_regime`
-  - `layernorm_v2_large_regime`
+- Canonical summary bundle:
+  - `artifacts/analysis/phase2_20260327/`
 - Full chronological execution record:
   - `docs/research/logs/2026-03-26_g3_requalification_and_followup_execution.md`
   - `docs/research/logs/2026-03-27_g3_followup_baselinefix_and_v3_retry.md`
+  - `docs/research/logs/2026-03-27_phase2_execution_analysis.md`
 
 ## Current Writing-Ready Claims
 
-- Cheap compile signals are useful for pruning but not sufficient for representative GEMM ranking.
-  - strongest sources: `validation_phase_g3_requal`, `h13_confirmation_g3`
-- Aligned GEMM overstates selector quality relative to the representative workload.
-  - strongest sources: `validation_phase`, `validation_phase_g3_requal`, `h13_confirmation_g3`
-- Under the current matched budget and `memory_lite` recipe, LayerNorm profiling produces only a small gain and does not satisfy the intended cross-kernel advantage over GEMM.
-  - strongest source: `h2_followup_g3_baselinefix`
-- A frontier-aware representative GEMM revision can materially improve held-out performance under unchanged budget.
-  - strongest source: `h4_retry_g3`
+- Cheap compile signals are useful for pruning but not sufficient for representative GEMM ranking, and that result survives the expanded v2 space.
+  - strongest source: `gemm_v2_baseline_mapping`
+- Aligned GEMM still overstates selector quality relative to the representative workload.
+  - strongest sources: `gemm_v2_baseline_mapping`, `gemm_v2_aligned_reference`, supported by the earlier broad studies
+- LayerNorm should be written as a regime-aware mixed result, not a pooled profiling success.
+  - strongest sources: `layernorm_v2_small_regime`, `layernorm_v2_large_regime`
+- A frontier-aware revised selector can work on a narrower space, but the current rule does not transfer to the expanded v2 GEMM space.
+  - strongest sources: `h4_retry_g3`, `gemm_v2_baseline_mapping`, `gemm_v2_selector_ablation`
 
-## Current Deepening Goal
+## Current Analysis Goal
 
-The next evidence-building phase should not add new top-level claims. It should:
+The next synthesis phase should not add new top-level claims. It should:
 
-- strengthen the representative GEMM story on an expanded v2 knob space,
-- isolate whether frontier construction or profile-aware reranking explains the `v3` win,
+- lock the representative GEMM story to the Phase 2 expanded-space evidence,
+- write the revised-selector result as a transfer/ablation story rather than a pure win,
 - and turn LayerNorm from one pooled negative result into a regime-aware secondary story.
 
 ## Figure Readiness Rules

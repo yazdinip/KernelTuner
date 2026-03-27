@@ -151,9 +151,10 @@ Current profiler status meanings:
 
 ## Current Operational Status
 
-As of March 26, 2026:
+As of March 27, 2026:
 
 - `compute_lite` and `memory_lite` have both passed live validation on the current `RTX A6000` environment
+- `memory_activity_lite` has also passed live validation on the current `RTX A6000` environment
 - `shared_diag` remains intentionally diagnostic-only
 - a fresh GPU shell may still require explicit CUDA path export before `ncu` is visible
 
@@ -190,6 +191,23 @@ The March 27, 2026 corrective follow-up cycle added two more signal-level conclu
 - The most successful selector improvement so far was not a richer profile rule, but a better compile-frontier construction rule.
   - The `v3_h4_targeted` revision succeeded by changing which GEMM configs entered the benchmarked frontier before profiling.
   - Current implication: for representative GEMM, Tier 0 and config-derived shape features are now more important to the next tuning step than adding more Tier 1 profiling complexity.
+
+## Methodological Notes From The Completed Phase 2 Deepening Pass
+
+The completed Phase 2 v2 studies sharpened the signal interpretation further:
+
+- `memory_activity_lite` was operationally sound but scientifically weak as a universal LayerNorm ranking recipe.
+  - In `small_batch`, profiling improved `prune_rank` only marginally.
+  - In `large_batch`, profiling regressed against compile-only ranking.
+  - Current implication: adding one activity or occupancy signal was not enough by itself to turn LayerNorm profiling into a strong matched-budget story.
+
+- The current LayerNorm v2 knob expansion did not yet activate a new launch-shape family.
+  - The selected configs in both Phase 2 LayerNorm regime studies stayed at `rows_per_program=1`.
+  - Current implication: the regime split was valuable for interpretation, but the added LayerNorm knob did not become an active tuner lever in this batch.
+
+- The representative GEMM failure on the expanded v2 space is still dominated by frontier construction, not by the lack of more Tier 1 signals.
+  - The Phase 2 ablation showed that both `v3_frontier_only` and full `v3_h4_targeted` failed in almost the same way once the frontier collapsed onto oversized masked tiles.
+  - Current implication: another signal-only escalation is less justified than a shape-relative or mask-aware frontier correction.
 
 ## Counter Availability Risk
 
