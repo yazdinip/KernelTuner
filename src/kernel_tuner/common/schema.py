@@ -515,7 +515,7 @@ class RunGroupSpec(KTModel):
     include_latest_runs: int | None = None
     kernel_family: str | None = None
     workload_class: str | None = None
-    selector_version: str = "v1"
+    selector_version: str | None = None
     selector_revision_id: str | None = None
     counter_set_id: str | None = None
     budget_id: str | None = None

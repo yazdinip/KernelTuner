@@ -50,6 +50,7 @@ run_groups:
     experiment_ids: [gemm_v2_reportable]
     include_latest_runs: 6
     kernel_family: gemm
+    selector_version: phase2_gemm_v2
     counter_set_id: compute_lite
     budget_id: gemm_v2_reportable_matched
 group_by:

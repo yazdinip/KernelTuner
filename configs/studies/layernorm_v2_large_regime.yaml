@@ -29,6 +29,7 @@ run_groups:
     include_latest_runs: 6
     kernel_family: layernorm
     workload_class: large_batch
+    selector_version: phase2_layernorm_v2
     counter_set_id: memory_activity_lite
     budget_id: layernorm_v2_regime_matched
 group_by:

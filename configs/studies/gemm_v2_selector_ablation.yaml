@@ -5,18 +5,21 @@ run_groups:
     experiment_ids: [gemm_v2_ablation_parent]
     include_latest_runs: 6
     kernel_family: gemm
+    selector_version: phase2_gemm_v2_parent
     counter_set_id: compute_lite
     budget_id: gemm_v2_reportable_matched
   - group_id: gemm_v2_frontier_only
     experiment_ids: [gemm_v2_ablation_frontier]
     include_latest_runs: 6
     kernel_family: gemm
+    selector_version: phase2_gemm_v2_frontier
     counter_set_id: compute_lite
     budget_id: gemm_v2_reportable_matched
   - group_id: gemm_v2_v3
     experiment_ids: [gemm_v2_ablation_v3]
     include_latest_runs: 6
     kernel_family: gemm
+    selector_version: phase2_gemm_v2_v3
     counter_set_id: compute_lite
     budget_id: gemm_v2_reportable_matched
 group_by:
