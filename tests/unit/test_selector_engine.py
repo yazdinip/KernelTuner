@@ -179,3 +179,118 @@ def test_revised_selector_can_rerank_compile_frontier_with_config_features():
     assert decision.comparison_class == ComparisonClass.MATCHED_BUDGET
     assert decision.ranked_config_ids[0] == "cfg_large_square"
     assert decision.selected_config_id == "cfg_large_square"
+
+
+def test_frontier_only_revision_keeps_frontier_order_without_profile_reranking():
+    candidates = [
+        CandidateConfig(
+            experiment_id="exp",
+            kernel_id="gemm",
+            shape_id="shape_1",
+            config_id="cfg_skinny",
+            config={"block_m": 64, "block_n": 128, "block_k": 32, "num_stages": 4, "num_warps": 8},
+            is_valid=True,
+        ),
+        CandidateConfig(
+            experiment_id="exp",
+            kernel_id="gemm",
+            shape_id="shape_1",
+            config_id="cfg_large_square",
+            config={"block_m": 128, "block_n": 128, "block_k": 32, "num_stages": 4, "num_warps": 4},
+            is_valid=True,
+        ),
+    ]
+    compile_signals = [
+        CompileSignalRecord(
+            run_id="run",
+            kernel_id="gemm",
+            shape_id="shape_1",
+            config_id="cfg_skinny",
+            compile_status="success",
+            compile_success=True,
+            register_count=48,
+            shared_memory_bytes=8192,
+            occupancy_estimate=1.0,
+        ),
+        CompileSignalRecord(
+            run_id="run",
+            kernel_id="gemm",
+            shape_id="shape_1",
+            config_id="cfg_large_square",
+            compile_status="success",
+            compile_success=True,
+            register_count=64,
+            shared_memory_bytes=12288,
+            occupancy_estimate=1.0,
+        ),
+    ]
+    revision = SelectorRevisionSpec(
+        revision_id="frontier_only_test",
+        frontier_ranking_features=[
+            SelectorRankingFeature(feature_name="shape_balance", source="config", direction="desc"),
+            SelectorRankingFeature(feature_name="tile_area", source="config", direction="desc"),
+        ],
+        ranking_features=[],
+    )
+
+    def request_profile(config_id: str) -> list[ProfileMeasurement]:
+        if config_id == "cfg_large_square":
+            counter_map = {
+                "sm__warps_active.avg.pct_of_peak_sustained_active": 40.0,
+                "smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct": 25.0,
+            }
+        else:
+            counter_map = {
+                "sm__warps_active.avg.pct_of_peak_sustained_active": 95.0,
+                "smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct": 2.0,
+            }
+        return [
+            ProfileMeasurement(
+                run_id="run",
+                strategy_id="prune_rank_revised",
+                kernel_id="gemm",
+                shape_id="shape_1",
+                config_id=config_id,
+                counter_set_id="compute_lite",
+                profile_status=ProfileStatus.SUCCESS,
+                counter_map=counter_map,
+            )
+        ]
+
+    def request_benchmark(config_id: str) -> list[RuntimeMeasurement]:
+        return [
+            RuntimeMeasurement(
+                run_id="run",
+                strategy_id="prune_rank_revised",
+                measurement_phase=MeasurementPhase.CALIBRATION,
+                kernel_id="gemm",
+                shape_id="shape_1",
+                config_id=config_id,
+                warmup_count=1,
+                timed_run_count=1,
+                latency_median_us=50.0 if config_id == "cfg_large_square" else 60.0,
+                latency_mean_us=50.0 if config_id == "cfg_large_square" else 60.0,
+                latency_std_us=0.0,
+                latency_p95_us=50.0 if config_id == "cfg_large_square" else 60.0,
+                throughput_value=1.0,
+                throughput_unit="arb",
+                status=RuntimeStatus.SUCCESS,
+            )
+        ]
+
+    decision = run_selector_mode(
+        run_id="run",
+        strategy_id="prune_rank_revised",
+        selector_mode="prune_rank_revised",
+        kernel_id="gemm",
+        candidate_records=candidates,
+        compile_signals=compile_signals,
+        budgets=type("Budget", (), {"max_profiles": 2, "max_benchmarks": 2})(),
+        request_benchmark=request_benchmark,
+        request_profile=request_profile,
+        selector_revision=revision,
+    )
+
+    assert decision.ranked_config_ids[0] == "cfg_large_square"
+    assert decision.selected_config_id == "cfg_large_square"
+    assert "without profile reranking" in decision.rationale_summary

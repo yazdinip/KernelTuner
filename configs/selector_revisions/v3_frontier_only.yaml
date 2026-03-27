@@ -1,0 +1,25 @@
+revision_id: v3_frontier_only
+parent_selector_mode: prune_rank_profiled
+linked_opportunity_tags:
+  - selector_revision_candidate
+  - frontier_construction_failure
+  - ablation_frontier_only
+frontier_ranking_features:
+  - feature_name: tile_area
+    source: config
+    direction: desc
+  - feature_name: shape_balance
+    source: config
+    direction: desc
+  - feature_name: num_stages
+    source: config
+    direction: desc
+  - feature_name: num_warps
+    source: config
+    direction: asc
+ranking_features: []
+tie_break_relative_tolerance: 0.02
+notes: >
+  Frontier-only ablation of v3_h4_targeted. This revision reorders the compile
+  frontier toward larger and more balanced GEMM tiles, but intentionally keeps
+  the profiled prefix order unchanged to isolate the value of frontier construction.

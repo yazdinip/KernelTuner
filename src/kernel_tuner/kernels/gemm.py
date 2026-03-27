@@ -32,11 +32,18 @@ def _load_triton_components():
         BLOCK_M: tl.constexpr,
         BLOCK_N: tl.constexpr,
         BLOCK_K: tl.constexpr,
+        GROUP_SIZE_M: tl.constexpr,
     ):
         pid = tl.program_id(axis=0)
+        num_pid_m = tl.cdiv(m, BLOCK_M)
         num_pid_n = tl.cdiv(n, BLOCK_N)
-        pid_m = pid // num_pid_n
-        pid_n = pid % num_pid_n
+        num_pid_in_group = GROUP_SIZE_M * num_pid_n
+        group_id = pid // num_pid_in_group
+        first_pid_m = group_id * GROUP_SIZE_M
+        group_size_m = tl.minimum(num_pid_m - first_pid_m, GROUP_SIZE_M)
+        pid_in_group = pid % num_pid_in_group
+        pid_m = first_pid_m + (pid_in_group % group_size_m)
+        pid_n = pid_in_group // group_size_m
 
         offs_m = pid_m * BLOCK_M + tl.arange(0, BLOCK_M)
         offs_n = pid_n * BLOCK_N + tl.arange(0, BLOCK_N)
@@ -116,12 +123,9 @@ class GemmKernel:
             return False, "block sizes must be positive"
         if config["num_warps"] <= 0 or config["num_stages"] <= 0:
             return False, "num_warps and num_stages must be positive"
-        if (
-            config["block_m"] > shape.dim("m")
-            or config["block_n"] > shape.dim("n")
-            or config["block_k"] > shape.dim("k")
-        ):
-            return False, "block sizes cannot exceed shape dimensions in v1"
+        group_size_m = config.get("group_size_m", 1)
+        if group_size_m <= 0:
+            return False, "group_size_m must be positive when provided"
         return True, None
 
     def run_kernel(self, inputs: dict[str, Any], shape: ProblemShape, config: dict[str, int]) -> Any:
@@ -130,6 +134,7 @@ class GemmKernel:
         out_dtype_flag = 1 if shape.dtype == "bf16" else 0
         m, n, k = shape.dim("m"), shape.dim("n"), shape.dim("k")
         grid = lambda meta: (triton.cdiv(m, meta["BLOCK_M"]) * triton.cdiv(n, meta["BLOCK_N"]),)
+        group_size_m = config.get("group_size_m", 1)
 
         matmul_kernel[grid](
             inputs["a"],
@@ -148,6 +153,7 @@ class GemmKernel:
             BLOCK_M=config["block_m"],
             BLOCK_N=config["block_n"],
             BLOCK_K=config["block_k"],
+            GROUP_SIZE_M=group_size_m,
             num_warps=config["num_warps"],
             num_stages=config["num_stages"],
         )
@@ -201,6 +207,7 @@ class GemmKernel:
         metadata["signal_backend"] = "heuristic_fallback"
         metadata["occupancy_method"] = "warps_only"
         try:
+            group_size_m = config.get("group_size_m", 1)
             compiled = matmul_kernel.warmup(
                 inputs["a"],
                 inputs["b"],
@@ -218,6 +225,7 @@ class GemmKernel:
                 BLOCK_M=config["block_m"],
                 BLOCK_N=config["block_n"],
                 BLOCK_K=config["block_k"],
+                GROUP_SIZE_M=group_size_m,
                 num_warps=config["num_warps"],
                 num_stages=config["num_stages"],
                 grid=(1,),

@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from kernel_tuner.common.config import (
+    load_counter_set,
     load_campaign_spec,
     load_experiment_spec,
     load_kernel_spec,
@@ -74,3 +75,70 @@ def test_load_selector_revision_spec():
     spec = load_selector_revision_spec(Path("configs/selector_revisions/v2_validation.yaml"))
     assert spec.revision_id == "v2_validation"
     assert spec.ranking_features[0].feature_name == "warps_active"
+
+
+def test_load_frontier_aware_selector_revision_spec():
+    spec = load_selector_revision_spec(Path("configs/selector_revisions/v3_h4_targeted.yaml"))
+    assert spec.revision_id == "v3_h4_targeted"
+    assert spec.frontier_ranking_features[0].feature_name == "tile_area"
+
+
+def test_load_layernorm_baselinefix_experiment_spec():
+    spec = load_experiment_spec(Path("configs/experiments/layernorm_reportable_g3_baselinefix.yaml"))
+    assert spec.experiment_id == "layernorm_reportable_g3_baselinefix"
+    assert spec.kernels == ["layernorm_baselinefix"]
+
+
+def test_load_layernorm_regime_diag_experiment_spec():
+    spec = load_experiment_spec(Path("configs/experiments/layernorm_diag_regimes_g3.yaml"))
+    assert spec.experiment_id == "layernorm_diag_regimes_g3"
+    assert spec.kernels == ["layernorm_regime_diag"]
+    assert spec.calibration_split == 1.0
+    assert spec.held_out_split == 0.0
+
+
+def test_load_phase2_kernel_specs():
+    gemm_spec = load_kernel_spec(Path("configs/kernels/gemm_v2.yaml"))
+    layernorm_spec = load_kernel_spec(Path("configs/kernels/layernorm_v2.yaml"))
+
+    assert gemm_spec.kernel_id == "gemm_v2"
+    assert "group_size_m" in gemm_spec.config_parameters
+    assert layernorm_spec.kernel_id == "layernorm_v2"
+    assert "rows_per_program" in layernorm_spec.config_parameters
+
+
+def test_load_phase2_counter_set():
+    spec = load_counter_set(Path("configs/counters/memory_activity_lite.yaml"))
+
+    assert spec.counter_set_id == "memory_activity_lite"
+    assert any(counter.startswith("sm__warps_active") for counter in spec.counters)
+
+
+def test_load_phase2_selector_revision_ablation():
+    spec = load_selector_revision_spec(Path("configs/selector_revisions/v3_frontier_only.yaml"))
+
+    assert spec.revision_id == "v3_frontier_only"
+    assert spec.ranking_features == []
+    assert spec.frontier_ranking_features[0].feature_name == "tile_area"
+
+
+def test_load_phase2_experiment_specs():
+    gemm_spec = load_experiment_spec(Path("configs/experiments/gemm_v2_reportable.yaml"))
+    layernorm_spec = load_experiment_spec(Path("configs/experiments/layernorm_v2_small_reportable.yaml"))
+
+    assert gemm_spec.experiment_id == "gemm_v2_reportable"
+    assert gemm_spec.kernels == ["gemm_v2"]
+    assert gemm_spec.analysis_settings.reportability_target == "rtx_a6000_pool"
+    assert layernorm_spec.experiment_id == "layernorm_v2_small_reportable"
+    assert layernorm_spec.kernels == ["layernorm_v2"]
+    assert layernorm_spec.counter_set_id == "memory_activity_lite"
+
+
+def test_load_phase2_study_and_campaign_specs():
+    study = load_study_spec(Path("configs/studies/gemm_v2_baseline_mapping.yaml"))
+    campaign = load_campaign_spec(Path("configs/campaigns/gemm_v2_selector_ablation.yaml"))
+
+    assert study.study_id == "gemm_v2_baseline_mapping"
+    assert {hypothesis.hypothesis_id for hypothesis in study.hypotheses} == {"H1_phase2_gemm", "H4_phase2_gemm"}
+    assert campaign.campaign_id == "gemm_v2_selector_ablation"
+    assert len(campaign.templates) == 6

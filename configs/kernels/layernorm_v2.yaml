@@ -1,0 +1,45 @@
+kernel_id: layernorm_v2
+family: layernorm
+description: >
+  Expanded Triton LayerNorm kernel specification for the Phase 2 regime-aware
+  follow-up studies. This carries forward the corrected default baseline and
+  adds rows_per_program as the first new implementation knob.
+shape_schema:
+  required_dims:
+    - rows
+    - hidden
+  required_metadata:
+    - dtype
+    - layout
+dtype_support:
+  - fp16
+  - bf16
+config_parameters:
+  block_size: [1024, 2048, 4096]
+  num_warps: [4, 8]
+  num_stages: [2, 4]
+  rows_per_program: [1, 4, 8]
+reference_impl: torch.nn.functional.layer_norm
+supports_profiling: true
+correctness_policy:
+  atol: 2.0e-2
+  rtol: 2.0e-2
+  reference_dtype: fp32
+default_config:
+  block_size: 4096
+  num_warps: 4
+  num_stages: 2
+  rows_per_program: 1
+supported_knob_families:
+  - block_size
+  - warp_count
+  - pipeline_depth
+  - rows_per_program
+expected_signal_families:
+  - compile
+  - memory_profile
+  - activity_profile
+tags:
+  - phase2
+  - layernorm-secondary
+  - regime-aware

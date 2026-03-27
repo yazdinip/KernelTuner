@@ -1,0 +1,20 @@
+campaign_id: gemm_v2_baseline_mapping
+round_id: round_phase2_gemm_v2_mapping
+templates:
+  - template_id: gemm_v2_repeatability
+    experiment_ids: [gemm_v2_reportable]
+    seeds: [7]
+    repeats: 3
+    selector_revision_ids: [v3_h4_targeted]
+  - template_id: gemm_v2_robustness
+    experiment_ids: [gemm_v2_reportable]
+    seeds: [7, 19, 43]
+    repeats: 1
+    selector_revision_ids: [v3_h4_targeted]
+studies:
+  - study_id: gemm_v2_baseline_mapping
+    requires_templates:
+      - gemm_v2_repeatability
+      - gemm_v2_robustness
+notes: >
+  Phase 2 representative GEMM mapping campaign over the expanded v2 space.

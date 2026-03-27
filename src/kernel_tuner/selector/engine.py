@@ -600,19 +600,25 @@ def run_selector_mode(
                                 key=lambda config_id: _profile_rank_key(config_id, profile_metrics),
                             )
                         else:
-                            reordered_profiled = sorted(
-                                surviving_profiled,
-                                key=lambda config_id: _revision_rank_key(
-                                    config_id,
-                                    selector_revision,
-                                    compile_summary,
-                                    profile_metrics,
-                                    candidate_groups,
-                                ),
-                            )
-                            rationale.append(
-                                f"profile-reordered {len(reordered_profiled)} configs using revision '{selector_revision.revision_id}'"
-                            )
+                            if selector_revision.ranking_features:
+                                reordered_profiled = sorted(
+                                    surviving_profiled,
+                                    key=lambda config_id: _revision_rank_key(
+                                        config_id,
+                                        selector_revision,
+                                        compile_summary,
+                                        profile_metrics,
+                                        candidate_groups,
+                                    ),
+                                )
+                                rationale.append(
+                                    f"profile-reordered {len(reordered_profiled)} configs using revision '{selector_revision.revision_id}'"
+                                )
+                            else:
+                                reordered_profiled = list(surviving_profiled)
+                                rationale.append(
+                                    f"kept frontier-ranked profile prefix order for revision '{selector_revision.revision_id}' without profile reranking"
+                                )
                 else:
                     reordered_profiled = sorted(
                         successful_profile_ids,

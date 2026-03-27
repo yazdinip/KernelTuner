@@ -17,7 +17,7 @@ from kernel_tuner.common.schema import (
     RuntimeMeasurement,
     RuntimeStatus,
 )
-from kernel_tuner.config_space.generator import config_dict_from_record, generate_candidate_records
+from kernel_tuner.config_space.generator import config_dict_from_record, generate_candidate_bundle
 from kernel_tuner.kernels.registry import resolve_kernel
 
 
@@ -244,7 +244,8 @@ def benchmark_experiment(
 ) -> dict[str, object]:
     kernel_spec = load_kernel_spec(kernel_config_path(experiment_spec.kernels[0], experiment_path))
     kernel = resolve_kernel(kernel_spec)
-    candidates = generate_candidate_records(experiment_spec, experiment_path=experiment_path)
+    candidate_bundle = generate_candidate_bundle(experiment_spec, experiment_path=experiment_path)
+    candidates = candidate_bundle["records"]
     results = []
     for index, shape in enumerate(experiment_spec.shapes):
         shape_candidates = [
@@ -274,4 +275,5 @@ def benchmark_experiment(
         "experiment_id": experiment_spec.experiment_id,
         "shape_count": len(results),
         "measurements": results,
+        "generation_metadata": candidate_bundle["metadata"],
     }
