@@ -55,6 +55,7 @@ No selector level should be added to the paper unless it answers a question the 
 | `H2` | Limited profiling helps more on LayerNorm than on GEMM under matched budget. | LayerNorm is more memory-bound and therefore benefits more from targeted memory-centric counters | `prune_rank_profiled` vs `prune_rank` on GEMM and LayerNorm | profiling yields a larger held-out improvement or stability improvement on LayerNorm than on GEMM | profiling gives no differential advantage or helps GEMM equally/more | counter availability, workload imbalance, profiling overhead |
 | `H3` | The aligned GEMM workload overstates selector quality relative to the representative GEMM workload. | regular aligned shapes hide edge and aspect-ratio failure modes | `gemm_aligned_reportable` vs `gemm_reportable` using the same strategy ladder | selector gains are stronger or more stable on aligned GEMM than on representative GEMM | selector quality transfers equally well across both workload programs | insufficient irregular shapes, unstable reportable runs |
 | `H4` | Opportunity-guided heuristic revisions improve held-out performance under the same budget more reliably than the current selector. | measured failure modes reveal specific ranking weaknesses that a revised heuristic can address | `prune_rank_revised` vs `prune_rank` on reportable GEMM and LayerNorm | revised selector improves held-out metrics or stability without increasing budget and the improvement is consistent enough across repeated runs | revision does not help or only helps via budget leakage or non-repeatable wins | overtuning to one workload class, hidden measurement confounds |
+| `H5` | A shape-relative, transfer-safe frontier policy can recover near-random-search GEMM performance on the expanded schedule space under the same matched budget, even after admitting `split_k`. | transfer-safe frontier construction should keep strong families reachable without collapsing onto oversized masked tiles once the space admits one orthogonal schedule family | `v4_transfer_safe_frontier` / `v4_transfer_safe_profiled` vs `prune_rank` and `naive_random_search` on representative GEMM v3 | `v4_transfer_safe_profiled` beats parent `prune_rank` by at least `+0.05` geomean speedup vs default, lands within `0.02` of `naive_random_search`, and the win is not confined to one seed or workload class | transfer-safe revisions still miss random search badly, only help one isolated class, or profiling remains necessary to rescue a weak frontier | hidden split-`k` overhead, search-space overflow, unstable frontier diagnostics |
 
 ## Support / Reject / Inconclusive Rules
 
@@ -116,14 +117,17 @@ Latest evaluated batches:
 
 Current post-Phase-2 rule:
 
-- no new top-level hypotheses are admitted
+- exactly one new top-level hypothesis is admitted:
+  - `H5`, the Phase 3 transfer-safe frontier hypothesis
 - `H1` is now stronger because the expanded representative GEMM space preserved the original result direction
 - `H2` should now be interpreted through split LayerNorm regimes rather than one pooled LayerNorm result
 - `H4` should now be interpreted as mixed:
   - the narrower v1 representative GEMM retry supported the frontier-aware revision
   - the expanded v2 representative GEMM space did not preserve that win
 - `H3` remains an evaluation-context hypothesis and should be refreshed only as a supporting comparison workload
-- any further execution should be narrowly justified by a concrete Phase 2 mechanism, not by adding a new top-level claim
+- Phase 3 execution is justified narrowly by the concrete Phase 2 mechanism:
+  - the expanded-space frontier collapsed toward oversized masked tiles
+  - and the next admissible corrective pass is a shape-relative, transfer-safe frontier plus one bounded new schedule family (`split_k`)
 
 ## Hypothesis Cross-Reference
 
@@ -133,6 +137,7 @@ Current post-Phase-2 rule:
 | `H2` | `gemm_reportable`, `layernorm_reportable`; later `layernorm_v2_small_reportable` and `layernorm_v2_large_reportable` | `compute_lite`, `memory_lite`, later `memory_activity_lite` | matched-budget profiled runs on both kernel families, plus regime-split LayerNorm follow-up | cross-kernel profiling-gain comparison, regime-specific LayerNorm comparison, counter availability plot |
 | `H3` | `gemm_aligned_reportable`, `gemm_reportable` | Tier 0 cheap signals and held-out runtime | aligned vs representative GEMM run groups | aligned-vs-representative speedup figure, workload-class breakdown |
 | `H4` | `gemm_reportable`, `layernorm_reportable`; later `gemm_v2_reportable` and ablation-only GEMM v2 groups | Tier 0 plus whichever Tier 1 signals motivated the revision | revised-selector run groups under unchanged budgets, later expanded-space ablation runs | revised-vs-current selector comparison, opportunity case-study figure, frontier-only versus full-v3 ablation |
+| `H5` | `gemm_v3_reportable`, `gemm_v3_aligned_reportable`, `gemm_v3_schedule_diag` | Tier 0 shape-relative frontier features, `compute_lite`, and diagnostic `compute_schedule_diag` when needed | representative GEMM v3 mapping, selector ablation, and schedule-diagnostic follow-up | parent-vs-v4-vs-random comparison, frontier-only-vs-profiled ablation, chosen-family-vs-best-family frontier diagnostic |
 
 ## Ablation Discipline
 

@@ -39,6 +39,24 @@ Config: `configs/experiments/gemm_aligned_reportable.yaml`
 
 This aligned study exists specifically for the workload-representativeness hypothesis. It is not the main reportable workload going forward.
 
+### Phase 3 representative GEMM study
+
+Config: `configs/experiments/gemm_v3_reportable.yaml`
+
+The Phase 3 GEMM study keeps the same representative workload classes but enlarges the schedule space with `split_k`.
+
+- The workload matrix is intentionally unchanged so Phase 3 results can be compared directly against the Phase 2 v2 bundle.
+- The new question is whether a transfer-safe frontier policy can still recover near-random-search performance after the space admits one orthogonal schedule family.
+
+### Phase 3 aligned GEMM context study
+
+Config: `configs/experiments/gemm_v3_aligned_reportable.yaml`
+
+This is still a supporting context workload, not the primary optimization target.
+
+- It exists to refresh the `H3` interpretation under the Phase 3 search space.
+- It should not replace the representative GEMM study as the main paper-facing truth source.
+
 ### Development and smoke GEMM studies
 
 | Study | Config | Role |
@@ -57,6 +75,22 @@ Config: `configs/experiments/layernorm_reportable.yaml`
 | `small_batch` | `(128,768)`, `(128,1024)`, `(128,2048)`, `(128,4096)` | tests short-batch regimes where per-row overhead and work granularity dominate | latency-bound memory behavior, under-utilization, block-size mismatch |
 | `large_batch` | `(2048,768)`, `(2048,1024)`, `(2048,2048)`, `(2048,4096)` | tests steadier throughput regimes where memory efficiency and warp scaling matter more | bandwidth pressure, lg throttle, occupancy tradeoffs |
 
+### Phase 2 and Phase 3 LayerNorm regime studies
+
+Configs:
+
+- `configs/experiments/layernorm_v2_small_reportable.yaml`
+- `configs/experiments/layernorm_v2_large_reportable.yaml`
+- `configs/experiments/layernorm_v2_small_microstudy.yaml`
+- `configs/experiments/layernorm_v2_large_microstudy.yaml`
+
+Current interpretation:
+
+- LayerNorm is now intentionally split by regime rather than treated as one pooled reportable story.
+- The reportable v2 regime studies established the current weak-or-negative result.
+- The Phase 3 microstudy exists only to decide whether `rows_per_program` is a real regime lever or dead weight.
+- LayerNorm remains a secondary explanatory track, not the main tuner-growth path.
+
 ### Development and smoke LayerNorm studies
 
 | Study | Config | Role |
@@ -71,11 +105,20 @@ Config: `configs/experiments/layernorm_reportable.yaml`
 - `gemm_reportable`
 - `gemm_aligned_reportable`
 - `layernorm_reportable`
+- `gemm_v2_reportable`
+- `gemm_v2_aligned_reportable`
+- `layernorm_v2_small_reportable`
+- `layernorm_v2_large_reportable`
+- `gemm_v3_reportable`
+- `gemm_v3_aligned_reportable`
 
 ### Development only
 
 - `gemm_development`
 - `layernorm_development`
+- `gemm_v3_schedule_diag`
+- `layernorm_v2_small_microstudy`
+- `layernorm_v2_large_microstudy`
 
 ### Smoke only
 
@@ -94,3 +137,9 @@ The workload matrix is intentionally designed so the selector can fail for real 
 - and LayerNorm tests whether limited profiling matters more on a memory-bound kernel family.
 
 If the selector only works on aligned square GEMM and fails elsewhere, that is a scientifically useful result. The workload matrix is successful only if it can reveal that kind of limitation clearly.
+
+Current Phase 3 workload rule:
+
+- keep the representative GEMM and aligned GEMM class definitions stable while the search space changes
+- keep LayerNorm split into `small_batch` and `large_batch`
+- use new Phase 3 runs to explain transfer and schedule-family behavior, not to reopen the entire workload program

@@ -47,6 +47,7 @@ Current environment policy:
 | `E-H2-P2-LARGE` | `H2` LayerNorm large-batch regime | `layernorm_v2_large_regime` study `run_20260327T183158Z_37695a2d` | qualified homogeneous `RTX A6000` pool | the large-batch LayerNorm regime is currently a stronger negative result: `prune_rank` reached `1.0029x` vs default while `prune_rank_profiled` regressed to `0.9856x`; the regime split therefore clarifies that the current profiling recipe is not helping uniformly across LayerNorm workloads | High | the mechanism behind the large-batch regression is still explanatory work rather than settled fact | Yes |
 | `E-H3-P2-CONTEXT` | `H3` expanded-space context | `gemm_v2_baseline_mapping` study `run_20260327T164637Z_0403b989`; `gemm_v2_aligned_reference` study `run_20260327T190124Z_3a34cdc7` | qualified homogeneous `RTX A6000` pool | aligned GEMM remained more flattering than representative GEMM for the compile-ranked selectors in Phase 2: for `prune_rank`, representative GEMM averaged `0.8265x` vs default while aligned GEMM averaged `0.8795x`; the same directional effect held for `prune_rank_profiled` | Medium | this is contextual Phase 2 evidence, not a separately re-pre-registered hypothesis row | Yes |
 | `E-CONF-LN-BASELINE` | evaluation confound | original `layernorm_reportable_g3_requal` run family inside `h2_followup_g3`, later corrected by `layernorm_reportable_g3_baselinefix` | `gpunode3` / `NVIDIA RTX A6000` | the historical LayerNorm `default_config` confound was real and materially affected the first focused `H2` follow-up; it has now been resolved by the corrected baseline rerun and should be retained as a methodological lesson rather than an active blocker | High | no active unresolved confound remains on this issue; the row is retained so the paper can explain why the corrected rerun was necessary | No |
+| `E-P3-READY` | `R5` implementation readiness | Phase 3 implementation pass on top of the completed Phase 2 baseline; local validation of new selector revisions, GEMM v3 split-`k` kernel surface, diagnostic reporting outputs, studies, campaigns, and helper script `scripts/run_phase3_cycle.sh` | local implementation environment plus config-level CLI validation | the bounded Phase 3 corrective surface is implemented and locally validated; the project is ready for the next A6000 execution block without reopening the research scope | Medium | this row proves readiness, not comparative scientific direction; `compute_schedule_diag` still needs its first live validation and execution pass | No |
 
 ## Hypothesis Status Snapshot
 
@@ -56,12 +57,19 @@ Current environment policy:
 | `H2` | Regime-split weak or negative result | the pooled corrected rerun remained unsupported; the Phase 2 split studies show a marginal small-batch gain and a large-batch regression under the current `memory_activity_lite` recipe |
 | `H3` | Broad support plus Phase 2 contextual reinforcement | supported by the broad original and broad `gpunode3` studies, with the completed aligned-vs-representative v2 reference preserving the same direction |
 | `H4` | Mixed after expansion | the frontier-aware retry succeeded on the narrower representative GEMM space, but the expanded v2 baseline mapping and ablation show that the current revision does not generalize cleanly |
+| `H5` | Admitted and unevaluated | Phase 3 will test whether a transfer-safe frontier plus one bounded new schedule family (`split_k`) can recover near-random-search representative GEMM performance under unchanged matched-budget rules |
 
 ## Current Next Evidence Targets
 
-- preserve the Phase 2 analysis bundle and the dated Phase 2 analysis log as the canonical source for current project-level interpretation
-- decide whether one bounded corrective GEMM revision is justified to address the specific oversized masked-tile failure exposed by Phase 2
-- decide whether one explanatory LayerNorm microstudy is needed for the paper, or whether the current regime-split negative result is sufficient
+- preserve the Phase 2 analysis bundle and the dated Phase 2 analysis log as the canonical parent reference for Phase 3
+- execute the bounded Phase 3 corrective pass:
+  - `gemm_v3_baseline_mapping`
+  - `gemm_v3_selector_ablation`
+  - `gemm_v3_schedule_diag`
+  - `gemm_v3_aligned_reference`
+  - `layernorm_v2_microstudy`
+- evaluate whether `split_k` stays in the main GEMM surface
+- evaluate whether `rows_per_program` stays in the main LayerNorm surface
 
 ## Evidence Source Notes
 

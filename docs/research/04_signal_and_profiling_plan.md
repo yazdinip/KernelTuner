@@ -39,6 +39,7 @@ These signals are for explanation, not matched-budget reportable ranking.
 | Counter Set | Role | Reason It Stays Diagnostic |
 | --- | --- | --- |
 | `shared_diag` | shared-memory investigation | too specialized and potentially fragile for front-line reportable use |
+| `compute_schedule_diag` | GEMM schedule-family explanation | intended to explain transfer behavior and split-`k` tradeoffs, not to change the main matched-budget reportable comparison |
 | ad hoc development diagnostics | debugging only | not part of a stable counter contract |
 
 ## Current Counter Sets
@@ -88,6 +89,22 @@ Operational notes:
 
 - this set remains diagnostic-only even when availability is high
 - it is appropriate for explanation and case studies, not matched-budget superiority claims
+
+### `compute_schedule_diag`
+
+Phase 3 GEMM diagnostic-only set for schedule-family explanation.
+
+- `sm__warps_active.avg.pct_of_peak_sustained_active`
+- `smsp__inst_executed_pipe_tensor_op_hmma.avg`
+- `smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct`
+- `dram__throughput.avg.pct_of_peak_sustained_elapsed`
+- `l1tex__t_sector_pipe_lsu_mem_global_op_ld_hit_rate.pct`
+
+Operational notes:
+
+- this set is diagnostic-only by design
+- it exists to explain why a chosen GEMM family wins or fails after the frontier is fixed
+- it should not be promoted into the main matched-budget reportable comparison without a later explicit validation pass
 
 ### `memory_activity_lite`
 
@@ -156,6 +173,7 @@ As of March 27, 2026:
 - `compute_lite` and `memory_lite` have both passed live validation on the current `RTX A6000` environment
 - `memory_activity_lite` has also passed live validation on the current `RTX A6000` environment
 - `shared_diag` remains intentionally diagnostic-only
+- `compute_schedule_diag` is admitted for Phase 3 mechanism work but still awaits its first live validation and execution pass
 - a fresh GPU shell may still require explicit CUDA path export before `ncu` is visible
 
 Operational requirement on fresh shells:
@@ -208,6 +226,19 @@ The completed Phase 2 v2 studies sharpened the signal interpretation further:
 - The representative GEMM failure on the expanded v2 space is still dominated by frontier construction, not by the lack of more Tier 1 signals.
   - The Phase 2 ablation showed that both `v3_frontier_only` and full `v3_h4_targeted` failed in almost the same way once the frontier collapsed onto oversized masked tiles.
   - Current implication: another signal-only escalation is less justified than a shape-relative or mask-aware frontier correction.
+
+## Methodological Notes For Phase 3
+
+The Phase 3 transfer-safe GEMM pass changes the role of profiling slightly:
+
+- the main reportable GEMM comparison still stays on `compute_lite`
+- the new selector revisions rely more heavily on shape-relative Tier 0 and config-derived frontier features before any profiling happens
+- `compute_schedule_diag` exists only to explain why one schedule family wins after the frontier is already built
+
+Current implication:
+
+- Phase 3 is not a broad profiling rewrite
+- it is a frontier-first corrective pass, with one bounded diagnostic counter set to explain schedule-family behavior if the runtime results warrant it
 
 ## Counter Availability Risk
 

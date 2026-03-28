@@ -27,18 +27,24 @@ As of March 27, 2026:
   - `gemm_v2_selector_ablation`
   - `layernorm_v2_regime_studies`
   - `gemm_v2_aligned_reference`
+- the bounded Phase 3 corrective implementation pass has completed:
+  - transfer-safe selector revisions `v4_transfer_safe_frontier` and `v4_transfer_safe_profiled`
+  - the GEMM v3 split-`k` search space
+  - the diagnostic-only `compute_schedule_diag` counter set
+  - the bounded LayerNorm microstudy surface
 - `R0` is operationally satisfied for continued execution
 - `R1` is materially stronger than before
 - `R2` has repeated non-support on a corrected LayerNorm baseline
 - `R3` now has mixed evidence:
   - the narrower representative GEMM retry supported the frontier-aware `v3_h4_targeted` selector
   - the expanded v2 GEMM space did not preserve that win
+- the next approved step is a bounded Phase 3 corrective execution pass rather than another open-ended expansion
 
 Current implication:
 
 - the controlled Phase 2 deepening pass is complete
-- the current work should focus on analysis, documentation, and a bounded decision about whether one additional corrective execution pass is scientifically justified
-- any further execution should now be narrow and mechanism-driven, not another broad search-space expansion by default
+- the Phase 3 corrective surface is now implemented and locally validated
+- the current work should execute one narrow corrective program rather than reopen the whole search space
 
 ## Repeatability And Robustness Modes
 
@@ -58,6 +64,7 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 | `R2` Limited-profile tuning | test whether matched-budget profiling improves selection quality and where | `R1` produced at least one concrete failure mode or uncertainty | profiled GEMM and LayerNorm reportable studies using `compute_lite` and `memory_lite` | counter-availability report, profiled-selector comparison, cross-kernel comparison plots | profiling value is characterized for both kernel families and the Tier 1 sets remain acceptable | `H2` becomes answerable |
 | `R3` Opportunity-guided refinement | test one revised selector batch motivated by real evidence | `R2` produced at least one stable opportunity entry | revised-selector runs on reportable GEMM and LayerNorm under unchanged budget | revised-vs-current comparison, opportunity catalog update, case-study plots | revised selector either demonstrates a real gain or produces a clear negative result | `H4` becomes answerable |
 | `R4` Transfer and limits | consolidate the strongest and weakest cases and document the study boundaries | `R3` complete | selected diagnostic follow-ups, confirmation reruns, final study comparisons | final hypothesis status, final figure bundle, limitations write-up | all paper figures and tables have artifact sources and no unresolved gating confound remains | final paper assembly |
+| `R5` Bounded corrective transfer pass | test whether a transfer-safe frontier plus one new orthogonal schedule family can recover strong representative GEMM behavior without reopening the whole program | `R4` analysis isolated one concrete expanded-space mechanism worth correcting | representative GEMM v3 mapping, GEMM v3 selector ablation, GEMM schedule diagnostics, aligned GEMM v3 context, bounded LayerNorm microstudy | updated hypothesis status, frontier diagnostics, family-mismatch summaries, split-`k` keep/drop evidence | `H5` is answered and the project can either pivot back to synthesis or record a clean bounded failure | paper-ready mainline GEMM transfer claim or paper-ready bounded negative result |
 
 ## Current Round Status
 
@@ -67,7 +74,8 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 | `R1` | Strong and expanded-space reinforced | original validation, `gpunode3` confirmation, and the completed `gemm_v2_baseline_mapping` study all support the view that compile signals prune but do not rank representative GEMM well enough |
 | `R2` | Regime-split negative or weak | the corrected pooled rerun remained unsupported; the Phase 2 split studies show only a marginal small-batch profiling gain and an outright large-batch regression under `memory_activity_lite` |
 | `R3` | Mixed after expansion | the narrower representative GEMM retry supported `H4`, but the expanded v2 GEMM baseline mapping and selector ablation show that the current frontier-aware revision does not generalize cleanly to the larger space |
-| `R4` | Active analysis and bounded corrective planning | the main next tasks are to preserve the Phase 2 evidence, align the docs and figure plan with it, and decide whether one narrow corrective execution pass is justified |
+| `R4` | Complete | the Phase 2 evidence bundle, docs, and figure plan are aligned closely enough to support a bounded next execution pass |
+| `R5` | Implementation complete, execution pending | the transfer-safe selector revisions, GEMM v3 split-`k` surface, schedule-diagnostic counter set, and LayerNorm microstudy configs are implemented and locally validated; the next step is the bounded Phase 3 GPU chain |
 
 ## Current Run Matrix
 
@@ -98,6 +106,17 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 - `configs/experiments/layernorm_v2_small_reportable.yaml`
 - `configs/experiments/layernorm_v2_large_reportable.yaml`
 
+### Phase 3 corrective studies
+
+- `configs/experiments/gemm_v3_reportable.yaml`
+- `configs/experiments/gemm_v3_ablation_parent.yaml`
+- `configs/experiments/gemm_v3_ablation_frontier.yaml`
+- `configs/experiments/gemm_v3_ablation_profiled.yaml`
+- `configs/experiments/gemm_v3_schedule_diag.yaml`
+- `configs/experiments/gemm_v3_aligned_reportable.yaml`
+- `configs/experiments/layernorm_v2_small_microstudy.yaml`
+- `configs/experiments/layernorm_v2_large_microstudy.yaml`
+
 ### Development studies
 
 - `configs/experiments/gemm_development.yaml`
@@ -121,6 +140,12 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 - `configs/studies/layernorm_v2_small_regime.yaml`
 - `configs/studies/layernorm_v2_large_regime.yaml`
 - `configs/studies/gemm_v2_aligned_reference.yaml`
+- `configs/studies/gemm_v3_baseline_mapping.yaml`
+- `configs/studies/gemm_v3_selector_ablation.yaml`
+- `configs/studies/gemm_v3_schedule_diag.yaml`
+- `configs/studies/gemm_v3_aligned_reference.yaml`
+- `configs/studies/layernorm_v2_small_microstudy.yaml`
+- `configs/studies/layernorm_v2_large_microstudy.yaml`
 
 ### Current campaign entrypoint
 
@@ -134,6 +159,11 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 - `configs/campaigns/gemm_v2_selector_ablation.yaml`
 - `configs/campaigns/layernorm_v2_regime_studies.yaml`
 - `configs/campaigns/gemm_v2_aligned_reference.yaml`
+- `configs/campaigns/gemm_v3_baseline_mapping.yaml`
+- `configs/campaigns/gemm_v3_selector_ablation.yaml`
+- `configs/campaigns/gemm_v3_schedule_diag.yaml`
+- `configs/campaigns/gemm_v3_aligned_reference.yaml`
+- `configs/campaigns/layernorm_v2_microstudy.yaml`
 
 ## Required Artifacts Per Round
 
@@ -144,32 +174,42 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 | `R2` | matched-budget profiled comparisons, counter-set acceptance results, cross-kernel comparison |
 | `R3` | opportunity catalog, revised-selector comparison, selected failure case studies |
 | `R4` | final cross-run summary, final figure/table source map, final hypothesis status table |
+| `R5` | representative GEMM v3 comparison, selector ablation, schedule diagnostics, aligned-context refresh, bounded LayerNorm microstudy |
 
-## Immediate Analysis Queue
+## Immediate Execution Queue
 
-The immediate queue is no longer a new broad execution pass. It is a Phase 2 analysis and decision pass.
+The immediate queue is now the bounded Phase 3 corrective execution pass.
 
-### Step 1: freeze the Phase 2 evidence bundle
+### Step 1: validate the full Phase 3 surface on the qualified A6000 pool
 
-- keep `artifacts/analysis/phase2_20260327/` as the canonical reusable summary of the completed Phase 2 chain
-- keep the successful cycle log and status files alongside the bundle
-- reference the canonical analysis log:
-  - `docs/research/logs/2026-03-27_phase2_execution_analysis.md`
+- validate `compute_lite` for `gemm_v3_reportable` and `gemm_v3_aligned_reportable`
+- validate diagnostic `compute_schedule_diag`
+- validate `memory_activity_lite` for the LayerNorm microstudy configs
+- validate all Phase 3 studies and campaigns through the real CLI paths
 
-### Step 2: synchronize the living registries
+### Step 2: run the primary GEMM Phase 3 studies
 
-- update the evidence registry with the completed v2 studies
-- update the opportunity log with the expanded-space GEMM failure and the regime-split LayerNorm outcome
-- update the paper outline and figure plan so the strongest sources point to the completed v2 studies, not only the earlier narrow-space follow-ups
+- `gemm_v3_baseline_mapping`
+- `gemm_v3_selector_ablation`
+- `gemm_v3_schedule_diag`
 
-### Step 3: decide whether another execution phase is justified
+This sequence is the core path to answering `H5`.
 
-Only two follow-up directions remain well justified:
+### Step 3: run the bounded supporting studies
 
-- one bounded corrective GEMM revision targeting the specific oversized masked-tile overcorrection seen in Phase 2
-- one explanatory LayerNorm microstudy if the paper needs a stronger second-kernel mechanism section
+- `gemm_v3_aligned_reference`
+- `layernorm_v2_microstudy`
 
-Everything broader than those two options should currently be deferred.
+These runs exist to refresh `H3` context and decide whether `rows_per_program` stays in the main LayerNorm surface.
+
+### Step 4: update the research layer immediately after execution
+
+- append a dated Phase 3 execution log
+- update the evidence registry and opportunity log
+- update the figure plan and paper outline
+- record whether `split_k` and `rows_per_program` stay or are retired
+
+The intended outcome is not open-ended exploration. It is a clean decision on whether the project now has a transfer-safe mainline GEMM result on the harder space.
 
 ## Long-Run Execution Discipline
 

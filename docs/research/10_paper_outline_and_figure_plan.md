@@ -14,7 +14,7 @@ Depends On: [01_research_program.md](01_research_program.md), [06_hypotheses_and
 | Background and Tuning Space | explain schedule-first tuning and knob families | `02_tuning_theory_and_knob_space.md`, `03_bottleneck_taxonomy.md` | knob-to-signal matrix, bottleneck taxonomy table |
 | Method | describe the selector ladder, signal tiers, workload program, and matched-budget protocol | `04_signal_and_profiling_plan.md`, `05_workload_matrix_and_case_studies.md`, `06_hypotheses_and_ablation_plan.md` | protocol tables, workload tables, study configs |
 | Experimental Setup | pin the environment, workloads, and evaluation rules | `05_workload_matrix_and_case_studies.md`, top-level protocol and environment docs | environment provenance, experiment configs |
-| Results | answer `H1` through `H4` with cross-run evidence | `06_hypotheses_and_ablation_plan.md`, `08_evidence_registry.md` | `cross_run_summary.json`, stability reports, held-out comparison tables |
+| Results | answer `H1` through `H5` with cross-run evidence, keeping `H5` explicitly marked pending until Phase 3 execution lands | `06_hypotheses_and_ablation_plan.md`, `08_evidence_registry.md` | `cross_run_summary.json`, stability reports, held-out comparison tables |
 | Failure Analysis and Opportunities | explain wins, misses, and revised-selector behavior | `03_bottleneck_taxonomy.md`, `09_opportunity_log.md` | opportunity catalog, bottleneck signatures, case-study plots |
 | Limitations | state what the study does not claim | `01_research_program.md`, `08_evidence_registry.md` | hypothesis status table, unresolved-confounds summary |
 | Conclusion | summarize what was learned about lightweight bottleneck-aware tuning | final evidence registry and paper draft | final hypothesis summary |
@@ -43,6 +43,10 @@ Depends On: [01_research_program.md](01_research_program.md), [06_hypotheses_and
 | `F6` | signal-to-runtime correlation overview | some cheap signals are informative and others are weak | correlation artifacts from GEMM and LayerNorm runs |
 | `F7` | revised-selector transfer ablation | measured failure analysis can motivate a better heuristic, but the same heuristic can fail to transfer when the space expands | `gemm_v2_selector_ablation`, `gemm_v2_baseline_mapping`, plus the earlier `h4_retry_g3` retry as context |
 | `F8` | bottleneck or opportunity distribution across workload classes | failure modes are structured rather than random | bottleneck signatures and opportunity catalog |
+| `F9` | representative GEMM v3: parent vs `v4_transfer_safe_frontier` vs `v4_transfer_safe_profiled` vs random | a transfer-safe frontier can or cannot recover strong GEMM performance after admitting `split_k` | `gemm_v3_baseline_mapping` |
+| `F10` | frontier-only vs full-v4 ablation on representative GEMM v3 | transfer-safe frontier construction is or is not the main mechanism behind any recovered gain | `gemm_v3_selector_ablation` |
+| `F11` | chosen-family vs best-family frontier diagnostic | the selector either learns the right schedule family or systematically misses it for interpretable reasons | `gemm_v3_schedule_diag` plus study-level frontier diagnostics |
+| `F12` | LayerNorm microstudy: `rows_per_program` retain/drop result by regime | the extra LayerNorm knob is either a real regime lever or dead weight | `layernorm_v2_small_microstudy` and `layernorm_v2_large_microstudy` |
 
 ## Current Figure Readiness
 
@@ -56,6 +60,10 @@ Depends On: [01_research_program.md](01_research_program.md), [06_hypotheses_and
 | `F6` | Provisionally backed | correlation artifacts still need interpretation and pruning, but the v2 studies now give a cleaner set of candidate figure sources |
 | `F7` | Strongly provisionally backed as a transfer-failure ablation | the project now has both sides of the story: the narrow-space `h4_retry_g3` success and the expanded-space `gemm_v2_selector_ablation` failure, which together make a stronger mechanism figure than a pure success plot alone |
 | `F8` | Strongly provisionally backed | bottleneck-signature, opportunity, and diagnostic artifacts now include the completed v2 studies and the reusable Phase 2 analysis bundle |
+| `F9` | Pending Phase 3 execution | this is the main new figure unlocked by `H5`; it should become the new representative GEMM centerpiece if the transfer-safe frontier works |
+| `F10` | Pending Phase 3 execution | this figure will decide whether profiling still matters after transfer-safe frontier construction in the larger split-`k` space |
+| `F11` | Pending Phase 3 execution | this figure depends on the new frontier-diagnostics and chosen-vs-best-family artifacts emitted by the Phase 3 mechanism runs |
+| `F12` | Pending Phase 3 execution | this figure exists only to decide whether `rows_per_program` stays in the LayerNorm surface |
 
 ## Current Strongest Artifact Sources
 
@@ -90,11 +98,12 @@ Depends On: [01_research_program.md](01_research_program.md), [06_hypotheses_and
 
 ## Current Analysis Goal
 
-The next synthesis phase should not add new top-level claims. It should:
+The next synthesis phase should keep the current backbone and evaluate one bounded new claim (`H5`). It should:
 
 - lock the representative GEMM story to the Phase 2 expanded-space evidence,
+- test whether a transfer-safe frontier can recover that story on the harder split-`k` space,
 - write the revised-selector result as a transfer/ablation story rather than a pure win,
-- and turn LayerNorm from one pooled negative result into a regime-aware secondary story.
+- and keep LayerNorm as a regime-aware secondary story with one keep/drop knob decision.
 
 ## Figure Readiness Rules
 
