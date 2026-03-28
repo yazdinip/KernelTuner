@@ -1,0 +1,50 @@
+kernel_id: gemm_v2
+family: gemm
+description: >
+  Expanded Triton GEMM kernel specification for the Phase 2 deepening studies.
+  This space adds grouped launch ordering and a wider tile surface while keeping
+  the same underlying masked matmul kernel family.
+shape_schema:
+  required_dims:
+    - m
+    - n
+    - k
+  required_metadata:
+    - dtype
+    - layout
+dtype_support:
+  - fp16
+  - bf16
+config_parameters:
+  block_m: [64, 128, 256]
+  block_n: [64, 128, 256]
+  block_k: [32, 64]
+  group_size_m: [1, 4, 8]
+  num_warps: [4, 8]
+  num_stages: [2, 4]
+reference_impl: torch.matmul
+supports_profiling: true
+correctness_policy:
+  atol: 1.0e-2
+  rtol: 1.0e-2
+  reference_dtype: fp32
+default_config:
+  block_m: 128
+  block_n: 128
+  block_k: 32
+  group_size_m: 8
+  num_warps: 4
+  num_stages: 2
+supported_knob_families:
+  - tile_shape
+  - block_k
+  - launch_grouping
+  - pipeline_depth
+  - warp_count
+expected_signal_families:
+  - compile
+  - compute_profile
+tags:
+  - phase2
+  - triton
+  - gemm-primary

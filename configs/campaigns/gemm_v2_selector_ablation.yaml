@@ -1,0 +1,43 @@
+campaign_id: gemm_v2_selector_ablation
+round_id: round_phase2_gemm_v2_ablation
+templates:
+  - template_id: gemm_v2_parent_repeatability
+    experiment_ids: [gemm_v2_ablation_parent]
+    seeds: [7]
+    repeats: 3
+  - template_id: gemm_v2_parent_robustness
+    experiment_ids: [gemm_v2_ablation_parent]
+    seeds: [7, 19, 43]
+    repeats: 1
+  - template_id: gemm_v2_frontier_repeatability
+    experiment_ids: [gemm_v2_ablation_frontier]
+    seeds: [7]
+    repeats: 3
+    selector_revision_ids: [v3_frontier_only]
+  - template_id: gemm_v2_frontier_robustness
+    experiment_ids: [gemm_v2_ablation_frontier]
+    seeds: [7, 19, 43]
+    repeats: 1
+    selector_revision_ids: [v3_frontier_only]
+  - template_id: gemm_v2_v3_repeatability
+    experiment_ids: [gemm_v2_ablation_v3]
+    seeds: [7]
+    repeats: 3
+    selector_revision_ids: [v3_h4_targeted]
+  - template_id: gemm_v2_v3_robustness
+    experiment_ids: [gemm_v2_ablation_v3]
+    seeds: [7, 19, 43]
+    repeats: 1
+    selector_revision_ids: [v3_h4_targeted]
+studies:
+  - study_id: gemm_v2_selector_ablation
+    requires_templates:
+      - gemm_v2_parent_repeatability
+      - gemm_v2_parent_robustness
+      - gemm_v2_frontier_repeatability
+      - gemm_v2_frontier_robustness
+      - gemm_v2_v3_repeatability
+      - gemm_v2_v3_robustness
+notes: >
+  Phase 2 GEMM ablation campaign isolating the value of frontier construction
+  versus the profile-aware second stage.

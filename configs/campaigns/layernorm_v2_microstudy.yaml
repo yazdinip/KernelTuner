@@ -1,0 +1,31 @@
+campaign_id: layernorm_v2_microstudy
+round_id: round_phase3_layernorm_micro
+templates:
+  - template_id: layernorm_small_micro_repeatability
+    experiment_ids: [layernorm_v2_small_microstudy]
+    seeds: [7]
+    repeats: 3
+  - template_id: layernorm_small_micro_robustness
+    experiment_ids: [layernorm_v2_small_microstudy]
+    seeds: [7, 19, 43]
+    repeats: 1
+  - template_id: layernorm_large_micro_repeatability
+    experiment_ids: [layernorm_v2_large_microstudy]
+    seeds: [7]
+    repeats: 3
+  - template_id: layernorm_large_micro_robustness
+    experiment_ids: [layernorm_v2_large_microstudy]
+    seeds: [7, 19, 43]
+    repeats: 1
+studies:
+  - study_id: layernorm_v2_small_microstudy
+    requires_templates:
+      - layernorm_small_micro_repeatability
+      - layernorm_small_micro_robustness
+  - study_id: layernorm_v2_large_microstudy
+    requires_templates:
+      - layernorm_large_micro_repeatability
+      - layernorm_large_micro_robustness
+notes: >
+  Phase 3 bounded LayerNorm microstudy used to decide whether rows_per_program is
+  a real regime lever or dead weight.

@@ -28,10 +28,15 @@ Define the v1 command surface, config file locations, config schemas, and the ma
 - `ktune benchmark --experiment configs/experiments/<experiment_id>.yaml`
 - `ktune collect-signals --experiment configs/experiments/<experiment_id>.yaml`
 - `ktune profile --experiment configs/experiments/<experiment_id>.yaml`
+- `ktune validate-counter-set --experiment configs/experiments/<experiment_id>.yaml`
 - `ktune select --experiment configs/experiments/<experiment_id>.yaml`
 - `ktune run-experiment --experiment configs/experiments/<experiment_id>.yaml`
 - `ktune summarize --run artifacts/<experiment_id>/<run_id>/`
 - `ktune compare-runs --spec configs/studies/<study_id>.yaml`
+- `ktune validate-study --spec configs/studies/<study_id>.yaml`
+- `ktune materialize-campaign --spec configs/campaigns/<campaign_id>.yaml`
+- `ktune run-campaign --spec configs/campaigns/<campaign_id>.yaml`
+- `ktune resume-campaign --spec configs/campaigns/<campaign_id>.yaml`
 
 Internal-only command:
 
@@ -43,6 +48,8 @@ Internal-only command:
 - `configs/experiments/<experiment_id>.yaml`
 - `configs/counters/<counter_set_id>.yaml`
 - `configs/studies/<study_id>.yaml`
+- `configs/campaigns/<campaign_id>.yaml`
+- `configs/selector_revisions/<revision_id>.yaml`
 
 ### Kernel config schema
 
@@ -108,6 +115,7 @@ Allowed `study_kind` values:
 - `smoke`
 - `development`
 - `reportable`
+- `diagnostic_only`
 
 If omitted, `study_kind` defaults to `development`.
 
@@ -162,12 +170,14 @@ Supported fields:
 - `expected_partition`
 - `cuda_home`
 
-Pinned reportable baseline values:
+Current phase reportable values:
 
 - `expected_partition: gpunodes`
-- `expected_node_name: gpunode2`
 - `expected_gpu_name: NVIDIA RTX A6000`
 - `cuda_home: /usr/local/cuda-12.9`
+
+Phase 2 reportable experiments may omit `expected_node_name` and treat `gpunode2` / `gpunode3`
+as one qualified homogeneous `RTX A6000` pool.
 
 ### Analysis settings
 
@@ -236,6 +246,36 @@ Each `RunGroupSpec` entry supports:
 - `counter_set_id`
 - `budget_id`
 - `notes`
+
+### Campaign config schema
+
+Required fields:
+
+- `campaign_id`
+- `round_id`
+- `templates`
+
+Optional fields:
+
+- `studies`
+- `artifact_root`
+- `notes`
+
+### Selector revision config schema
+
+Required fields:
+
+- `revision_id`
+
+Optional fields:
+
+- `parent_strategy`
+- `linked_opportunity_id`
+- `frontier_ranking_features`
+- `ranking_features`
+- `prune_rules`
+- `tie_breakers`
+- `rationale`
 
 ## Internal Workflow
 

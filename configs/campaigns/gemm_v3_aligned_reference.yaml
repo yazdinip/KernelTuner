@@ -1,0 +1,19 @@
+campaign_id: gemm_v3_aligned_reference
+round_id: round_phase3_gemm_v3_aligned
+templates:
+  - template_id: gemm_v3_aligned_repeatability
+    experiment_ids: [gemm_v3_aligned_reportable]
+    seeds: [7]
+    repeats: 3
+  - template_id: gemm_v3_aligned_robustness
+    experiment_ids: [gemm_v3_aligned_reportable]
+    seeds: [7, 19, 43]
+    repeats: 1
+studies:
+  - study_id: gemm_v3_aligned_reference
+    requires_templates:
+      - gemm_v3_aligned_repeatability
+      - gemm_v3_aligned_robustness
+notes: >
+  Phase 3 aligned GEMM context campaign used to refresh the representative-versus-
+  aligned contrast after admitting split-K.

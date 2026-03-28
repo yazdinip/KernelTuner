@@ -8,10 +8,10 @@ import json
 import re
 import subprocess
 import time
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
-from dataclasses import dataclass
 
 from kernel_tuner.common.config import (
     counter_set_path,
@@ -30,7 +30,7 @@ from kernel_tuner.common.schema import (
     ProfileStatus,
     ProblemShape,
 )
-from kernel_tuner.config_space.generator import config_dict_from_record, generate_candidate_records
+from kernel_tuner.config_space.generator import config_dict_from_record, generate_candidate_bundle
 from kernel_tuner.kernels.registry import resolve_kernel
 
 
@@ -355,7 +355,8 @@ def profile_experiment(
     if not experiment_spec.counter_set_id:
         raise ValueError("profile command requires experiment_spec.counter_set_id")
     counter_set = load_counter_set(counter_set_path(experiment_spec.counter_set_id, experiment_path))
-    candidates = generate_candidate_records(experiment_spec, experiment_path=experiment_path)
+    candidate_bundle = generate_candidate_bundle(experiment_spec, experiment_path=experiment_path)
+    candidates = candidate_bundle["records"]
     from kernel_tuner.experiments.orchestrator import _profile_shapes, _shape_split
 
     calibration_shapes, _ = _shape_split(experiment_spec)
@@ -381,6 +382,7 @@ def profile_experiment(
         "experiment_id": experiment_spec.experiment_id,
         "profile_shape_count": len(measurements),
         "measurements": measurements,
+        "generation_metadata": candidate_bundle["metadata"],
     }
 
 

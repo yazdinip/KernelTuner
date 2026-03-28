@@ -47,7 +47,7 @@ from kernel_tuner.common.schema import (
     SelectorRevisionSpec,
     StudyKind,
 )
-from kernel_tuner.config_space.generator import generate_candidate_records
+from kernel_tuner.config_space.generator import generate_candidate_bundle
 from kernel_tuner.kernels.registry import resolve_kernel
 from kernel_tuner.profiling.adapter import profile_candidate
 from kernel_tuner.profiling.compatibility import validate_counter_set_for_experiment
@@ -577,6 +577,13 @@ def run_experiment(
         kernel = resolve_kernel(kernel_spec)
         profile_shapes = _profile_shapes(experiment_spec, calibration_shapes)
         candidate_records = generate_candidate_records(experiment_spec, experiment_path=experiment_path)
+        candidate_bundle = generate_candidate_bundle(experiment_spec, experiment_path=experiment_path)
+        candidate_records = candidate_bundle["records"]
+        store.write_json_artifact(
+            "candidate_generation",
+            candidate_bundle["metadata"],
+            filename="candidate_generation.json",
+        )
         store.write_table("candidates", candidate_records)
 
         compile_signal_records = []

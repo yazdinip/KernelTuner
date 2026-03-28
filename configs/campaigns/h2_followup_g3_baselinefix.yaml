@@ -1,0 +1,33 @@
+campaign_id: h2_followup_g3_baselinefix
+round_id: round_h2_followup_g3_baselinefix
+templates:
+  - template_id: gemm_representative_repeatability_g3_h2fix
+    experiment_ids: [gemm_reportable_g3_h2followup]
+    seeds: [7]
+    repeats: 3
+    selector_revision_ids: [v2_validation]
+  - template_id: gemm_representative_robustness_g3_h2fix
+    experiment_ids: [gemm_reportable_g3_h2followup]
+    seeds: [7, 19, 43]
+    repeats: 1
+    selector_revision_ids: [v2_validation]
+  - template_id: layernorm_repeatability_g3_h2fix
+    experiment_ids: [layernorm_reportable_g3_baselinefix]
+    seeds: [7]
+    repeats: 3
+    selector_revision_ids: [v2_validation]
+  - template_id: layernorm_robustness_g3_h2fix
+    experiment_ids: [layernorm_reportable_g3_baselinefix]
+    seeds: [7, 19, 43]
+    repeats: 1
+    selector_revision_ids: [v2_validation]
+studies:
+  - study_id: h2_followup_g3_baselinefix
+    requires_templates:
+      - gemm_representative_repeatability_g3_h2fix
+      - gemm_representative_robustness_g3_h2fix
+      - layernorm_repeatability_g3_h2fix
+      - layernorm_robustness_g3_h2fix
+notes: >
+  Corrected H2 follow-up batch on gpunode3 using a valid LayerNorm default baseline
+  and a clean representative GEMM control track.

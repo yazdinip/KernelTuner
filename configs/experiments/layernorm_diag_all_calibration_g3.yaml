@@ -1,0 +1,99 @@
+experiment_id: layernorm_diag_all_calibration_g3
+study_kind: diagnostic_only
+kernels:
+  - layernorm
+selector_version: v2_validation
+selector_revision_id: v2_validation
+shapes:
+  - shape_id: layernorm_rows128_hidden768_fp16_rowmajor
+    dimensions: {rows: 128, hidden: 768}
+    dtype: fp16
+    layout: row_major
+    workload_class: small_batch
+  - shape_id: layernorm_rows128_hidden1024_fp16_rowmajor
+    dimensions: {rows: 128, hidden: 1024}
+    dtype: fp16
+    layout: row_major
+    workload_class: small_batch
+  - shape_id: layernorm_rows128_hidden2048_fp16_rowmajor
+    dimensions: {rows: 128, hidden: 2048}
+    dtype: fp16
+    layout: row_major
+    workload_class: small_batch
+  - shape_id: layernorm_rows128_hidden4096_fp16_rowmajor
+    dimensions: {rows: 128, hidden: 4096}
+    dtype: fp16
+    layout: row_major
+    workload_class: small_batch
+  - shape_id: layernorm_rows2048_hidden768_fp16_rowmajor
+    dimensions: {rows: 2048, hidden: 768}
+    dtype: fp16
+    layout: row_major
+    workload_class: large_batch
+  - shape_id: layernorm_rows2048_hidden1024_fp16_rowmajor
+    dimensions: {rows: 2048, hidden: 1024}
+    dtype: fp16
+    layout: row_major
+    workload_class: large_batch
+  - shape_id: layernorm_rows2048_hidden2048_fp16_rowmajor
+    dimensions: {rows: 2048, hidden: 2048}
+    dtype: fp16
+    layout: row_major
+    workload_class: large_batch
+  - shape_id: layernorm_rows2048_hidden4096_fp16_rowmajor
+    dimensions: {rows: 2048, hidden: 4096}
+    dtype: fp16
+    layout: row_major
+    workload_class: large_batch
+selector_modes:
+  - prune_only
+  - prune_rank
+  - prune_rank_profiled
+  - prune_rank_revised
+baselines:
+  - default_config
+  - naive_random_search
+  - naive_grid_search
+budgets:
+  max_candidates: 12
+  max_benchmarks: 12
+  max_profiles: 12
+  wall_clock_limit_s: 900
+calibration_split: 0.67
+held_out_split: 0.33
+artifact_root: artifacts
+counter_set_id: memory_lite
+profile_policy:
+  counter_set_id: memory_lite
+  shape_sampling_mode: all_calibration
+  max_shapes_per_config: null
+  aggregation_mode: mean
+  availability_failure_mode: downgrade_to_diagnostic
+reportability_policy:
+  enforce_preflight: true
+  require_workload_class_labels: true
+  require_stratified_split: true
+  minimum_calibration_shapes: 4
+  minimum_held_out_shapes: 2
+  minimum_held_out_per_workload_class: 1
+  abort_on_incompatible_counter_set: false
+budget_id: layernorm_diag_all_calibration_g3
+benchmark_settings:
+  warmup_iterations: 40
+  timed_iterations: 120
+  timing_backend: cuda_events
+profiling_settings:
+  replay_mode: kernel
+  timeout_s: 300
+  cooldown_s: 2.0
+execution_settings:
+  isolate_triton_cache: true
+  expected_partition: gpunodes
+  expected_node_name: gpunode3
+  expected_gpu_name: NVIDIA RTX A6000
+  cuda_home: /usr/local/cuda-12.9
+analysis_settings:
+  reportability_target: gpunode3_rtx_a6000_diagnostic
+  workload_id: layernorm_representative_v2
+seed: 7
+notes: Diagnostic LayerNorm profiling on gpunode3 across all calibration shapes.

@@ -18,6 +18,7 @@ from kernel_tuner.common.schema import (
     HypothesisComparator,
     HypothesisMetricRef,
     HypothesisSpec,
+    RunGroupSpec,
     StudySpec,
 )
 from kernel_tuner.analysis.opportunities import (
@@ -25,7 +26,7 @@ from kernel_tuner.analysis.opportunities import (
     build_counter_availability_records,
     build_opportunity_catalog,
 )
-from kernel_tuner.common.config import load_experiment_spec, load_kernel_spec
+from kernel_tuner.common.config import load_experiment_spec, load_kernel_spec, load_study_spec
 from kernel_tuner.common.provenance import capture_environment_metadata, capture_invocation_metadata
 from kernel_tuner.common.schema import Manifest
 from kernel_tuner.storage import RunStore
@@ -556,3 +557,27 @@ def test_opportunity_catalog_contains_expected_template():
     catalog = build_opportunity_catalog(frame)
 
     assert "reduce_num_stages_or_tile_size" in set(catalog["opportunity_tag"])
+
+
+def test_run_group_selector_version_defaults_to_no_filter():
+    group = RunGroupSpec(group_id="group")
+
+    assert group.selector_version is None
+
+
+def test_phase2_studies_declare_expected_selector_versions():
+    baseline = load_study_spec(Path("configs/studies/gemm_v2_baseline_mapping.yaml"))
+    ablation = load_study_spec(Path("configs/studies/gemm_v2_selector_ablation.yaml"))
+    small = load_study_spec(Path("configs/studies/layernorm_v2_small_regime.yaml"))
+    large = load_study_spec(Path("configs/studies/layernorm_v2_large_regime.yaml"))
+    aligned = load_study_spec(Path("configs/studies/gemm_v2_aligned_reference.yaml"))
+
+    assert baseline.run_groups[0].selector_version == "phase2_gemm_v2"
+    assert [group.selector_version for group in ablation.run_groups] == [
+        "phase2_gemm_v2_parent",
+        "phase2_gemm_v2_frontier",
+        "phase2_gemm_v2_v3",
+    ]
+    assert small.run_groups[0].selector_version == "phase2_layernorm_v2"
+    assert large.run_groups[0].selector_version == "phase2_layernorm_v2"
+    assert aligned.run_groups[0].selector_version == "phase2_gemm_v2"

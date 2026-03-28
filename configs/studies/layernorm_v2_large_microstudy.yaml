@@ -1,0 +1,34 @@
+study_id: layernorm_v2_large_microstudy
+hypotheses: []
+run_groups:
+  - group_id: layernorm_large_micro
+    experiment_ids: [layernorm_v2_large_microstudy]
+    include_latest_runs: 6
+    kernel_family: layernorm
+    selector_version: phase3_layernorm_micro
+    selector_revision_id: v2_validation
+    counter_set_id: memory_activity_lite
+    budget_id: layernorm_v2_micro_matched
+group_by:
+  - kernel_family
+  - workload_class
+  - selector_version
+  - selector_revision_id
+  - counter_set_id
+  - budget_id
+  - seed
+primary_metric: geomean_speedup_vs_default_config
+secondary_metrics:
+  - speedup_vs_naive_random_search
+  - winner_rate
+  - regret_vs_best_measured_calibration
+  - selection_agreement
+  - stability_band
+  - counter_availability
+reportability_filter: true
+environment_filter:
+  gpu_name: NVIDIA RTX A6000
+comparison_rules:
+  repeatability_runs: 3
+  robustness_seeds: [7, 19, 43]
+output_root: artifacts/studies

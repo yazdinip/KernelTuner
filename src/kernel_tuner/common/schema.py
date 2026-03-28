@@ -344,6 +344,7 @@ class ExperimentSpec(KTModel):
     profiling_settings: ProfilingSettings = Field(default_factory=ProfilingSettings)
     execution_settings: ExecutionSettings = Field(default_factory=ExecutionSettings)
     analysis_settings: AnalysisSettings = Field(default_factory=AnalysisSettings)
+    explicit_configs: list[dict[str, int]] = Field(default_factory=list)
     notes: str | None = None
     tags: list[str] = Field(default_factory=list)
 
@@ -384,6 +385,8 @@ class CandidateConfig(KTModel):
     shape_id: str
     config_id: str
     config: dict[str, int]
+    shape_dimensions: dict[str, int] = Field(default_factory=dict)
+    workload_class: str | None = None
     is_valid: bool
     validation_notes: str | None = None
     generation_provenance: str | None = None
@@ -515,7 +518,7 @@ class RunGroupSpec(KTModel):
     include_latest_runs: int | None = None
     kernel_family: str | None = None
     workload_class: str | None = None
-    selector_version: str = "v1"
+    selector_version: str | None = None
     selector_revision_id: str | None = None
     counter_set_id: str | None = None
     budget_id: str | None = None
@@ -610,6 +613,7 @@ class SelectorRevisionSpec(KTModel):
     parent_selector_mode: SelectorMode = SelectorMode.PRUNE_RANK_PROFILED
     linked_opportunity_tags: list[str] = Field(default_factory=list)
     prune_rules: list[SelectorPruneRule] = Field(default_factory=list)
+    frontier_ranking_features: list[SelectorRankingFeature] = Field(default_factory=list)
     ranking_features: list[SelectorRankingFeature] = Field(default_factory=list)
     tie_break_relative_tolerance: float = 0.02
     notes: str | None = None

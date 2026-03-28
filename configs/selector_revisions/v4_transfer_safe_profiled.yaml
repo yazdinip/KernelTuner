@@ -1,0 +1,53 @@
+revision_id: v4_transfer_safe_profiled
+parent_selector_mode: prune_rank_profiled
+linked_opportunity_tags:
+  - selector_revision_candidate
+  - frontier_construction_failure
+  - transfer_safe_frontier
+  - h5_candidate
+frontier_ranking_features:
+  - feature_name: masked_overcoverage_ratio
+    source: config
+    direction: asc
+  - feature_name: tile_fit_ratio_m
+    source: config
+    direction: desc
+  - feature_name: tile_fit_ratio_n
+    source: config
+    direction: desc
+  - feature_name: aspect_match_score
+    source: config
+    direction: desc
+  - feature_name: moderated_tile_area
+    source: config
+    direction: desc
+  - feature_name: shape_balance
+    source: config
+    direction: desc
+  - feature_name: group_size_m_centered
+    source: config
+    direction: desc
+  - feature_name: split_k
+    source: config
+    direction: asc
+  - feature_name: num_warps
+    source: config
+    direction: asc
+ranking_features:
+  - feature_name: warps_active
+    source: profile
+    direction: desc
+  - feature_name: tensor_ops
+    source: profile
+    direction: desc
+  - feature_name: long_scoreboard_stall
+    source: profile
+    direction: asc
+  - feature_name: register_count
+    source: compile
+    direction: asc
+tie_break_relative_tolerance: 0.02
+notes: >
+  Phase 3 transfer-safe revised selector for representative GEMM. This revision
+  reuses the shape-relative compile frontier and applies a light profile rerank
+  after the frontier is corrected.

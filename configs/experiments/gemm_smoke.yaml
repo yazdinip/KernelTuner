@@ -17,7 +17,7 @@ baselines:
   - default_config
   - naive_random_search
 budgets:
-  max_candidates: 16
+  max_candidates: 24
   max_benchmarks: 8
   max_profiles: 4
   wall_clock_limit_s: 300

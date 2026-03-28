@@ -1,0 +1,30 @@
+study_id: gemm_v3_schedule_diag
+hypotheses: []
+run_groups:
+  - group_id: gemm_v3_schedule_diag
+    experiment_ids: [gemm_v3_schedule_diag]
+    include_latest_runs: 1
+    kernel_family: gemm
+    selector_version: phase3_gemm_v3_diag
+    selector_revision_id: v4_transfer_safe_profiled
+    counter_set_id: compute_schedule_diag
+    budget_id: gemm_v3_schedule_diag_budget
+group_by:
+  - kernel_family
+  - workload_class
+  - selector_version
+  - selector_revision_id
+  - counter_set_id
+  - budget_id
+  - seed
+primary_metric: geomean_speedup_vs_default_config
+secondary_metrics:
+  - winner_rate
+  - regret_vs_best_measured_calibration
+  - selection_agreement
+  - stability_band
+  - counter_availability
+reportability_filter: false
+environment_filter:
+  gpu_name: NVIDIA RTX A6000
+output_root: artifacts/studies

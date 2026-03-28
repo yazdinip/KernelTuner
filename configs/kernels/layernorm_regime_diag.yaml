@@ -1,0 +1,33 @@
+kernel_id: layernorm_regime_diag
+family: layernorm
+description: >
+  Narrow LayerNorm regime-diagnostic kernel space used to profile the 4096-hidden
+  configurations and one 1024-hidden control under a fully enumerated candidate set.
+shape_schema:
+  required_dims:
+    - rows
+    - hidden
+  required_metadata:
+    - dtype
+    - layout
+dtype_support:
+  - fp16
+  - bf16
+config_parameters:
+  block_size: [4096]
+  num_warps: [4, 8]
+  num_stages: [2, 4]
+reference_impl: torch.nn.functional.layer_norm
+supports_profiling: true
+correctness_policy:
+  atol: 2.0e-2
+  rtol: 2.0e-2
+  reference_dtype: fp32
+default_config:
+  block_size: 4096
+  num_warps: 4
+  num_stages: 2
+tags:
+  - diagnostic
+  - memory-bound
+  - regime-study

@@ -61,8 +61,11 @@ def test_profile_experiment_prefers_valid_candidate(monkeypatch):
     )
 
     monkeypatch.setattr(
-        "kernel_tuner.profiling.adapter.generate_candidate_records",
-        lambda *args, **kwargs: [invalid, valid],
+        "kernel_tuner.profiling.adapter.generate_candidate_bundle",
+        lambda *args, **kwargs: {
+            "records": [invalid, valid],
+            "metadata": {},
+        },
     )
     monkeypatch.setattr(
         "kernel_tuner.experiments.orchestrator._shape_split",

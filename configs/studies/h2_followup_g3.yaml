@@ -1,0 +1,80 @@
+study_id: h2_followup_g3
+hypotheses:
+  - hypothesis_id: H2
+    description: Limited profiling helps more on LayerNorm than on GEMM under matched budget.
+    clauses:
+      - left:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: layernorm_representative
+          kernel_family: layernorm
+          strategy_id: prune_rank_profiled
+          reduction: mean
+        comparator: greater_than
+        right:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: layernorm_representative
+          kernel_family: layernorm
+          strategy_id: prune_rank
+          reduction: mean
+        minimum_delta: 0.02
+      - left:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_representative
+          kernel_family: gemm
+          strategy_id: prune_rank_profiled
+          reduction: mean
+        comparator: less_than_or_equal
+        right:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_representative
+          kernel_family: gemm
+          strategy_id: prune_rank
+          reduction: mean
+        minimum_delta: 0.02
+run_groups:
+  - group_id: gemm_representative
+    experiment_ids: [gemm_reportable_g3_requal]
+    include_latest_runs: 6
+    kernel_family: gemm
+    workload_class: representative
+    selector_version: v2_validation
+    selector_revision_id: v2_validation
+    counter_set_id: compute_lite
+    budget_id: gemm_reportable_matched_v2
+  - group_id: layernorm_representative
+    experiment_ids: [layernorm_reportable_g3_requal]
+    include_latest_runs: 6
+    kernel_family: layernorm
+    workload_class: representative
+    selector_version: v2_validation
+    selector_revision_id: v2_validation
+    counter_set_id: memory_lite
+    budget_id: layernorm_reportable_matched_v2
+group_by:
+  - kernel_family
+  - workload_class
+  - selector_version
+  - counter_set_id
+  - budget_id
+  - seed
+primary_metric: geomean_speedup_vs_default_config
+secondary_metrics:
+  - speedup_vs_naive_random_search
+  - speedup_vs_naive_grid_search
+  - winner_rate
+  - regret_vs_best_measured_calibration
+  - selection_agreement
+  - stability_band
+  - signal_runtime_correlation
+  - counter_availability
+reportability_filter: true
+environment_filter:
+  gpu_name: NVIDIA RTX A6000
+comparison_rules:
+  repeatability_runs: 3
+  robustness_seeds: [7, 19, 43]
+output_root: artifacts/studies
