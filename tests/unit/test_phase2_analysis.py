@@ -1,9 +1,13 @@
+import json
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
+import pytest
 
 from kernel_tuner.analysis.comparison import (
+    compare_runs,
     _aggregate_opportunities,
     _build_stability_report,
     _build_strategy_rows,
@@ -465,3 +469,67 @@ def test_phase2_studies_declare_expected_selector_versions():
     assert small.run_groups[0].selector_version == "phase2_layernorm_v2"
     assert large.run_groups[0].selector_version == "phase2_layernorm_v2"
     assert aligned.run_groups[0].selector_version == "phase2_gemm_v2"
+
+
+def test_compare_runs_supports_diagnostic_only_studies_without_held_out_rows(tmp_path, monkeypatch):
+    study = StudySpec(
+        study_id="gemm_diag_study",
+        hypotheses=[],
+        run_groups=[],
+        output_root=str(tmp_path),
+        primary_metric="geomean_speedup_vs_default_config",
+    )
+
+    payload = {
+        "group_id": "gemm_diag_group",
+        "run_dir": tmp_path / "diagnostic_run",
+        "summary": {
+            "run_id": "run_diag",
+            "reportability": {"comparison_class": "non_comparable"},
+        },
+        "experiment_spec": SimpleNamespace(
+            experiment_id="gemm_v3_schedule_diag",
+            study_kind="diagnostic_only",
+        ),
+        "kernel_spec": SimpleNamespace(family="gemm"),
+        "manifest": SimpleNamespace(),
+        "run_labels": {
+            "execution_mode": "diagnostic_only",
+            "reportability_mode": "diagnostic_only",
+        },
+        "selection_decisions": pd.DataFrame(),
+        "runtime_measurements": pd.DataFrame(),
+        "held_out_per_shape": pd.DataFrame(),
+        "counter_availability": pd.DataFrame(),
+        "opportunity_catalog": pd.DataFrame(),
+        "frontier_diagnostics": pd.DataFrame(
+            [
+                {
+                    "strategy_id": "prune_rank_revised",
+                    "diagnostic_role": "selected_config",
+                    "rank_index": 0,
+                    "config_id": "cfg_best",
+                }
+            ]
+        ),
+        "chosen_vs_best_family": pd.DataFrame(
+            [
+                {
+                    "strategy_id": "prune_rank_revised",
+                    "selected_matches_best_scored": True,
+                }
+            ]
+        ),
+    }
+
+    monkeypatch.setattr(
+        "kernel_tuner.analysis.comparison._resolve_run_payloads",
+        lambda study_spec, study_path: [payload],
+    )
+
+    result = compare_runs(study)
+
+    summary = json.loads(Path(result["cross_run_summary"]).read_text(encoding="utf-8"))
+    assert summary["diagnostic_only"] is True
+    assert summary["strategy_summary"] == []
+    assert summary["diagnostic_summary"]["selected_config_ids"] == ["cfg_best"]

@@ -76,13 +76,20 @@ def compare_runs(
         if not run_payloads:
             raise ValueError("no study runs matched the configured groups and filters")
         strategy_rows = _build_strategy_rows(run_payloads)
-        if strategy_rows.empty:
-            raise ValueError("no held-out strategy rows were available after loading matched study runs")
-        stability_report = _build_stability_report(strategy_rows)
-        hypothesis_results = _evaluate_hypotheses(study_spec, strategy_rows, stability_report)
-        opportunity_catalog = _aggregate_opportunities(run_payloads)
         frontier_diagnostics = _aggregate_frontier_diagnostics(run_payloads)
         family_mismatch = _aggregate_family_mismatch(run_payloads)
+        opportunity_catalog = _aggregate_opportunities(run_payloads)
+        diagnostic_only = _is_diagnostic_only_study(run_payloads)
+        if strategy_rows.empty:
+            if not diagnostic_only:
+                raise ValueError("no held-out strategy rows were available after loading matched study runs")
+            if frontier_diagnostics.empty and family_mismatch.empty and opportunity_catalog.empty:
+                raise ValueError("no diagnostic artifacts were available after loading matched study runs")
+            stability_report = pd.DataFrame()
+            hypothesis_results = pd.DataFrame()
+        else:
+            stability_report = _build_stability_report(strategy_rows)
+            hypothesis_results = _evaluate_hypotheses(study_spec, strategy_rows, stability_report)
 
         if not strategy_rows.empty:
             store.write_csv_artifact("study_strategy_metrics", strategy_rows, filename="study_strategy_metrics.csv")
@@ -110,6 +117,7 @@ def compare_runs(
             stability_report,
             hypothesis_results,
             run_payloads,
+            opportunity_catalog,
             frontier_diagnostics,
             family_mismatch,
         )
@@ -125,6 +133,14 @@ def compare_runs(
             "primary_metric": study_spec.primary_metric,
             "secondary_metrics": study_spec.secondary_metrics,
             "group_by": study_spec.group_by,
+            "diagnostic_only": diagnostic_only,
+            "diagnostic_summary": _build_diagnostic_summary(
+                run_payloads,
+                frontier_diagnostics,
+                family_mismatch,
+            )
+            if diagnostic_only
+            else {},
             "strategy_summary": _strategy_summary(strategy_rows),
             "hypothesis_summary": hypothesis_results.to_dict(orient="records"),
             "artifact_locations": {
@@ -711,6 +727,50 @@ def _aggregate_family_mismatch(run_payloads: list[dict[str, Any]]) -> pd.DataFra
     )
 
 
+def _is_diagnostic_only_study(run_payloads: list[dict[str, Any]]) -> bool:
+    if not run_payloads:
+        return False
+    return all(_is_diagnostic_only_payload(payload) for payload in run_payloads)
+
+
+def _is_diagnostic_only_payload(payload: dict[str, Any]) -> bool:
+    labels = payload.get("run_labels") or {}
+    execution_mode = labels.get("execution_mode") or labels.get("reportability_mode")
+    if execution_mode == "diagnostic_only":
+        return True
+    study_kind = getattr(payload["experiment_spec"], "study_kind", None)
+    if hasattr(study_kind, "value"):
+        study_kind = study_kind.value
+    return study_kind == "diagnostic_only"
+
+
+def _build_diagnostic_summary(
+    run_payloads: list[dict[str, Any]],
+    frontier_diagnostics: pd.DataFrame,
+    family_mismatch: pd.DataFrame,
+) -> dict[str, Any]:
+    selected_rows = (
+        frontier_diagnostics[frontier_diagnostics["diagnostic_role"] == "selected_config"]
+        if not frontier_diagnostics.empty and "diagnostic_role" in frontier_diagnostics.columns
+        else pd.DataFrame()
+    )
+    selected_configs = []
+    if not selected_rows.empty and "config_id" in selected_rows.columns:
+        selected_configs = sorted(set(selected_rows["config_id"].dropna().astype(str)))
+    selected_mismatch_count = 0
+    if not family_mismatch.empty and "selected_matches_best_scored" in family_mismatch.columns:
+        mismatch_series = family_mismatch["selected_matches_best_scored"].fillna(False).astype(bool)
+        selected_mismatch_count = int((~mismatch_series).sum())
+    return {
+        "run_count": len(run_payloads),
+        "selected_strategy_count": int(selected_rows["strategy_id"].nunique()) if not selected_rows.empty else 0,
+        "selected_config_ids": selected_configs,
+        "frontier_row_count": int(len(frontier_diagnostics)),
+        "family_mismatch_row_count": int(len(family_mismatch)),
+        "selected_mismatch_count": selected_mismatch_count,
+    }
+
+
 def _strategy_summary(strategy_rows: pd.DataFrame) -> list[dict[str, Any]]:
     if strategy_rows.empty:
         return []
@@ -793,10 +853,10 @@ def _build_evidence_bundle(
     stability_report: pd.DataFrame,
     hypothesis_results: pd.DataFrame,
     run_payloads: list[dict[str, Any]],
+    opportunity_catalog: pd.DataFrame,
     frontier_diagnostics: pd.DataFrame,
     family_mismatch: pd.DataFrame,
 ) -> dict[str, Any]:
-    opportunity_catalog = _aggregate_opportunities(run_payloads)
     return {
         "run_count": len(run_payloads),
         "runs": [

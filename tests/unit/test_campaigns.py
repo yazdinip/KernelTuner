@@ -94,6 +94,49 @@ def test_execute_campaign_skips_study_with_missing_required_templates(tmp_path):
     ]
 
 
+def test_execute_campaign_marks_study_failure_when_compare_fails(tmp_path, monkeypatch):
+    spec = load_campaign_spec(Path("configs/campaigns/validation_rounds.yaml"))
+    spec.artifact_root = str(tmp_path)
+    spec.templates = spec.templates[:1]
+    spec.studies = [
+        {
+            "study_id": "validation_phase",
+            "study_path": "configs/studies/validation_phase.yaml",
+            "requires_templates": [spec.templates[0].template_id],
+        }
+    ]
+
+    result = materialize_campaign(spec, campaign_path=Path("configs/campaigns/validation_rounds.yaml"))
+    run_dir = Path(result["run_dir"])
+    status_path = run_dir / "campaign_status.json"
+    payload = json.loads(status_path.read_text(encoding="utf-8"))
+    for job in payload["jobs"]:
+        job["status"] = "success"
+        job["run_dir"] = str(run_dir / "dummy")
+    payload["completed_jobs"] = len(payload["jobs"])
+    payload["failed_jobs"] = 0
+    payload["terminal_status"] = "running"
+    status_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    monkeypatch.setattr(
+        "kernel_tuner.experiments.campaigns.compare_runs_from_path",
+        lambda study_path: (_ for _ in ()).throw(RuntimeError("study boom")),
+    )
+
+    with pytest.raises(RuntimeError, match="study boom"):
+        _execute_campaign(run_dir)
+
+    refreshed = json.loads(status_path.read_text(encoding="utf-8"))
+    assert refreshed["terminal_status"] == "partial_failure"
+    assert refreshed["study_results"] == [
+        {
+            "study_id": "validation_phase",
+            "status": "failed",
+            "error": "study boom",
+        }
+    ]
+
+
 def test_validate_study_reports_clause_backed_hypotheses():
     result = validate_study_from_path(Path("configs/studies/validation_phase.yaml"))
 
