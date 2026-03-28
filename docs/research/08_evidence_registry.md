@@ -22,6 +22,12 @@ Current environment policy:
 - historical rows may still retain node-specific provenance, but current project-level
   interpretation treats both nodes as one homogeneous `RTX A6000` pool
 
+Current promotion boundary:
+
+- the registry currently stops at the completed Phase 3 implementation pass
+- partial or incomplete Phase 3 execution artifacts are intentionally not promoted here yet
+- `H5` therefore remains unevaluated in this registry until the full bounded R5 batch completes cleanly
+
 ## Current Evidence State
 
 | Evidence ID | Round / Hypothesis | Experiment Config Or Study | Environment | Current Interpretation | Confidence | Unresolved Confounds | Reportable |
@@ -68,6 +74,7 @@ Current environment policy:
   - `gemm_v3_schedule_diag`
   - `gemm_v3_aligned_reference`
   - `layernorm_v2_microstudy`
+- do not promote partial Phase 3 GEMM v3 results into this registry in isolation; promote only once the bounded R5 queue is complete enough to interpret `H5` and the supporting keep/drop decisions together
 - evaluate whether `split_k` stays in the main GEMM surface
 - evaluate whether `rows_per_program` stays in the main LayerNorm surface
 

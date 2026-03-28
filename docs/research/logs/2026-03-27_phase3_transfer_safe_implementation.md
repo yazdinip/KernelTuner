@@ -125,3 +125,4 @@ It should be read as:
 - Phase 2 analysis complete
 - Phase 3 bounded corrective execution prepared
 - the project remains within the same homogeneous `RTX A6000` pool policy for `gpunode2` and `gpunode3`
+- any later partial Phase 3 execution artifacts should remain outside the research-facing backbone docs until the full bounded R5 batch completes

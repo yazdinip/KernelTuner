@@ -14,7 +14,7 @@ Depends On: [01_research_program.md](01_research_program.md), [06_hypotheses_and
 | Background and Tuning Space | explain schedule-first tuning and knob families | `02_tuning_theory_and_knob_space.md`, `03_bottleneck_taxonomy.md` | knob-to-signal matrix, bottleneck taxonomy table |
 | Method | describe the selector ladder, signal tiers, workload program, and matched-budget protocol | `04_signal_and_profiling_plan.md`, `05_workload_matrix_and_case_studies.md`, `06_hypotheses_and_ablation_plan.md` | protocol tables, workload tables, study configs |
 | Experimental Setup | pin the environment, workloads, and evaluation rules | `05_workload_matrix_and_case_studies.md`, top-level protocol and environment docs | environment provenance, experiment configs |
-| Results | answer `H1` through `H5` with cross-run evidence, keeping `H5` explicitly marked pending until Phase 3 execution lands | `06_hypotheses_and_ablation_plan.md`, `08_evidence_registry.md` | `cross_run_summary.json`, stability reports, held-out comparison tables |
+| Results | answer `H1` through `H5` with cross-run evidence, keeping `H5` explicitly marked pending until the full bounded Phase 3 batch is completed and promoted | `06_hypotheses_and_ablation_plan.md`, `08_evidence_registry.md` | `cross_run_summary.json`, stability reports, held-out comparison tables |
 | Failure Analysis and Opportunities | explain wins, misses, and revised-selector behavior | `03_bottleneck_taxonomy.md`, `09_opportunity_log.md` | opportunity catalog, bottleneck signatures, case-study plots |
 | Limitations | state what the study does not claim | `01_research_program.md`, `08_evidence_registry.md` | hypothesis status table, unresolved-confounds summary |
 | Conclusion | summarize what was learned about lightweight bottleneck-aware tuning | final evidence registry and paper draft | final hypothesis summary |
@@ -64,6 +64,11 @@ Depends On: [01_research_program.md](01_research_program.md), [06_hypotheses_and
 | `F10` | Pending Phase 3 execution | this figure will decide whether profiling still matters after transfer-safe frontier construction in the larger split-`k` space |
 | `F11` | Pending Phase 3 execution | this figure depends on the new frontier-diagnostics and chosen-vs-best-family artifacts emitted by the Phase 3 mechanism runs |
 | `F12` | Pending Phase 3 execution | this figure exists only to decide whether `rows_per_program` stays in the LayerNorm surface |
+
+Phase 3 promotion note:
+
+- completed-but-partial Phase 3 artifact families are not enough by themselves to unlock `F9` through `F12`
+- those figures remain pending until the bounded Phase 3 queue is complete enough to interpret representative GEMM, aligned GEMM context, and the LayerNorm keep/drop result together
 
 ## Current Strongest Artifact Sources
 
@@ -117,6 +122,7 @@ Current caution:
 
 - the first validation batch is useful for planning and interpretation, but some artifacts still live in expiring scratch paths
 - any figure promoted into the final paper should come from archived or rerun evidence with stable provenance
+- any partial Phase 3 artifact family should remain out of the paper figure set until the full bounded Phase 3 batch is complete and documented
 
 ## What Counts As Unproductive Experimentation
 

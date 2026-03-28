@@ -15,7 +15,7 @@ Depends On: [../06_implementation_roadmap.md](../06_implementation_roadmap.md), 
 
 ## Current Stage
 
-As of March 27, 2026:
+As of March 28, 2026:
 
 - the full `gpunode3` homogeneous-A6000 requalification block has completed
 - the broad `validation_rounds_g3_requal` campaign and both narrow follow-up studies (`h13_confirmation_g3`, `h2_followup_g3`) have completed
@@ -32,6 +32,7 @@ As of March 27, 2026:
   - the GEMM v3 split-`k` search space
   - the diagnostic-only `compute_schedule_diag` counter set
   - the bounded LayerNorm microstudy surface
+- later Phase 3 execution attempts are not yet promoted into the research-facing docs because the full bounded R5 batch has not completed end to end
 - `R0` is operationally satisfied for continued execution
 - `R1` is materially stronger than before
 - `R2` has repeated non-support on a corrected LayerNorm baseline
@@ -44,6 +45,7 @@ Current implication:
 
 - the controlled Phase 2 deepening pass is complete
 - the Phase 3 corrective surface is now implemented and locally validated
+- the current research-facing documentation is intentionally frozen at the Phase 3 implementation boundary until the full bounded execution batch completes
 - the current work should execute one narrow corrective program rather than reopen the whole search space
 
 ## Repeatability And Robustness Modes
@@ -75,7 +77,7 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 | `R2` | Regime-split negative or weak | the corrected pooled rerun remained unsupported; the Phase 2 split studies show only a marginal small-batch profiling gain and an outright large-batch regression under `memory_activity_lite` |
 | `R3` | Mixed after expansion | the narrower representative GEMM retry supported `H4`, but the expanded v2 GEMM baseline mapping and selector ablation show that the current frontier-aware revision does not generalize cleanly to the larger space |
 | `R4` | Complete | the Phase 2 evidence bundle, docs, and figure plan are aligned closely enough to support a bounded next execution pass |
-| `R5` | Implementation complete, execution pending | the transfer-safe selector revisions, GEMM v3 split-`k` surface, schedule-diagnostic counter set, and LayerNorm microstudy configs are implemented and locally validated; the next step is the bounded Phase 3 GPU chain |
+| `R5` | Implementation complete, execution not yet promoted | the transfer-safe selector revisions, GEMM v3 split-`k` surface, schedule-diagnostic counter set, and LayerNorm microstudy configs are implemented and locally validated; any partial R5 execution artifacts remain below the documentation promotion threshold until the full bounded batch completes |
 
 ## Current Run Matrix
 
@@ -210,6 +212,11 @@ These runs exist to refresh `H3` context and decide whether `rows_per_program` s
 - record whether `split_k` and `rows_per_program` stay or are retired
 
 The intended outcome is not open-ended exploration. It is a clean decision on whether the project now has a transfer-safe mainline GEMM result on the harder space.
+
+Documentation rule:
+
+- if only part of the Phase 3 queue completes, the research-facing docs should remain frozen at implementation readiness
+- Phase 3 comparative evidence is promotable only once the bounded batch is complete enough to interpret `H5`, the aligned-context refresh, and the LayerNorm keep/drop decision together
 
 ## Long-Run Execution Discipline
 

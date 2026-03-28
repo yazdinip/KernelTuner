@@ -129,6 +129,12 @@ Current post-Phase-2 rule:
   - the expanded-space frontier collapsed toward oversized masked tiles
   - and the next admissible corrective pass is a shape-relative, transfer-safe frontier plus one bounded new schedule family (`split_k`)
 
+Documentation boundary note:
+
+- `H5` remains unevaluated in the backbone docs until the full bounded Phase 3 batch completes
+- completed-but-partial Phase 3 GEMM v3 artifacts should not be promoted into project-level hypothesis status on their own
+- the evidence registry is allowed to acknowledge implementation readiness and future evidence targets, but not to treat partial Phase 3 execution as a settled result
+
 ## Hypothesis Cross-Reference
 
 | Hypothesis | Required Workloads | Required Signals | Required Runs | Required Figures |
