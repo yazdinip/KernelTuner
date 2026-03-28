@@ -24,6 +24,12 @@ fi
 # shellcheck disable=SC1090
 source "$VENV_PATH/bin/activate"
 
+if ! command -v ktune >/dev/null 2>&1; then
+  "$REPO_ROOT/scripts/bootstrap_env.sh" "$VENV_PATH"
+  # shellcheck disable=SC1090
+  source "$VENV_PATH/bin/activate"
+fi
+
 cd "$REPO_ROOT"
 
 PROGRAM_ID="${PROGRAM_ID:-phase3_remainder_program_$(date -u +%Y%m%dT%H%M%SZ)}"
