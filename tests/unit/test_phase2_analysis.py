@@ -9,6 +9,8 @@ from kernel_tuner.analysis.comparison import (
     _build_strategy_rows,
     _compare_hypothesis_values,
     _evaluate_hypotheses,
+    _format_filter_diagnostics,
+    _passes_filters,
 )
 from kernel_tuner.common.schema import (
     HypothesisClause,
@@ -177,6 +179,64 @@ def test_build_strategy_rows_preserves_kernel_family_and_workload_class():
 
     assert set(rows["kernel_family"]) == {"layernorm"}
     assert set(rows["workload_class"]) == {"small_batch"}
+
+
+def test_passes_filters_accepts_reportable_budget_limited_runs():
+    study = StudySpec(
+        study_id="study",
+        hypotheses=[],
+        run_groups=[],
+        reportability_filter=True,
+    )
+    payload = {
+        "group_id": "group",
+        "summary": {
+            "reportability": {
+                "is_reportable": True,
+                "budget_limited_decision_present": True,
+            }
+        },
+        "manifest": Manifest(
+            experiment_id="exp",
+            run_id="run_001",
+            created_at_utc=datetime.now(timezone.utc),
+            environment=capture_environment_metadata("."),
+            invocation=capture_invocation_metadata("pytest"),
+            artifact_files=[],
+        ),
+        "run_labels": {},
+    }
+
+    accepted, reason = _passes_filters(payload, study)
+
+    assert accepted is True
+    assert reason is None
+
+
+def test_format_filter_diagnostics_mentions_seed_and_repeat_exclusions():
+    message = _format_filter_diagnostics(
+        [
+            {
+                "group_id": "gemm_representative",
+                "candidate_run_count": 3,
+                "matched_run_count": 0,
+                "excluded_reportability": 0,
+                "excluded_environment": 0,
+                "excluded_kernel_family": 0,
+                "excluded_selector_version": 0,
+                "excluded_selector_revision_id": 0,
+                "excluded_counter_set_id": 0,
+                "excluded_budget_id": 0,
+                "excluded_execution_mode": 0,
+                "excluded_seed": 2,
+                "excluded_repeat_index": 1,
+            }
+        ]
+    )
+
+    assert "gemm_representative" in message
+    assert "seed=2" in message
+    assert "repeat_index=1" in message
 
 
 def test_evaluate_hypotheses_uses_clause_based_metrics():

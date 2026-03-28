@@ -424,7 +424,6 @@ def summarize_run(run_dir: str | Path) -> dict[str, object]:
         experiment_spec.study_kind == "reportable"
         and held_out_shape_count >= policy.minimum_held_out_shapes
         and matched_budget_only
-        and not has_budget_limited_decision
         and (not counter_compatibility or counter_compatibility.get("acceptable", True))
         and (not counter_availability_ok or all(counter_availability_ok.values()))
         and (
@@ -467,6 +466,10 @@ def summarize_run(run_dir: str | Path) -> dict[str, object]:
         interpretation_notes.append("No usable profiler counter availability rows were recorded.")
     elif not availability_frame.empty and not availability_frame["acceptable"].all():
         interpretation_notes.append("At least one requested profiler counter failed the availability threshold.")
+    if has_budget_limited_decision:
+        interpretation_notes.append(
+            "At least one strategy exhausted its matched budget before evaluating every requested profile or benchmark."
+        )
 
     result = ExperimentResult(
         schema_version=SCHEMA_VERSION,
@@ -501,7 +504,7 @@ def summarize_run(run_dir: str | Path) -> dict[str, object]:
         reportability={
             "target": experiment_spec.analysis_settings.reportability_target,
             "is_reportable": is_reportable,
-            "comparison_class": "matched_budget" if is_reportable else "non_comparable",
+            "comparison_class": "matched_budget" if matched_budget_only else "non_comparable",
             "matched_budget_only": matched_budget_only,
             "budget_limited_decision_present": has_budget_limited_decision,
             "counter_set_accepted": bool(counter_compatibility.get("acceptable", True))

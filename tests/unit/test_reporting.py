@@ -139,7 +139,7 @@ def test_summarize_run_falls_back_to_manifest_experiment_config(tmp_path):
     assert summary["run_id"] == "run_001"
 
 
-def test_summarize_run_marks_budget_limited_runs_non_reportable(tmp_path):
+def test_summarize_run_allows_budget_limited_runs_when_other_reportability_requirements_pass(tmp_path):
     experiment_spec = load_experiment_spec(Path("configs/experiments/gemm_reportable.yaml"))
     store = RunStore(tmp_path, experiment_spec.experiment_id, "run_001")
     manifest = Manifest(
@@ -170,35 +170,51 @@ def test_summarize_run_marks_budget_limited_runs_non_reportable(tmp_path):
             }
         ]
     ).to_parquet(store.run_dir / "compile_signals.parquet", index=False)
-    pd.DataFrame(
-        [
-            {
-                "measurement_phase": "held_out",
-                "status": "success",
-                "shape_id": experiment_spec.shapes[0].shape_id,
-                "strategy_id": "default_config",
-                "latency_median_us": 10.0,
-                "throughput_value": 1.0,
-                "config_id": "cfg_default",
-            },
-            {
-                "measurement_phase": "held_out",
-                "status": "success",
-                "shape_id": experiment_spec.shapes[0].shape_id,
-                "strategy_id": "prune_rank",
-                "latency_median_us": 9.0,
-                "throughput_value": 1.0,
-                "config_id": "cfg_a",
-            },
-        ]
-    ).to_parquet(store.run_dir / "runtime_measurements.parquet", index=False)
+    held_out_shape_ids = [
+        experiment_spec.shapes[0].shape_id,
+        experiment_spec.shapes[3].shape_id,
+        experiment_spec.shapes[6].shape_id,
+        experiment_spec.shapes[9].shape_id,
+    ]
+    runtime_rows = []
+    for idx, shape_id in enumerate(held_out_shape_ids):
+        runtime_rows.extend(
+            [
+                {
+                    "measurement_phase": "held_out",
+                    "status": "success",
+                    "shape_id": shape_id,
+                    "strategy_id": "default_config",
+                    "latency_median_us": 10.0 + idx,
+                    "throughput_value": 1.0,
+                    "config_id": "cfg_default",
+                },
+                {
+                    "measurement_phase": "held_out",
+                    "status": "success",
+                    "shape_id": shape_id,
+                    "strategy_id": "prune_rank",
+                    "latency_median_us": 9.0 + idx,
+                    "throughput_value": 1.0,
+                    "config_id": "cfg_a",
+                },
+            ]
+        )
+    pd.DataFrame(runtime_rows).to_parquet(store.run_dir / "runtime_measurements.parquet", index=False)
     pd.DataFrame(
         [
             {
                 "strategy_id": "prune_rank",
                 "counter_set_id": experiment_spec.counter_set_id,
                 "profile_status": "success",
-                "counter_map": '{"sm__warps_active.avg.pct_of_peak_sustained_active": 1.0}',
+                "counter_map": (
+                    '{"sm__warps_active.avg.pct_of_peak_sustained_active": 1.0, '
+                    '"smsp__inst_executed.sum": 2.0, '
+                    '"smsp__inst_executed_pipe_tensor_op_hmma.avg": 3.0, '
+                    '"smsp__pipe_tensor_op_hmma_cycles_active.avg": 4.0, '
+                    '"smsp__warp_issue_stalled_math_pipe_throttle_per_warp_active.pct": 5.0, '
+                    '"smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct": 6.0}'
+                ),
                 "config_id": "cfg_a",
             }
         ]
@@ -230,8 +246,80 @@ def test_summarize_run_marks_budget_limited_runs_non_reportable(tmp_path):
 
     summary = summarize_run(store.run_dir)
 
-    assert summary["reportability"]["is_reportable"] is False
+    assert summary["reportability"]["is_reportable"] is True
+    assert summary["reportability"]["comparison_class"] == "matched_budget"
     assert summary["reportability"]["budget_limited_decision_present"] is True
+
+
+def test_summarize_run_marks_mixed_comparison_class_runs_non_reportable(tmp_path):
+    experiment_spec = load_experiment_spec(Path("configs/experiments/gemm_reportable.yaml"))
+    store = RunStore(tmp_path, experiment_spec.experiment_id, "run_mixed")
+    manifest = Manifest(
+        experiment_id=experiment_spec.experiment_id,
+        run_id="run_mixed",
+        created_at_utc=datetime.now(timezone.utc),
+        environment=capture_environment_metadata("."),
+        invocation=capture_invocation_metadata(
+            "pytest",
+            experiment_config_path=str(Path("configs/experiments/gemm_reportable.yaml").resolve()),
+        ),
+        artifact_files=[],
+    )
+    store.initialize_manifest(manifest)
+    store.write_experiment_spec(experiment_spec)
+
+    _write_minimal_required_tables(store, include_profile=True)
+    pd.DataFrame(
+        [
+            {
+                "measurement_phase": "held_out",
+                "status": "success",
+                "shape_id": experiment_spec.shapes[0].shape_id,
+                "strategy_id": "default_config",
+                "latency_median_us": 10.0,
+                "throughput_value": 1.0,
+                "config_id": "cfg_default",
+            },
+            {
+                "measurement_phase": "held_out",
+                "status": "success",
+                "shape_id": experiment_spec.shapes[0].shape_id,
+                "strategy_id": "prune_rank",
+                "latency_median_us": 9.0,
+                "throughput_value": 1.0,
+                "config_id": "cfg_a",
+            },
+        ]
+    ).to_parquet(store.run_dir / "runtime_measurements.parquet", index=False)
+    pd.DataFrame(
+        [
+            {
+                "strategy_id": "default_config",
+                "selected_config_id": "cfg_default",
+                "benchmarks_requested": 1,
+                "profiles_requested": 0,
+                "decision_status": "selected",
+                "comparison_class": "matched_budget",
+            },
+            {
+                "strategy_id": "prune_rank",
+                "selected_config_id": "cfg_a",
+                "benchmarks_requested": 1,
+                "profiles_requested": 1,
+                "decision_status": "selected",
+                "comparison_class": "non_comparable",
+            },
+        ]
+    ).to_parquet(store.run_dir / "selection_decisions.parquet", index=False)
+    (store.run_dir / "counter_compatibility.json").write_text(
+        '{"acceptable": true, "counter_set_id": "compute_lite"}',
+        encoding="utf-8",
+    )
+
+    summary = summarize_run(store.run_dir)
+
+    assert summary["reportability"]["is_reportable"] is False
+    assert summary["reportability"]["comparison_class"] == "non_comparable"
 
 
 def test_summarize_run_marks_counter_set_unaccepted_when_compatibility_fails(tmp_path):

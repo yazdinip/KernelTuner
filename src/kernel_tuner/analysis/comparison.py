@@ -72,9 +72,12 @@ def compare_runs(
     )
     store.initialize_manifest(manifest)
     try:
-        run_payloads = _resolve_run_payloads(study_spec, study_path)
+        run_payloads, filter_diagnostics = _resolve_run_payloads(study_spec, study_path)
         if not run_payloads:
-            raise ValueError("no study runs matched the configured groups and filters")
+            raise ValueError(
+                "no study runs matched the configured groups and filters"
+                + _format_filter_diagnostics(filter_diagnostics)
+            )
         strategy_rows = _build_strategy_rows(run_payloads)
         if strategy_rows.empty:
             raise ValueError("no held-out strategy rows were available after loading matched study runs")
@@ -156,18 +159,43 @@ def validate_study_from_path(study_path: str | Path) -> dict[str, object]:
     }
 
 
-def _resolve_run_payloads(study_spec: StudySpec, study_path: str | Path | None) -> list[dict[str, Any]]:
+def _resolve_run_payloads(
+    study_spec: StudySpec,
+    study_path: str | Path | None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     payloads: list[dict[str, Any]] = []
+    diagnostics: list[dict[str, Any]] = []
     seen_run_dirs: set[Path] = set()
     for group in study_spec.run_groups:
+        group_stats = {
+            "group_id": group.group_id,
+            "candidate_run_count": 0,
+            "matched_run_count": 0,
+            "excluded_reportability": 0,
+            "excluded_environment": 0,
+            "excluded_kernel_family": 0,
+            "excluded_selector_version": 0,
+            "excluded_selector_revision_id": 0,
+            "excluded_counter_set_id": 0,
+            "excluded_budget_id": 0,
+            "excluded_execution_mode": 0,
+            "excluded_seed": 0,
+            "excluded_repeat_index": 0,
+        }
         for run_dir in _resolve_group_run_dirs(group, study_spec, study_path):
             if run_dir in seen_run_dirs:
                 continue
             seen_run_dirs.add(run_dir)
+            group_stats["candidate_run_count"] += 1
             payload = _load_run_payload(run_dir, group.group_id)
-            if _passes_filters(payload, study_spec):
+            accepted, reason = _passes_filters(payload, study_spec)
+            if accepted:
                 payloads.append(payload)
-    return payloads
+                group_stats["matched_run_count"] += 1
+            elif reason is not None:
+                group_stats[reason] += 1
+        diagnostics.append(group_stats)
+    return payloads, diagnostics
 
 
 def _resolve_group_run_dirs(group, study_spec: StudySpec, study_path: str | Path | None) -> list[Path]:
@@ -233,37 +261,64 @@ def _load_run_payload(run_dir: Path, group_id: str) -> dict[str, Any]:
     }
 
 
-def _passes_filters(payload: dict[str, Any], study_spec: StudySpec) -> bool:
+def _passes_filters(payload: dict[str, Any], study_spec: StudySpec) -> tuple[bool, str | None]:
     summary = payload["summary"]
     manifest = payload["manifest"]
     labels = payload.get("run_labels") or {}
     group_id = payload["group_id"]
     group = next((item for item in study_spec.run_groups if item.group_id == group_id), None)
     if study_spec.reportability_filter and not summary.get("reportability", {}).get("is_reportable", False):
-        return False
+        return False, "excluded_reportability"
     for field, expected in study_spec.environment_filter.items():
         actual = getattr(manifest.environment, field, None)
         if actual != expected:
-            return False
+            return False, "excluded_environment"
     if group is None:
-        return True
+        return True, None
     if group.kernel_family and labels.get("kernel_family") != group.kernel_family:
-        return False
+        return False, "excluded_kernel_family"
     if group.selector_version and labels.get("selector_version") != group.selector_version:
-        return False
+        return False, "excluded_selector_version"
     if group.selector_revision_id and labels.get("selector_revision_id") != group.selector_revision_id:
-        return False
+        return False, "excluded_selector_revision_id"
     if group.counter_set_id and labels.get("counter_set_id") != group.counter_set_id:
-        return False
+        return False, "excluded_counter_set_id"
     if group.budget_id and labels.get("budget_id") != group.budget_id:
-        return False
+        return False, "excluded_budget_id"
     if group.execution_mode and labels.get("execution_mode") != group.execution_mode:
-        return False
+        return False, "excluded_execution_mode"
     if group.seeds and labels.get("seed") not in group.seeds:
-        return False
+        return False, "excluded_seed"
     if group.repeat_indices and labels.get("repeat_index") not in group.repeat_indices:
-        return False
-    return True
+        return False, "excluded_repeat_index"
+    return True, None
+
+
+def _format_filter_diagnostics(filter_diagnostics: list[dict[str, Any]]) -> str:
+    if not filter_diagnostics:
+        return ""
+    parts: list[str] = []
+    for row in filter_diagnostics:
+        details = [
+            f"candidates={row['candidate_run_count']}",
+            f"matched={row['matched_run_count']}",
+        ]
+        for key, label in [
+            ("excluded_reportability", "reportability"),
+            ("excluded_environment", "environment"),
+            ("excluded_kernel_family", "kernel_family"),
+            ("excluded_selector_version", "selector_version"),
+            ("excluded_selector_revision_id", "selector_revision_id"),
+            ("excluded_counter_set_id", "counter_set_id"),
+            ("excluded_budget_id", "budget_id"),
+            ("excluded_execution_mode", "execution_mode"),
+            ("excluded_seed", "seed"),
+            ("excluded_repeat_index", "repeat_index"),
+        ]:
+            if row[key]:
+                details.append(f"{label}={row[key]}")
+        parts.append(f"{row['group_id']}(" + ", ".join(details) + ")")
+    return ": " + "; ".join(parts)
 
 
 def _build_strategy_rows(run_payloads: list[dict[str, Any]]) -> pd.DataFrame:
