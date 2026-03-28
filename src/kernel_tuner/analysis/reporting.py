@@ -242,7 +242,7 @@ def summarize_run(run_dir: str | Path) -> dict[str, object]:
     source_experiment_path = experiment_spec_path
     if not experiment_spec_path.exists():
         source_experiment_path = None
-    if manifest.invocation.experiment_config_path:
+    if source_experiment_path is None and manifest.invocation.experiment_config_path:
         candidate = Path(manifest.invocation.experiment_config_path)
         if candidate.exists():
             source_experiment_path = candidate

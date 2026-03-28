@@ -10,6 +10,7 @@ from kernel_tuner.analysis.comparison import (
     _compare_hypothesis_values,
     _evaluate_hypotheses,
     _format_filter_diagnostics,
+    _load_run_payload,
     _passes_filters,
 )
 from kernel_tuner.common.schema import (
@@ -27,6 +28,7 @@ from kernel_tuner.analysis.opportunities import (
 from kernel_tuner.common.config import load_experiment_spec, load_kernel_spec
 from kernel_tuner.common.provenance import capture_environment_metadata, capture_invocation_metadata
 from kernel_tuner.common.schema import Manifest
+from kernel_tuner.storage import RunStore
 
 
 def test_counter_availability_records_apply_threshold():
@@ -237,6 +239,60 @@ def test_format_filter_diagnostics_mentions_seed_and_repeat_exclusions():
     assert "gemm_representative" in message
     assert "seed=2" in message
     assert "repeat_index=1" in message
+
+
+def test_load_run_payload_prefers_run_local_experiment_spec_over_manifest_path(tmp_path):
+    original_spec = load_experiment_spec(Path("configs/experiments/gemm_reportable.yaml"))
+    mutated_spec = original_spec.model_copy(deep=True)
+    mutated_spec.seed = 43
+    store = RunStore(tmp_path / "artifacts", mutated_spec.experiment_id, "run_payload")
+    manifest = Manifest(
+        experiment_id=mutated_spec.experiment_id,
+        run_id="run_payload",
+        created_at_utc=datetime.now(timezone.utc),
+        environment=capture_environment_metadata("."),
+        invocation=capture_invocation_metadata(
+            "pytest",
+            experiment_config_path=str(Path("configs/experiments/gemm_reportable.yaml").resolve()),
+        ),
+        artifact_files=[],
+    )
+    store.initialize_manifest(manifest)
+    store.write_experiment_spec(mutated_spec)
+    (store.run_dir / "summary.json").write_text(
+        '{"run_id":"run_payload","reportability":{"is_reportable":true}}',
+        encoding="utf-8",
+    )
+    pd.DataFrame(
+        [{"strategy_id": "prune_rank", "selected_config_id": "cfg_a"}]
+    ).to_parquet(store.run_dir / "selection_decisions.parquet", index=False)
+    pd.DataFrame(
+        [
+            {
+                "measurement_phase": "held_out",
+                "status": "success",
+                "shape_id": mutated_spec.shapes[0].shape_id,
+                "strategy_id": "prune_rank",
+                "latency_median_us": 9.0,
+                "config_id": "cfg_a",
+            }
+        ]
+    ).to_parquet(store.run_dir / "runtime_measurements.parquet", index=False)
+    pd.DataFrame(
+        [
+            {
+                "shape_id": mutated_spec.shapes[0].shape_id,
+                "workload_class": mutated_spec.shapes[0].workload_class,
+                "strategy_id": "prune_rank",
+                "latency_median_us": 9.0,
+                "winner_on_shape": True,
+            }
+        ]
+    ).to_csv(store.run_dir / "held_out_per_shape.csv", index=False)
+
+    payload = _load_run_payload(store.run_dir, "group")
+
+    assert payload["experiment_spec"].seed == 43
 
 
 def test_evaluate_hypotheses_uses_clause_based_metrics():

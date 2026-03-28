@@ -139,6 +139,31 @@ def test_summarize_run_falls_back_to_manifest_experiment_config(tmp_path):
     assert summary["run_id"] == "run_001"
 
 
+def test_summarize_run_prefers_run_local_experiment_spec_over_manifest_path(tmp_path):
+    original_spec = load_experiment_spec(Path("configs/experiments/gemm_reportable.yaml"))
+    mutated_spec = original_spec.model_copy(deep=True)
+    mutated_spec.seed = 19
+    store = RunStore(tmp_path / "artifacts", "test_experiment", "run_local_spec")
+    manifest = Manifest(
+        experiment_id="test_experiment",
+        run_id="run_local_spec",
+        created_at_utc=datetime.now(timezone.utc),
+        environment=capture_environment_metadata("."),
+        invocation=capture_invocation_metadata(
+            "pytest",
+            experiment_config_path=str(Path("configs/experiments/gemm_reportable.yaml").resolve()),
+        ),
+        artifact_files=[],
+    )
+    store.initialize_manifest(manifest)
+    store.write_experiment_spec(mutated_spec)
+    _write_minimal_required_tables(store, include_profile=True)
+
+    summary = summarize_run(store.run_dir)
+
+    assert summary["aggregate_metrics"]["seed"] == 19
+
+
 def test_summarize_run_allows_budget_limited_runs_when_other_reportability_requirements_pass(tmp_path):
     experiment_spec = load_experiment_spec(Path("configs/experiments/gemm_reportable.yaml"))
     store = RunStore(tmp_path, experiment_spec.experiment_id, "run_001")

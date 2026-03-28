@@ -234,7 +234,7 @@ def _load_run_payload(run_dir: Path, group_id: str) -> dict[str, Any]:
         summarize_run(run_dir)
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     source_experiment_path = run_dir / "experiment_spec.yaml"
-    if manifest.invocation.experiment_config_path:
+    if not source_experiment_path.exists() and manifest.invocation.experiment_config_path:
         candidate = Path(manifest.invocation.experiment_config_path)
         if candidate.exists():
             source_experiment_path = candidate
