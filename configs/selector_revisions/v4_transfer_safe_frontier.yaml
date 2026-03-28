@@ -1,0 +1,42 @@
+revision_id: v4_transfer_safe_frontier
+parent_selector_mode: prune_rank_profiled
+linked_opportunity_tags:
+  - selector_revision_candidate
+  - frontier_construction_failure
+  - transfer_safe_frontier
+  - masked_oversize_penalty
+frontier_ranking_features:
+  - feature_name: masked_overcoverage_ratio
+    source: config
+    direction: asc
+  - feature_name: tile_fit_ratio_m
+    source: config
+    direction: desc
+  - feature_name: tile_fit_ratio_n
+    source: config
+    direction: desc
+  - feature_name: aspect_match_score
+    source: config
+    direction: desc
+  - feature_name: moderated_tile_area
+    source: config
+    direction: desc
+  - feature_name: shape_balance
+    source: config
+    direction: desc
+  - feature_name: group_size_m_centered
+    source: config
+    direction: desc
+  - feature_name: split_k
+    source: config
+    direction: asc
+  - feature_name: num_warps
+    source: config
+    direction: asc
+ranking_features: []
+tie_break_relative_tolerance: 0.02
+notes: >
+  Phase 3 frontier-only revision for representative GEMM. This revision keeps the
+  expanded schedule space but replaces the area-heavy frontier rule with a
+  shape-relative policy that penalizes oversized masked tiles and boundedly
+  prefers group_size_m near the prior sweet spot.

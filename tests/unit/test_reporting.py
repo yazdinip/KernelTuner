@@ -231,3 +231,103 @@ def test_summarize_run_marks_counter_set_unaccepted_when_compatibility_fails(tmp
     summary = summarize_run(store.run_dir)
 
     assert summary["reportability"]["counter_set_accepted"] is False
+
+
+def test_summarize_run_emits_frontier_diagnostics_and_family_mismatch(tmp_path):
+    experiment_path = Path("configs/experiments/gemm_v2_reportable.yaml").resolve()
+    experiment_spec = load_experiment_spec(experiment_path)
+    store = RunStore(tmp_path / "artifacts", "gemm_frontier", "run_frontier")
+    manifest = Manifest(
+        experiment_id="gemm_frontier",
+        run_id="run_frontier",
+        created_at_utc=datetime.now(timezone.utc),
+        environment=capture_environment_metadata("."),
+        invocation=capture_invocation_metadata(
+            "pytest",
+            experiment_config_path=str(experiment_path),
+        ),
+        artifact_files=[],
+    )
+    store.initialize_manifest(manifest)
+    store.write_experiment_spec(experiment_spec)
+
+    pd.DataFrame(
+        [
+            {
+                "kernel_id": experiment_spec.kernels[0],
+                "shape_id": experiment_spec.shapes[0].shape_id,
+                "config_id": "cfg_a",
+                "compile_status": "success",
+                "compile_success": True,
+                "occupancy_estimate": 0.5,
+                "register_count": 64,
+                "shared_memory_bytes": 1024,
+            }
+        ]
+    ).to_parquet(store.run_dir / "compile_signals.parquet", index=False)
+    pd.DataFrame(
+        [
+            {
+                "measurement_phase": "held_out",
+                "status": "success",
+                "shape_id": experiment_spec.shapes[0].shape_id,
+                "strategy_id": "default_config",
+                "latency_median_us": 10.0,
+                "throughput_value": 1.0,
+                "config_id": "cfg_default",
+            },
+            {
+                "measurement_phase": "held_out",
+                "status": "success",
+                "shape_id": experiment_spec.shapes[0].shape_id,
+                "strategy_id": "prune_rank_revised",
+                "latency_median_us": 8.0,
+                "throughput_value": 1.0,
+                "config_id": "cfg_a",
+            },
+        ]
+    ).to_parquet(store.run_dir / "runtime_measurements.parquet", index=False)
+    pd.DataFrame(
+        [
+            {
+                "strategy_id": "prune_rank_revised",
+                "counter_set_id": experiment_spec.counter_set_id,
+                "profile_status": "success",
+                "counter_map": '{"sm__warps_active.avg.pct_of_peak_sustained_active": 80.0}',
+                "config_id": "cfg_a",
+            }
+        ]
+    ).to_parquet(store.run_dir / "profile_measurements.parquet", index=False)
+    pd.DataFrame(
+        [
+            {
+                "strategy_id": "prune_rank_revised",
+                "selected_config_id": "cfg_a",
+                "benchmarks_requested": 2,
+                "profiles_requested": 1,
+                "decision_status": "selected",
+                "comparison_class": "matched_budget",
+                "score_map": '{"cfg_a": 1.0, "cfg_b": 1.1}',
+                "calibration_metadata": (
+                    '{"compile_rank_ids":["cfg_b","cfg_a"],'
+                    '"frontier_rank_ids":["cfg_a","cfg_b"],'
+                    '"profile_prefix_ids":["cfg_a"],'
+                    '"rejected_top_compile_ids":["cfg_b"],'
+                    '"best_scored_config_id":"cfg_a",'
+                    '"feature_snapshots":['
+                    '{"config_id":"cfg_a","config":{"block_m":128,"block_n":128,"block_k":32},"masked_overcoverage_ratio":0.0,"aspect_match_score":1.0,"split_k":1},'
+                    '{"config_id":"cfg_b","config":{"block_m":256,"block_n":256,"block_k":32},"masked_overcoverage_ratio":0.5,"aspect_match_score":0.7,"split_k":1}'
+                    ']}'
+                ),
+            }
+        ]
+    ).to_parquet(store.run_dir / "selection_decisions.parquet", index=False)
+    (store.run_dir / "counter_compatibility.json").write_text(
+        '{"acceptable": true, "counter_set_id": "compute_lite"}',
+        encoding="utf-8",
+    )
+
+    summary = summarize_run(store.run_dir)
+
+    assert summary["artifact_locations"]["frontier_diagnostics"].endswith("frontier_diagnostics.csv")
+    assert summary["artifact_locations"]["chosen_vs_best_family"].endswith("chosen_vs_best_family.csv")

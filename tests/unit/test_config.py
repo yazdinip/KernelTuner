@@ -142,3 +142,33 @@ def test_load_phase2_study_and_campaign_specs():
     assert {hypothesis.hypothesis_id for hypothesis in study.hypotheses} == {"H1_phase2_gemm", "H4_phase2_gemm"}
     assert campaign.campaign_id == "gemm_v2_selector_ablation"
     assert len(campaign.templates) == 6
+
+
+def test_load_phase3_kernel_counter_and_selector_specs():
+    kernel = load_kernel_spec(Path("configs/kernels/gemm_v3.yaml"))
+    counter = load_counter_set(Path("configs/counters/compute_schedule_diag.yaml"))
+    frontier = load_selector_revision_spec(Path("configs/selector_revisions/v4_transfer_safe_frontier.yaml"))
+    profiled = load_selector_revision_spec(Path("configs/selector_revisions/v4_transfer_safe_profiled.yaml"))
+
+    assert kernel.kernel_id == "gemm_v3"
+    assert "split_k" in kernel.config_parameters
+    assert counter.counter_set_id == "compute_schedule_diag"
+    assert counter.diagnostic_only is True
+    assert frontier.revision_id == "v4_transfer_safe_frontier"
+    assert profiled.revision_id == "v4_transfer_safe_profiled"
+
+
+def test_load_phase3_experiment_study_and_campaign_specs():
+    experiment = load_experiment_spec(Path("configs/experiments/gemm_v3_reportable.yaml"))
+    layernorm = load_experiment_spec(Path("configs/experiments/layernorm_v2_small_microstudy.yaml"))
+    study = load_study_spec(Path("configs/studies/gemm_v3_baseline_mapping.yaml"))
+    campaign = load_campaign_spec(Path("configs/campaigns/gemm_v3_selector_ablation.yaml"))
+
+    assert experiment.experiment_id == "gemm_v3_reportable"
+    assert experiment.kernels == ["gemm_v3"]
+    assert experiment.budgets.max_candidates == 648
+    assert layernorm.experiment_id == "layernorm_v2_small_microstudy"
+    assert layernorm.selector_version == "phase3_layernorm_micro"
+    assert {hypothesis.hypothesis_id for hypothesis in study.hypotheses} == {"H1_phase3_gemm", "H5_phase3_gemm"}
+    assert campaign.campaign_id == "gemm_v3_selector_ablation"
+    assert len(campaign.templates) == 6

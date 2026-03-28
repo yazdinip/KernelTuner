@@ -19,6 +19,7 @@ def _load_triton_components():
         a_ptr,
         b_ptr,
         c_ptr,
+        acc_ptr,
         m,
         n,
         k,
@@ -28,13 +29,17 @@ def _load_triton_components():
         stride_bn,
         stride_cm,
         stride_cn,
+        stride_acc_m,
+        stride_acc_n,
         out_dtype_flag: tl.constexpr,
         BLOCK_M: tl.constexpr,
         BLOCK_N: tl.constexpr,
         BLOCK_K: tl.constexpr,
         GROUP_SIZE_M: tl.constexpr,
+        SPLIT_K: tl.constexpr,
     ):
         pid = tl.program_id(axis=0)
+        pid_split = tl.program_id(axis=1)
         num_pid_m = tl.cdiv(m, BLOCK_M)
         num_pid_n = tl.cdiv(n, BLOCK_N)
         num_pid_in_group = GROUP_SIZE_M * num_pid_n
@@ -47,15 +52,17 @@ def _load_triton_components():
 
         offs_m = pid_m * BLOCK_M + tl.arange(0, BLOCK_M)
         offs_n = pid_n * BLOCK_N + tl.arange(0, BLOCK_N)
-        offs_k = tl.arange(0, BLOCK_K)
+        split_k_width = k // SPLIT_K
+        offs_k = pid_split * split_k_width + tl.arange(0, BLOCK_K)
 
         a_ptrs = a_ptr + offs_m[:, None] * stride_am + offs_k[None, :] * stride_ak
         b_ptrs = b_ptr + offs_k[:, None] * stride_bk + offs_n[None, :] * stride_bn
         accumulator = tl.zeros((BLOCK_M, BLOCK_N), dtype=tl.float32)
 
-        for _ in range(0, tl.cdiv(k, BLOCK_K)):
-            a_mask = (offs_m[:, None] < m) & (offs_k[None, :] < k)
-            b_mask = (offs_k[:, None] < k) & (offs_n[None, :] < n)
+        for _ in range(0, tl.cdiv(split_k_width, BLOCK_K)):
+            split_limit = (pid_split + 1) * split_k_width
+            a_mask = (offs_m[:, None] < m) & (offs_k[None, :] < split_limit)
+            b_mask = (offs_k[:, None] < split_limit) & (offs_n[None, :] < n)
             a = tl.load(a_ptrs, mask=a_mask, other=0.0)
             b = tl.load(b_ptrs, mask=b_mask, other=0.0)
             accumulator += tl.dot(a, b)
@@ -68,9 +75,13 @@ def _load_triton_components():
         else:
             output = accumulator.to(tl.float16)
 
-        c_ptrs = c_ptr + offs_m[:, None] * stride_cm + offs_n[None, :] * stride_cn
         c_mask = (offs_m[:, None] < m) & (offs_n[None, :] < n)
-        tl.store(c_ptrs, output, mask=c_mask)
+        if SPLIT_K == 1:
+            c_ptrs = c_ptr + offs_m[:, None] * stride_cm + offs_n[None, :] * stride_cn
+            tl.store(c_ptrs, output, mask=c_mask)
+        else:
+            acc_ptrs = acc_ptr + offs_m[:, None] * stride_acc_m + offs_n[None, :] * stride_acc_n
+            tl.atomic_add(acc_ptrs, accumulator, mask=c_mask)
 
     return triton, matmul_kernel
 
@@ -126,6 +137,11 @@ class GemmKernel:
         group_size_m = config.get("group_size_m", 1)
         if group_size_m <= 0:
             return False, "group_size_m must be positive when provided"
+        split_k = config.get("split_k", 1)
+        if split_k <= 0:
+            return False, "split_k must be positive when provided"
+        if shape.dim("k") % split_k != 0:
+            return False, "split_k requires a divisible reduction dimension"
         return True, None
 
     def run_kernel(self, inputs: dict[str, Any], shape: ProblemShape, config: dict[str, int]) -> Any:
@@ -133,13 +149,20 @@ class GemmKernel:
 
         out_dtype_flag = 1 if shape.dtype == "bf16" else 0
         m, n, k = shape.dim("m"), shape.dim("n"), shape.dim("k")
-        grid = lambda meta: (triton.cdiv(m, meta["BLOCK_M"]) * triton.cdiv(n, meta["BLOCK_N"]),)
+        split_k = config.get("split_k", 1)
+        grid = lambda meta: (triton.cdiv(m, meta["BLOCK_M"]) * triton.cdiv(n, meta["BLOCK_N"]), split_k)
         group_size_m = config.get("group_size_m", 1)
+        acc_buffer = None
+        if split_k > 1:
+            import torch
+
+            acc_buffer = torch.zeros((m, n), device=inputs["out"].device, dtype=torch.float32)
 
         matmul_kernel[grid](
             inputs["a"],
             inputs["b"],
             inputs["out"],
+            acc_buffer if acc_buffer is not None else inputs["out"],
             m,
             n,
             k,
@@ -149,14 +172,19 @@ class GemmKernel:
             inputs["b"].stride(1),
             inputs["out"].stride(0),
             inputs["out"].stride(1),
+            (acc_buffer.stride(0) if acc_buffer is not None else inputs["out"].stride(0)),
+            (acc_buffer.stride(1) if acc_buffer is not None else inputs["out"].stride(1)),
             out_dtype_flag=out_dtype_flag,
             BLOCK_M=config["block_m"],
             BLOCK_N=config["block_n"],
             BLOCK_K=config["block_k"],
             GROUP_SIZE_M=group_size_m,
+            SPLIT_K=split_k,
             num_warps=config["num_warps"],
             num_stages=config["num_stages"],
         )
+        if acc_buffer is not None:
+            inputs["out"].copy_(acc_buffer.to(dtype=inputs["out"].dtype))
         return inputs["out"]
 
     def reference_impl(self, inputs: dict[str, Any], policy: CorrectnessPolicy | None) -> Any:
@@ -212,6 +240,7 @@ class GemmKernel:
                 inputs["a"],
                 inputs["b"],
                 inputs["out"],
+                inputs["out"],
                 shape.dim("m"),
                 shape.dim("n"),
                 shape.dim("k"),
@@ -221,14 +250,17 @@ class GemmKernel:
                 inputs["b"].stride(1),
                 inputs["out"].stride(0),
                 inputs["out"].stride(1),
+                inputs["out"].stride(0),
+                inputs["out"].stride(1),
                 out_dtype_flag=1 if shape.dtype == "bf16" else 0,
                 BLOCK_M=config["block_m"],
                 BLOCK_N=config["block_n"],
                 BLOCK_K=config["block_k"],
                 GROUP_SIZE_M=group_size_m,
+                SPLIT_K=config.get("split_k", 1),
                 num_warps=config["num_warps"],
                 num_stages=config["num_stages"],
-                grid=(1,),
+                grid=(1, config.get("split_k", 1)),
             )
             reg_count = getattr(compiled, "n_regs", None) or getattr(compiled, "n_registers", None)
             if reg_count is not None:

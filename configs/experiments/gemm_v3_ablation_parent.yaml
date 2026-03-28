@@ -1,0 +1,112 @@
+experiment_id: gemm_v3_ablation_parent
+study_kind: reportable
+kernels:
+  - gemm_v3
+selector_version: phase3_gemm_v3_parent
+shapes:
+  - shape_id: gemm_m1024_n1024_k1024_fp16_rowmajor
+    dimensions: {m: 1024, n: 1024, k: 1024}
+    dtype: fp16
+    layout: row_major
+    workload_class: square_compute
+  - shape_id: gemm_m2048_n2048_k2048_fp16_rowmajor
+    dimensions: {m: 2048, n: 2048, k: 2048}
+    dtype: fp16
+    layout: row_major
+    workload_class: square_compute
+  - shape_id: gemm_m4096_n4096_k2048_fp16_rowmajor
+    dimensions: {m: 4096, n: 4096, k: 2048}
+    dtype: fp16
+    layout: row_major
+    workload_class: square_compute
+  - shape_id: gemm_m4096_n1024_k1024_fp16_rowmajor
+    dimensions: {m: 4096, n: 1024, k: 1024}
+    dtype: fp16
+    layout: row_major
+    workload_class: m_dominant
+  - shape_id: gemm_m4096_n512_k2048_fp16_rowmajor
+    dimensions: {m: 4096, n: 512, k: 2048}
+    dtype: fp16
+    layout: row_major
+    workload_class: m_dominant
+  - shape_id: gemm_m2048_n512_k4096_fp16_rowmajor
+    dimensions: {m: 2048, n: 512, k: 4096}
+    dtype: fp16
+    layout: row_major
+    workload_class: m_dominant
+  - shape_id: gemm_m1024_n4096_k1024_fp16_rowmajor
+    dimensions: {m: 1024, n: 4096, k: 1024}
+    dtype: fp16
+    layout: row_major
+    workload_class: n_dominant
+  - shape_id: gemm_m512_n4096_k2048_fp16_rowmajor
+    dimensions: {m: 512, n: 4096, k: 2048}
+    dtype: fp16
+    layout: row_major
+    workload_class: n_dominant
+  - shape_id: gemm_m512_n2048_k4096_fp16_rowmajor
+    dimensions: {m: 512, n: 2048, k: 4096}
+    dtype: fp16
+    layout: row_major
+    workload_class: n_dominant
+  - shape_id: gemm_m1536_n1792_k960_fp16_rowmajor
+    dimensions: {m: 1536, n: 1792, k: 960}
+    dtype: fp16
+    layout: row_major
+    workload_class: edge_nondivisible
+  - shape_id: gemm_m2304_n3072_k1536_fp16_rowmajor
+    dimensions: {m: 2304, n: 3072, k: 1536}
+    dtype: fp16
+    layout: row_major
+    workload_class: edge_nondivisible
+  - shape_id: gemm_m3584_n1536_k1280_fp16_rowmajor
+    dimensions: {m: 3584, n: 1536, k: 1280}
+    dtype: fp16
+    layout: row_major
+    workload_class: edge_nondivisible
+selector_modes:
+  - prune_rank
+baselines:
+  - default_config
+budgets:
+  max_candidates: 648
+  max_benchmarks: 16
+  max_profiles: 6
+  wall_clock_limit_s: 3600
+calibration_split: 0.67
+held_out_split: 0.33
+artifact_root: artifacts
+counter_set_id: compute_lite
+profile_policy:
+  counter_set_id: compute_lite
+  shape_sampling_mode: per_workload_class_top1
+  max_shapes_per_config: 4
+  aggregation_mode: mean
+  availability_failure_mode: fail_run
+reportability_policy:
+  enforce_preflight: true
+  require_workload_class_labels: true
+  require_stratified_split: true
+  minimum_calibration_shapes: 8
+  minimum_held_out_shapes: 4
+  minimum_held_out_per_workload_class: 1
+  abort_on_incompatible_counter_set: true
+budget_id: gemm_v3_reportable_matched
+benchmark_settings:
+  warmup_iterations: 40
+  timed_iterations: 120
+  timing_backend: cuda_events
+profiling_settings:
+  replay_mode: kernel
+  timeout_s: 300
+  cooldown_s: 2.0
+execution_settings:
+  isolate_triton_cache: true
+  expected_partition: gpunodes
+  expected_gpu_name: NVIDIA RTX A6000
+  cuda_home: /usr/local/cuda-12.9
+analysis_settings:
+  reportability_target: rtx_a6000_pool
+  workload_id: gemm_representative_v3_splitk
+seed: 7
+notes: Parent compile-ranked ablation arm for the Phase 3 representative GEMM space.

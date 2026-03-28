@@ -42,6 +42,8 @@ def _candidate_record(
         shape_id=shape.shape_id,
         config_id=canonical_config_id(config),
         config=dict(sorted(config.items())),
+        shape_dimensions=dict(sorted(shape.dimensions.items())),
+        workload_class=shape.workload_class,
         is_valid=is_valid,
         validation_notes=validation_notes,
         generation_provenance=generation_provenance,
@@ -104,9 +106,12 @@ def generate_candidate_bundle(
     for kernel_id in experiment_spec.kernels:
         spec = load_kernel_spec(kernel_config_path(kernel_id, experiment_path))
         kernel = resolve_kernel(spec)
-        parameter_names = _ordered_parameter_names(spec)
-        value_sets = [spec.config_parameters[name] for name in parameter_names]
-        raw_configs = [dict(zip(parameter_names, values, strict=False)) for values in itertools.product(*value_sets)]
+        if experiment_spec.explicit_configs:
+            raw_configs = [dict(sorted(config.items())) for config in experiment_spec.explicit_configs]
+        else:
+            parameter_names = _ordered_parameter_names(spec)
+            value_sets = [spec.config_parameters[name] for name in parameter_names]
+            raw_configs = [dict(zip(parameter_names, values, strict=False)) for values in itertools.product(*value_sets)]
         globally_valid_configs: list[dict[str, int]] = []
         for config in raw_configs:
             if all(kernel.supports_config(shape, config)[0] for shape in experiment_spec.shapes):

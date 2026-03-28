@@ -344,6 +344,7 @@ class ExperimentSpec(KTModel):
     profiling_settings: ProfilingSettings = Field(default_factory=ProfilingSettings)
     execution_settings: ExecutionSettings = Field(default_factory=ExecutionSettings)
     analysis_settings: AnalysisSettings = Field(default_factory=AnalysisSettings)
+    explicit_configs: list[dict[str, int]] = Field(default_factory=list)
     notes: str | None = None
     tags: list[str] = Field(default_factory=list)
 
@@ -384,6 +385,8 @@ class CandidateConfig(KTModel):
     shape_id: str
     config_id: str
     config: dict[str, int]
+    shape_dimensions: dict[str, int] = Field(default_factory=dict)
+    workload_class: str | None = None
     is_valid: bool
     validation_notes: str | None = None
     generation_provenance: str | None = None
