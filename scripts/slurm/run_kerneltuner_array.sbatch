@@ -172,7 +172,7 @@ fi
 VENV_PATH="$SCRATCH_ROOT/$VENV_NAME"
 if [[ "${INSTALL_PACKAGES:-1}" == "1" ]]; then
   echo "Bootstrapping environment into $VENV_PATH"
-  "$WORKSPACE_ROOT/scripts/bootstrap_env.sh" "$VENV_PATH"
+  source "$WORKSPACE_ROOT/scripts/bootstrap_env.sh" "$VENV_PATH"
 else
   if [[ ! -d "$VENV_PATH" ]]; then
     echo "ERROR: virtual environment missing at $VENV_PATH and INSTALL_PACKAGES=0" >&2

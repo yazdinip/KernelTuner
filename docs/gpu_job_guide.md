@@ -144,15 +144,13 @@ else
   export KTUNE_SCRATCH="/tmp/$USER/kerneltuner"
 fi
 
-scripts/bootstrap_env.sh "$KTUNE_SCRATCH/venv-py312"
-source "$KTUNE_SCRATCH/venv-py312/bin/activate"
+source scripts/bootstrap_env.sh "$KTUNE_SCRATCH/venv-py312"
 ```
 
 If you want to choose the virtualenv path explicitly:
 
 ```bash
-scripts/bootstrap_env.sh /scratch/scratch-space/expires-xxxx/$USER/kerneltuner/venv-py312
-source /scratch/scratch-space/expires-xxxx/$USER/kerneltuner/venv-py312/bin/activate
+source scripts/bootstrap_env.sh /scratch/scratch-space/expires-xxxx/$USER/kerneltuner/venv-py312
 ```
 
 The bootstrap script:

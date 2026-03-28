@@ -20,3 +20,8 @@ def test_submit_script_dry_run_supports_nodelist():
         text=True,
     )
     assert "--nodelist=gpunode2" in result.stdout
+
+
+def test_worker_script_sources_bootstrap_env_so_cuda_paths_persist():
+    script = Path("scripts/slurm/run_kerneltuner_array.sbatch").read_text()
+    assert 'source "$WORKSPACE_ROOT/scripts/bootstrap_env.sh" "$VENV_PATH"' in script

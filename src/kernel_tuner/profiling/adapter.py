@@ -20,7 +20,7 @@ from kernel_tuner.common.config import (
     load_experiment_spec,
     load_kernel_spec,
 )
-from kernel_tuner.common.provenance import python_command
+from kernel_tuner.common.provenance import python_command, resolve_tool_path
 from kernel_tuner.common.schema import (
     CandidateConfig,
     CounterSetSpec,
@@ -149,8 +149,9 @@ def _parse_counter_map(
 @lru_cache(maxsize=1)
 def _ncu_version() -> str | None:
     try:
+        ncu = resolve_tool_path("ncu")
         completed = subprocess.run(
-            ["ncu", "--version"],
+            [ncu, "--version"],
             check=False,
             capture_output=True,
             text=True,
@@ -172,6 +173,7 @@ def _base_profiler_metadata(
 ) -> dict[str, Any]:
     return {
         "command": command,
+        "resolved_profiler_path": command[0],
         "requested_counters": list(counter_set.counters),
         "target_processes": counter_set.target_processes or "all",
         "replay_mode": counter_set.replay_mode or experiment_spec.profiling_settings.replay_mode,
@@ -190,8 +192,9 @@ def _build_profile_command(
     profiling_settings,
     payload: str,
 ) -> list[str]:
+    ncu = resolve_tool_path("ncu")
     command = [
-        "ncu",
+        ncu,
         "--csv",
         "--page",
         "raw",
@@ -262,6 +265,7 @@ def profile_candidate(
                 **base_metadata,
                 "returncode": None,
                 "duration_s": time.perf_counter() - command_started,
+                "failure_reason": "tool_unavailable",
             },
             notes="ncu executable not found",
         )
@@ -281,6 +285,7 @@ def profile_candidate(
                 **base_metadata,
                 "returncode": None,
                 "duration_s": time.perf_counter() - command_started,
+                "failure_reason": "timeout",
             },
             notes=f"ncu timed out: {exc}",
         )
@@ -298,18 +303,23 @@ def profile_candidate(
     )
     status = ProfileStatus.SUCCESS
     notes = None
+    failure_reason = None
     attribution_failed = matched_kernel_name is None or diagnostics.get("kernel_attribution_status") != "matched"
     if completed.returncode != 0 and unsupported_metric:
         status = ProfileStatus.UNSUPPORTED_COUNTER
+        failure_reason = "unsupported_metric"
         notes = completed.stderr.strip() or completed.stdout.strip() or "unsupported counter"
     elif completed.returncode != 0:
         status = ProfileStatus.INVOCATION_FAILED
+        failure_reason = "invocation_failed"
         notes = completed.stderr.strip() or completed.stdout.strip() or "ncu invocation failed"
     elif attribution_failed:
         status = ProfileStatus.NO_PROFILE_DATA
+        failure_reason = f"kernel_attribution_{diagnostics.get('kernel_attribution_status')}"
         notes = f"no attributable profiler row: {diagnostics.get('kernel_attribution_status')}"
     elif missing_counters:
         status = ProfileStatus.UNSUPPORTED_COUNTER
+        failure_reason = "missing_counter_values"
         notes = "missing or unsupported counters: " + ", ".join(sorted(missing_counters))
 
     measurement = ProfileMeasurement(
@@ -327,6 +337,7 @@ def profile_candidate(
             "duration_s": time.perf_counter() - command_started,
             "matched_kernel_name": matched_kernel_name,
             "missing_counters": missing_counters,
+            "failure_reason": failure_reason,
             **diagnostics,
         },
         notes=notes,

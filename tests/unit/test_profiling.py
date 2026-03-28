@@ -171,3 +171,49 @@ def test_profile_candidate_marks_ambiguous_kernel_attribution_as_no_profile_data
 
     assert outcome.measurement.profile_status == ProfileStatus.NO_PROFILE_DATA
     assert outcome.measurement.profiler_metadata["kernel_attribution_status"] == "regex_ambiguous"
+
+
+def test_profile_candidate_records_missing_counter_failure_reason(monkeypatch):
+    experiment_spec = load_experiment_spec(Path("configs/experiments/gemm_reportable.yaml"))
+    counter_set = load_counter_set(Path("configs/counters/compute_lite.yaml"))
+    shape = experiment_spec.shapes[0]
+    candidate = CandidateConfig(
+        experiment_id=experiment_spec.experiment_id,
+        kernel_id=experiment_spec.kernels[0],
+        shape_id=shape.shape_id,
+        config_id="cfg_valid",
+        config={"block_m": 128},
+        is_valid=True,
+    )
+
+    stdout = "\n".join(
+        [
+            '"ID","Process ID","Process Name","Host Name","Kernel Name","gpu__time_duration.sum","sm__warps_active.avg.pct_of_peak_sustained_active"',
+            '1,10,"python","host","matmul_kernel",5.0,1.0',
+        ]
+    )
+
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=args[0],
+            returncode=0,
+            stdout=stdout,
+            stderr="",
+        ),
+    )
+
+    outcome = profile_candidate(
+        run_id="run_001",
+        strategy_id="prune_rank_profiled",
+        kernel_id=experiment_spec.kernels[0],
+        shape=shape,
+        candidate=candidate,
+        counter_set=counter_set,
+        experiment_spec=experiment_spec,
+    )
+
+    assert outcome.measurement.profile_status == ProfileStatus.UNSUPPORTED_COUNTER
+    assert outcome.measurement.profiler_metadata["failure_reason"] == "missing_counter_values"
+    assert "missing or unsupported counters" in (outcome.measurement.notes or "")

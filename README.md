@@ -84,8 +84,7 @@ On the pinned GPU environment:
 
 ```bash
 export KTUNE_SCRATCH=/scratch/scratch-space/expires-xxxx/$USER/kerneltuner
-scripts/bootstrap_env.sh "$KTUNE_SCRATCH/venv-py312"
-source "$KTUNE_SCRATCH/venv-py312/bin/activate"
+source scripts/bootstrap_env.sh "$KTUNE_SCRATCH/venv-py312"
 
 ktune validate-kernel --kernel configs/kernels/gemm.yaml
 ktune run-experiment --experiment configs/experiments/gemm_smoke.yaml

@@ -4,7 +4,7 @@ tool: ncu
 replay_mode: kernel
 target_processes: all
 counters:
-  - smsp__average_warps_issue_stalled_long_scoreboard_per_issue_active.avg
+  - smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct
   - sm__warps_active.avg.pct_of_peak_sustained_active
   - smsp__inst_executed.sum
 minimum_availability: 0.9

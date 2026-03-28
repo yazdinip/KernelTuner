@@ -27,6 +27,16 @@ def _run_command(args: list[str], cwd: str | Path | None = None) -> str | None:
     return completed.stdout.strip()
 
 
+def resolve_tool_path(name: str) -> str:
+    cuda_home = os.environ.get("CUDA_HOME")
+    if cuda_home:
+        candidate = Path(cuda_home) / "bin" / name
+        if candidate.exists():
+            return str(candidate)
+    resolved = which(name)
+    return resolved or name
+
+
 def _import_version(module_name: str) -> str | None:
     try:
         module = __import__(module_name)
@@ -85,7 +95,7 @@ def _capture_git(repo_root: str | Path) -> dict[str, str | bool | None]:
 
 
 def _capture_ncu_version() -> str | None:
-    output = _run_command(["ncu", "--version"])
+    output = _run_command([resolve_tool_path("ncu"), "--version"])
     if output:
         line = output.splitlines()[-1].strip()
         return line
@@ -104,8 +114,8 @@ def _cache_roots() -> dict[str, str]:
 def _tool_paths() -> dict[str, str]:
     tools = {}
     for name in ["python3", "ncu", "nsys", "nvcc"]:
-        path = which(name)
-        if path:
+        path = resolve_tool_path(name)
+        if path != name:
             tools[name] = path
     return tools
 

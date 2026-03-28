@@ -13,6 +13,7 @@ from kernel_tuner.common.config import (
     load_experiment_spec,
     load_kernel_spec,
 )
+from kernel_tuner.common.provenance import resolve_tool_path
 from kernel_tuner.common.schema import CounterCompatibilityRecord, ExperimentSpec
 
 
@@ -85,8 +86,9 @@ def validate_counter_set(
     try:
         completed = None
         if backend == "ncu_query_metrics":
+            ncu = resolve_tool_path("ncu")
             completed = subprocess.run(
-                ["ncu", "--query-metrics"],
+                [ncu, "--query-metrics"],
                 check=False,
                 capture_output=True,
                 text=True,
@@ -100,6 +102,10 @@ def validate_counter_set(
         discovered = set(re.findall(r"([A-Za-z0-9_.]+)", metrics_blob))
         available = [counter for counter in requested if _metric_match(counter, discovered)]
         missing = [counter for counter in requested if counter not in available]
+        if missing:
+            notes_parts.append(
+                "missing or unsupported queried metrics: " + ", ".join(sorted(missing))
+            )
     elif completed is not None:
         backend = "ncu_query_failed"
         notes_parts.append(completed.stderr.strip() or completed.stdout.strip() or "ncu --query-metrics failed")
