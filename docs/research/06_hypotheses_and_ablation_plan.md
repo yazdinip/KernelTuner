@@ -114,26 +114,34 @@ Latest evaluated batches:
   - `layernorm_v2_large_regime` study `run_20260327T183158Z_37695a2d`
   - `gemm_v2_aligned_reference` study `run_20260327T190124Z_3a34cdc7`
 - the canonical Phase 2 analysis summary is recorded in [logs/2026-03-27_phase2_execution_analysis.md](logs/2026-03-27_phase2_execution_analysis.md)
+- the canonical Phase 3 confirmation studies are:
+  - `gemm_v3_baseline_mapping` study `run_20260329T010211Z_dfb53abb`
+  - `gemm_v3_selector_ablation` study `run_20260329T034953Z_e8b8ac98`
+  - `gemm_v3_schedule_diag` study `run_20260328T212649Z_7755304a`
+  - `gemm_v3_aligned_reference` study `run_20260329T045530Z_7086b0e7`
+  - `layernorm_v2_small_microstudy` study `run_20260329T053448Z_7c6e5dc1`
+  - `layernorm_v2_large_microstudy` study `run_20260329T053455Z_c4118a25`
+- the canonical Phase 3 analysis summary is recorded in [logs/2026-03-29_phase3_execution_analysis.md](logs/2026-03-29_phase3_execution_analysis.md)
 
-Current post-Phase-2 rule:
+Current post-Phase-3 rule:
 
-- exactly one new top-level hypothesis is admitted:
-  - `H5`, the Phase 3 transfer-safe frontier hypothesis
-- `H1` is now stronger because the expanded representative GEMM space preserved the original result direction
-- `H2` should now be interpreted through split LayerNorm regimes rather than one pooled LayerNorm result
-- `H4` should now be interpreted as mixed:
-  - the narrower v1 representative GEMM retry supported the frontier-aware revision
-  - the expanded v2 representative GEMM space did not preserve that win
-- `H3` remains an evaluation-context hypothesis and should be refreshed only as a supporting comparison workload
-- Phase 3 execution is justified narrowly by the concrete Phase 2 mechanism:
-  - the expanded-space frontier collapsed toward oversized masked tiles
-  - and the next admissible corrective pass is a shape-relative, transfer-safe frontier plus one bounded new schedule family (`split_k`)
-
-Documentation boundary note:
-
-- `H5` remains unevaluated in the backbone docs until the full bounded Phase 3 batch completes
-- completed-but-partial Phase 3 GEMM v3 artifacts should not be promoted into project-level hypothesis status on their own
-- the evidence registry is allowed to acknowledge implementation readiness and future evidence targets, but not to treat partial Phase 3 execution as a settled result
+- no new top-level hypotheses are admitted beyond `H5`
+- `H1` remains strong overall:
+  - the Phase 3 confirmation batch preserved the qualitative compile-signal limitation
+  - but it did not materially strengthen the claim because the canonical batch missed the pre-registered `+0.02` margin
+- `H2` remains regime-split and should not be repooled
+- `H3` remains a supporting evaluation-context hypothesis:
+  - it survives on the strength of the earlier validation and Phase 2 evidence
+  - Phase 3 did not strengthen it
+- `H4` should now be interpreted as mixed and transfer-limited:
+  - the narrower representative GEMM retry supported the frontier-aware revision
+  - the expanded v2 and v3 spaces did not preserve that success
+- `H5` is now answered:
+  - the transfer-safe v4 selector remained far below both parent `prune_rank` and `naive_random_search`
+  - the current `H5` outcome is therefore `unsupported`
+- the completed Phase 3 execution also resolved two bounded keep/drop decisions:
+  - retire `split_k` from the main GEMM reportable surface
+  - retire `rows_per_program` from the main LayerNorm reportable surface
 
 ## Hypothesis Cross-Reference
 

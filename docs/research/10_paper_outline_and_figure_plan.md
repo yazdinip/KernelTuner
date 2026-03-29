@@ -14,7 +14,7 @@ Depends On: [01_research_program.md](01_research_program.md), [06_hypotheses_and
 | Background and Tuning Space | explain schedule-first tuning and knob families | `02_tuning_theory_and_knob_space.md`, `03_bottleneck_taxonomy.md` | knob-to-signal matrix, bottleneck taxonomy table |
 | Method | describe the selector ladder, signal tiers, workload program, and matched-budget protocol | `04_signal_and_profiling_plan.md`, `05_workload_matrix_and_case_studies.md`, `06_hypotheses_and_ablation_plan.md` | protocol tables, workload tables, study configs |
 | Experimental Setup | pin the environment, workloads, and evaluation rules | `05_workload_matrix_and_case_studies.md`, top-level protocol and environment docs | environment provenance, experiment configs |
-| Results | answer `H1` through `H5` with cross-run evidence, keeping `H5` explicitly marked pending until the full bounded Phase 3 batch is completed and promoted | `06_hypotheses_and_ablation_plan.md`, `08_evidence_registry.md` | `cross_run_summary.json`, stability reports, held-out comparison tables |
+| Results | answer `H1` through `H5` with cross-run evidence, including the completed Phase 3 bounded negative-result and keep/drop decisions | `06_hypotheses_and_ablation_plan.md`, `08_evidence_registry.md` | `cross_run_summary.json`, stability reports, held-out comparison tables |
 | Failure Analysis and Opportunities | explain wins, misses, and revised-selector behavior | `03_bottleneck_taxonomy.md`, `09_opportunity_log.md` | opportunity catalog, bottleneck signatures, case-study plots |
 | Limitations | state what the study does not claim | `01_research_program.md`, `08_evidence_registry.md` | hypothesis status table, unresolved-confounds summary |
 | Conclusion | summarize what was learned about lightweight bottleneck-aware tuning | final evidence registry and paper draft | final hypothesis summary |
@@ -60,15 +60,10 @@ Depends On: [01_research_program.md](01_research_program.md), [06_hypotheses_and
 | `F6` | Provisionally backed | correlation artifacts still need interpretation and pruning, but the v2 studies now give a cleaner set of candidate figure sources |
 | `F7` | Strongly provisionally backed as a transfer-failure ablation | the project now has both sides of the story: the narrow-space `h4_retry_g3` success and the expanded-space `gemm_v2_selector_ablation` failure, which together make a stronger mechanism figure than a pure success plot alone |
 | `F8` | Strongly provisionally backed | bottleneck-signature, opportunity, and diagnostic artifacts now include the completed v2 studies and the reusable Phase 2 analysis bundle |
-| `F9` | Pending Phase 3 execution | this is the main new figure unlocked by `H5`; it should become the new representative GEMM centerpiece if the transfer-safe frontier works |
-| `F10` | Pending Phase 3 execution | this figure will decide whether profiling still matters after transfer-safe frontier construction in the larger split-`k` space |
-| `F11` | Pending Phase 3 execution | this figure depends on the new frontier-diagnostics and chosen-vs-best-family artifacts emitted by the Phase 3 mechanism runs |
-| `F12` | Pending Phase 3 execution | this figure exists only to decide whether `rows_per_program` stays in the LayerNorm surface |
-
-Phase 3 promotion note:
-
-- completed-but-partial Phase 3 artifact families are not enough by themselves to unlock `F9` through `F12`
-- those figures remain pending until the bounded Phase 3 queue is complete enough to interpret representative GEMM, aligned GEMM context, and the LayerNorm keep/drop result together
+| `F9` | Strongly backed as a bounded negative-result figure | the completed Phase 3 representative GEMM mapping shows the current v4 selector family failing far below both parent `prune_rank` and random search on the split-`k` space |
+| `F10` | Strongly backed as a transfer-failure ablation | the completed Phase 3 ablation shows that frontier-only and profiled-v4 fail almost identically once the frontier is wrong |
+| `F11` | Strongly backed as a diagnostic failure-analysis figure | the completed schedule-diagnostic batch plus the analysis bundle now expose chosen-family vs best-family mismatch and dominated non-unit `split_k` frontier rows |
+| `F12` | Strongly backed as a keep/drop decision figure | the completed Phase 3 LayerNorm microstudy is sufficient to retire `rows_per_program` from the mainline surface |
 
 ## Current Strongest Artifact Sources
 
@@ -85,10 +80,24 @@ Phase 3 promotion note:
   - `h4_retry_g3` `run_20260327T035659Z_10f9baec`
 - Canonical summary bundle:
   - `artifacts/analysis/phase2_20260327/`
+- Canonical Phase 3 summary bundle:
+  - `artifacts/analysis/phase3_20260329/`
+- Representative GEMM Phase 3 canonical mapping:
+  - `gemm_v3_baseline_mapping` `run_20260329T010211Z_dfb53abb`
+- Representative GEMM Phase 3 canonical selector ablation:
+  - `gemm_v3_selector_ablation` `run_20260329T034953Z_e8b8ac98`
+- GEMM Phase 3 schedule diagnostic:
+  - `gemm_v3_schedule_diag` `run_20260328T212649Z_7755304a`
+- Aligned GEMM Phase 3 context:
+  - `gemm_v3_aligned_reference` `run_20260329T045530Z_7086b0e7`
+- LayerNorm Phase 3 canonical microstudies:
+  - `layernorm_v2_small_microstudy` `run_20260329T053448Z_7c6e5dc1`
+  - `layernorm_v2_large_microstudy` `run_20260329T053455Z_c4118a25`
 - Full chronological execution record:
   - `docs/research/logs/2026-03-26_g3_requalification_and_followup_execution.md`
   - `docs/research/logs/2026-03-27_g3_followup_baselinefix_and_v3_retry.md`
   - `docs/research/logs/2026-03-27_phase2_execution_analysis.md`
+  - `docs/research/logs/2026-03-29_phase3_execution_analysis.md`
 
 ## Current Writing-Ready Claims
 
@@ -100,15 +109,19 @@ Phase 3 promotion note:
   - strongest sources: `layernorm_v2_small_regime`, `layernorm_v2_large_regime`
 - A frontier-aware revised selector can work on a narrower space, but the current rule does not transfer to the expanded v2 GEMM space.
   - strongest sources: `h4_retry_g3`, `gemm_v2_baseline_mapping`, `gemm_v2_selector_ablation`
+- The completed Phase 3 transfer-safe corrective pass is a bounded negative result: it does not recover near-random-search representative GEMM performance on the split-`k` space, and the additional schedule family should not stay in the mainline surface.
+  - strongest sources: `gemm_v3_baseline_mapping`, `gemm_v3_selector_ablation`, `gemm_v3_schedule_diag`, `artifacts/analysis/phase3_20260329/`
+- The completed Phase 3 LayerNorm microstudy is strong enough to retire `rows_per_program` from the main reportable LayerNorm surface.
+  - strongest sources: `layernorm_v2_small_microstudy`, `layernorm_v2_large_microstudy`, `artifacts/analysis/phase3_20260329/`
 
 ## Current Analysis Goal
 
-The next synthesis phase should keep the current backbone and evaluate one bounded new claim (`H5`). It should:
+The next synthesis phase should consolidate and harden the completed Phase 3 story. It should:
 
-- lock the representative GEMM story to the Phase 2 expanded-space evidence,
-- test whether a transfer-safe frontier can recover that story on the harder split-`k` space,
+- lock the representative GEMM story to the completed Phase 2 and Phase 3 evidence together,
+- write `H5` as a bounded negative result rather than a pending open question,
 - write the revised-selector result as a transfer/ablation story rather than a pure win,
-- and keep LayerNorm as a regime-aware secondary story with one keep/drop knob decision.
+- and keep LayerNorm as a regime-aware secondary story with the `rows_per_program` keep/drop decision already resolved.
 
 ## Figure Readiness Rules
 
@@ -122,7 +135,7 @@ Current caution:
 
 - the first validation batch is useful for planning and interpretation, but some artifacts still live in expiring scratch paths
 - any figure promoted into the final paper should come from archived or rerun evidence with stable provenance
-- any partial Phase 3 artifact family should remain out of the paper figure set until the full bounded Phase 3 batch is complete and documented
+- the promoted Phase 3 figures should come from the canonical confirmation studies and the reusable Phase 3 analysis bundle, not from superseded partial attempts
 
 ## What Counts As Unproductive Experimentation
 

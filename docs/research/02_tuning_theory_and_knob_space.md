@@ -26,9 +26,9 @@ Algorithmic or kernel-variant tuning is allowed later only if the schedule-first
 | `num_warps` | work distribution and issue width per program | better latency hiding and throughput | occupancy collapse, math-pipe throttling, oversubscription | GEMM, LayerNorm | In scope now |
 | `num_stages` | software pipelining depth | hides latency, improves overlap | higher register use, higher shared-memory pressure | GEMM, LayerNorm | In scope now |
 | `block_size` | per-row work granularity and reduction footprint | better normalization throughput, fewer loop trips | wasted work on short rows, pressure on registers and scheduling | LayerNorm | In scope now |
-| `rows_per_program` | how many rows one LayerNorm program handles | better amortization and launch efficiency on larger-row groups | lower flexibility or reduced latency sensitivity on small-batch cases | LayerNorm | In scope now |
+| `rows_per_program` | how many rows one LayerNorm program handles | better amortization and launch efficiency on larger-row groups | lower flexibility or reduced latency sensitivity on small-batch cases | LayerNorm | Evaluated in Phase 3; retire from mainline |
 | vectorization/access granularity | bytes moved per instruction and access pattern | better memory efficiency, fewer LSU instructions | alignment sensitivity, wasted bandwidth, higher pressure per wave | GEMM, LayerNorm | Planned later |
-| `split_k` | parallel decomposition along reduction dimension | more parallelism for long reductions and an extra schedule family beyond tile-only choices | reduction overhead, extra synchronization, launch cost | GEMM | In scope now |
+| `split_k` | parallel decomposition along reduction dimension | more parallelism for long reductions and an extra schedule family beyond tile-only choices | reduction overhead, extra synchronization, launch cost | GEMM | Evaluated in Phase 3; retire from mainline |
 | persistent/work decomposition choices | residency and wave scheduling pattern | steadier occupancy, better cache behavior on some shapes | starvation, underutilization, harder correctness/debug path | GEMM | Planned later |
 | swizzle/layout permutations | mapping from logical tile to memory or shared-memory layout | reduced bank conflicts or better locality | brittle wins, shape-specific regressions | kernel-specific | Planned later |
 
@@ -41,11 +41,14 @@ The current and near-term GEMM tuner is expected to reason over:
 - output tile geometry: `block_m`, `block_n`
 - reduction tile depth: `block_k`
 - grouped launch ordering: `group_size_m`
-- reduction decomposition: `split_k`
 - launch-scale parallelism: `num_warps`
 - pipeline depth: `num_stages`
 
-Planned GEMM extensions after the current Phase 3 split-`k` pass, only if evidence justifies them:
+Archived or diagnostic-only GEMM surface:
+
+- reduction decomposition: `split_k`
+
+Planned GEMM extensions after the completed Phase 3 split-`k` evaluation, only if new evidence justifies them:
 
 - vectorized load/store variants
 - persistent scheduling or tile ordering variants
@@ -57,11 +60,14 @@ The current LayerNorm tuner is intentionally narrower:
 - per-row block size: `block_size`
 - warp count: `num_warps`
 - pipeline depth: `num_stages`
-- rows per program: `rows_per_program`
 
 LayerNorm remains the memory-bound contrast case, but the current evidence shows that it
 must be interpreted as at least two regimes (`small_batch` and `large_batch`) rather than
 as one pooled result.
+
+Archived or diagnostic-only LayerNorm surface:
+
+- rows per program: `rows_per_program`
 
 ## What A Proper Kernel Tuner Looks Like In This Project
 
@@ -85,7 +91,7 @@ The goal is not to search every plausible knob. The goal is to search the right 
 | larger `num_stages` | deeper software pipeline | long scoreboard stall, register count, shared-memory bytes | increase stages if memory latency dominates and resources allow; reduce if registers become excessive |
 | larger `block_size` | fewer reduction passes for LayerNorm | dram throughput, lg throttle, occupancy | increase for large hidden sizes when memory behavior dominates; reduce if waste and occupancy loss dominate |
 | vectorized accesses | fewer memory instructions and better coalescing | global-load bytes, cache hit rate, lg throttle | try vectorization if memory pressure is high and alignment is favorable |
-| `split_k` | more parallelism on long reductions and a new family of frontier tradeoffs | runtime first, then schedule-diagnostic counters if needed | use only in the bounded Phase 3 GEMM expansion and judge it against unchanged matched budgets |
+| `split_k` | more parallelism on long reductions and a new family of frontier tradeoffs | runtime first, then schedule-diagnostic counters if needed | archived as a bounded Phase 3 negative-result family; do not keep it in the main reportable GEMM surface |
 | persistent scheduling | different residency and wave structure | occupancy, warps active, runtime stability | consider only after baseline schedule knobs are exhausted on large steady-state shapes |
 
 ## Scope Discipline
@@ -99,8 +105,9 @@ The tuner should only absorb a new knob family when all of these hold:
 
 If those conditions do not hold, the knob belongs in the "planned later" column rather than the active search space.
 
-Current Phase 3 note:
+Completed Phase 3 decision:
 
-- `split_k` is the only new GEMM schedule family admitted beyond the Phase 2 v2 space.
-- The point of admitting it now is not broad kernel growth for its own sake.
-- The point is to test whether a transfer-safe, shape-relative selector can still recover strong GEMM performance after the search space admits one orthogonal decomposition choice.
+- `split_k` was the only new GEMM schedule family admitted beyond the Phase 2 v2 space.
+- The completed Phase 3 evidence did not justify keeping it in the main reportable GEMM surface.
+- `rows_per_program` likewise did not justify staying in the main reportable LayerNorm surface.
+- Both knobs remain scientifically useful as archived bounded experiments, but not as current mainline paper-surface knobs.

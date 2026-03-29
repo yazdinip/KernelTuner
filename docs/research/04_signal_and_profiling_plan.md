@@ -168,12 +168,12 @@ Current profiler status meanings:
 
 ## Current Operational Status
 
-As of March 27, 2026:
+As of March 29, 2026:
 
 - `compute_lite` and `memory_lite` have both passed live validation on the current `RTX A6000` environment
 - `memory_activity_lite` has also passed live validation on the current `RTX A6000` environment
 - `shared_diag` remains intentionally diagnostic-only
-- `compute_schedule_diag` is admitted for Phase 3 mechanism work but still awaits its first live validation and execution pass
+- `compute_schedule_diag` has passed live validation and was exercised successfully in the completed Phase 3 diagnostic campaign
 - a fresh GPU shell may still require explicit CUDA path export before `ncu` is visible
 
 Operational requirement on fresh shells:
@@ -229,7 +229,7 @@ The completed Phase 2 v2 studies sharpened the signal interpretation further:
 
 ## Methodological Notes For Phase 3
 
-The Phase 3 transfer-safe GEMM pass changes the role of profiling slightly:
+The completed Phase 3 transfer-safe GEMM pass clarified the role of profiling further:
 
 - the main reportable GEMM comparison still stays on `compute_lite`
 - the new selector revisions rely more heavily on shape-relative Tier 0 and config-derived frontier features before any profiling happens
@@ -237,8 +237,10 @@ The Phase 3 transfer-safe GEMM pass changes the role of profiling slightly:
 
 Current implication:
 
-- Phase 3 is not a broad profiling rewrite
-- it is a frontier-first corrective pass, with one bounded diagnostic counter set to explain schedule-family behavior if the runtime results warrant it
+- Phase 3 was not a broad profiling rewrite
+- it was a frontier-first corrective pass, with one bounded diagnostic counter set to explain schedule-family behavior
+- the completed results show that profiling did not rescue the revised selector once the frontier was wrong
+- the completed results also show that neither `split_k` nor `rows_per_program` earned promotion into the main reportable knob surfaces
 
 ## Counter Availability Risk
 

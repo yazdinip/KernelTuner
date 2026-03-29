@@ -33,16 +33,18 @@ Current project phase:
 
 - the backbone is now relatively stable
 - the main moving documents are the evidence registry, opportunity log, and dated logs
-- the package is now in bounded Phase 3 corrective-execution mode rather than broad expansion mode
+- the package is now in Phase 3 synthesis and credibility-hardening mode rather than corrective execution mode
 - `gpunode2` and `gpunode3` are now treated as one qualified `RTX A6000` pool for new primary studies
 - the latest detailed execution record is [logs/2026-03-26_g3_requalification_and_followup_execution.md](logs/2026-03-26_g3_requalification_and_followup_execution.md)
 - the latest corrective follow-up record is [logs/2026-03-27_g3_followup_baselinefix_and_v3_retry.md](logs/2026-03-27_g3_followup_baselinefix_and_v3_retry.md)
 - the latest implementation-side execution-preparation record is [logs/2026-03-27_phase2_deepening_implementation.md](logs/2026-03-27_phase2_deepening_implementation.md)
 - the latest full Phase 2 result interpretation is [logs/2026-03-27_phase2_execution_analysis.md](logs/2026-03-27_phase2_execution_analysis.md)
 - the latest bounded Phase 3 implementation record is [logs/2026-03-27_phase3_transfer_safe_implementation.md](logs/2026-03-27_phase3_transfer_safe_implementation.md)
-- the current documentation boundary is recorded in [logs/2026-03-28_phase3_documentation_boundary.md](logs/2026-03-28_phase3_documentation_boundary.md)
+- the completed Phase 3 execution analysis is [logs/2026-03-29_phase3_execution_analysis.md](logs/2026-03-29_phase3_execution_analysis.md)
+- the earlier documentation freeze point remains recorded in [logs/2026-03-28_phase3_documentation_boundary.md](logs/2026-03-28_phase3_documentation_boundary.md) as historical context only
 - the canonical reusable Phase 2 artifact summary lives under `artifacts/analysis/phase2_20260327/`
-- partial or incomplete Phase 3 execution artifacts are intentionally not promoted into the backbone docs until the full bounded R5 batch completes cleanly
+- the canonical reusable Phase 3 artifact summary lives under `artifacts/analysis/phase3_20260329/`
+- the completed bounded R5 batch is now promoted; only explicit future tie-break reruns would sit outside the current backbone
 
 ## Reading Order
 

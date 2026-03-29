@@ -46,7 +46,8 @@ Config: `configs/experiments/gemm_v3_reportable.yaml`
 The Phase 3 GEMM study keeps the same representative workload classes but enlarges the schedule space with `split_k`.
 
 - The workload matrix is intentionally unchanged so Phase 3 results can be compared directly against the Phase 2 v2 bundle.
-- The new question is whether a transfer-safe frontier policy can still recover near-random-search performance after the space admits one orthogonal schedule family.
+- The completed Phase 3 batch answered that question negatively for the current v4 rule: the transfer-safe selector did not recover near-random-search performance after the space admitted `split_k`.
+- The resulting scientific value is now a bounded transfer-failure result plus a keep/drop decision for `split_k`, not an expanded new optimization surface.
 
 ### Phase 3 aligned GEMM context study
 
@@ -56,6 +57,7 @@ This is still a supporting context workload, not the primary optimization target
 
 - It exists to refresh the `H3` interpretation under the Phase 3 search space.
 - It should not replace the representative GEMM study as the main paper-facing truth source.
+- The completed Phase 3 aligned run did not strengthen the earlier `H3` story; it remains context rather than a new primary source of support.
 
 ### Development and smoke GEMM studies
 
@@ -88,7 +90,7 @@ Current interpretation:
 
 - LayerNorm is now intentionally split by regime rather than treated as one pooled reportable story.
 - The reportable v2 regime studies established the current weak-or-negative result.
-- The Phase 3 microstudy exists only to decide whether `rows_per_program` is a real regime lever or dead weight.
+- The completed Phase 3 microstudy answered that decision in the negative for the mainline surface: `rows_per_program` is now best treated as dead weight for reportable LayerNorm studies.
 - LayerNorm remains a secondary explanatory track, not the main tuner-growth path.
 
 ### Development and smoke LayerNorm studies
@@ -142,4 +144,4 @@ Current Phase 3 workload rule:
 
 - keep the representative GEMM and aligned GEMM class definitions stable while the search space changes
 - keep LayerNorm split into `small_batch` and `large_batch`
-- use new Phase 3 runs to explain transfer and schedule-family behavior, not to reopen the entire workload program
+- use the completed Phase 3 runs to explain transfer and schedule-family behavior, not to reopen the entire workload program

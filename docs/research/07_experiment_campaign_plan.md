@@ -15,7 +15,7 @@ Depends On: [../06_implementation_roadmap.md](../06_implementation_roadmap.md), 
 
 ## Current Stage
 
-As of March 28, 2026:
+As of March 29, 2026:
 
 - the full `gpunode3` homogeneous-A6000 requalification block has completed
 - the broad `validation_rounds_g3_requal` campaign and both narrow follow-up studies (`h13_confirmation_g3`, `h2_followup_g3`) have completed
@@ -32,21 +32,24 @@ As of March 28, 2026:
   - the GEMM v3 split-`k` search space
   - the diagnostic-only `compute_schedule_diag` counter set
   - the bounded LayerNorm microstudy surface
-- later Phase 3 execution attempts are not yet promoted into the research-facing docs because the full bounded R5 batch has not completed end to end
+- the full bounded Phase 3 execution program has now completed end to end, including confirmation reruns for the main comparative studies
 - `R0` is operationally satisfied for continued execution
 - `R1` is materially stronger than before
 - `R2` has repeated non-support on a corrected LayerNorm baseline
 - `R3` now has mixed evidence:
   - the narrower representative GEMM retry supported the frontier-aware `v3_h4_targeted` selector
   - the expanded v2 GEMM space did not preserve that win
-- the next approved step is a bounded Phase 3 corrective execution pass rather than another open-ended expansion
+- `R5` is now complete:
+  - `H5` is unsupported
+  - `split_k` is retired from the main GEMM surface
+  - `rows_per_program` is retired from the main LayerNorm surface
+  - no bounded tie-break rerun is currently required
 
 Current implication:
 
 - the controlled Phase 2 deepening pass is complete
-- the Phase 3 corrective surface is now implemented and locally validated
-- the current research-facing documentation is intentionally frozen at the Phase 3 implementation boundary until the full bounded execution batch completes
-- the current work should execute one narrow corrective program rather than reopen the whole search space
+- the bounded Phase 3 corrective pass is complete
+- the current work should synthesize and harden the evidence rather than reopen the search space by default
 
 ## Repeatability And Robustness Modes
 
@@ -77,7 +80,7 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 | `R2` | Regime-split negative or weak | the corrected pooled rerun remained unsupported; the Phase 2 split studies show only a marginal small-batch profiling gain and an outright large-batch regression under `memory_activity_lite` |
 | `R3` | Mixed after expansion | the narrower representative GEMM retry supported `H4`, but the expanded v2 GEMM baseline mapping and selector ablation show that the current frontier-aware revision does not generalize cleanly to the larger space |
 | `R4` | Complete | the Phase 2 evidence bundle, docs, and figure plan are aligned closely enough to support a bounded next execution pass |
-| `R5` | Implementation complete, execution not yet promoted | the transfer-safe selector revisions, GEMM v3 split-`k` surface, schedule-diagnostic counter set, and LayerNorm microstudy configs are implemented and locally validated; any partial R5 execution artifacts remain below the documentation promotion threshold until the full bounded batch completes |
+| `R5` | Complete as a bounded negative-result and keep/drop round | the transfer-safe selector revisions, GEMM v3 split-`k` surface, schedule-diagnostic batch, aligned-context refresh, and LayerNorm microstudy all completed; `H5` is unsupported, `split_k` is retired from the main GEMM surface, and `rows_per_program` is retired from the main LayerNorm surface |
 
 ## Current Run Matrix
 
@@ -178,45 +181,37 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 | `R4` | final cross-run summary, final figure/table source map, final hypothesis status table |
 | `R5` | representative GEMM v3 comparison, selector ablation, schedule diagnostics, aligned-context refresh, bounded LayerNorm microstudy |
 
-## Immediate Execution Queue
+## Immediate Work Queue
 
-The immediate queue is now the bounded Phase 3 corrective execution pass.
+The immediate queue is now synthesis and credibility hardening rather than new execution.
 
-### Step 1: validate the full Phase 3 surface on the qualified A6000 pool
+### Step 1: freeze the canonical Phase 3 evidence set
 
-- validate `compute_lite` for `gemm_v3_reportable` and `gemm_v3_aligned_reportable`
-- validate diagnostic `compute_schedule_diag`
-- validate `memory_activity_lite` for the LayerNorm microstudy configs
-- validate all Phase 3 studies and campaigns through the real CLI paths
+- use the latest confirmation studies as the canonical primary evidence
+- retain the earlier main Phase 3 studies as replication evidence
+- keep incomplete or superseded rerun roots out of the promoted artifact set
 
-### Step 2: run the primary GEMM Phase 3 studies
+### Step 2: generate and maintain the reusable Phase 3 analysis bundle
 
-- `gemm_v3_baseline_mapping`
-- `gemm_v3_selector_ablation`
-- `gemm_v3_schedule_diag`
+- `artifacts/analysis/phase3_20260329/`
+- campaign integrity
+- study integrity
+- replication consistency
+- frontier diagnostics
+- keep/drop decision tables
 
-This sequence is the core path to answering `H5`.
+### Step 3: promote the completed R5 interpretation into the research layer
 
-### Step 3: run the bounded supporting studies
-
-- `gemm_v3_aligned_reference`
-- `layernorm_v2_microstudy`
-
-These runs exist to refresh `H3` context and decide whether `rows_per_program` stays in the main LayerNorm surface.
-
-### Step 4: update the research layer immediately after execution
-
-- append a dated Phase 3 execution log
+- append a dated Phase 3 execution-analysis log
 - update the evidence registry and opportunity log
 - update the figure plan and paper outline
-- record whether `split_k` and `rows_per_program` stay or are retired
+- record that `H5` is unsupported
+- record that `split_k` and `rows_per_program` are retired from the mainline surfaces
 
-The intended outcome is not open-ended exploration. It is a clean decision on whether the project now has a transfer-safe mainline GEMM result on the harder space.
+### Step 4: rerun only if an explicit credibility gate is later hit
 
-Documentation rule:
-
-- if only part of the Phase 3 queue completes, the research-facing docs should remain frozen at implementation readiness
-- Phase 3 comparative evidence is promotable only once the bounded batch is complete enough to interpret `H5`, the aligned-context refresh, and the LayerNorm keep/drop decision together
+- no bounded rerun is currently required
+- any future rerun must be justified by a concrete contradiction, near-threshold instability, or unresolved keep/drop ambiguity
 
 ## Long-Run Execution Discipline
 

@@ -24,9 +24,10 @@ Current environment policy:
 
 Current promotion boundary:
 
-- the registry currently stops at the completed Phase 3 implementation pass
-- partial or incomplete Phase 3 execution artifacts are intentionally not promoted here yet
-- `H5` therefore remains unevaluated in this registry until the full bounded R5 batch completes cleanly
+- the completed bounded Phase 3 execution program is now promoted in this registry
+- the canonical confirmation studies are the primary Phase 3 evidence set
+- the earlier main Phase 3 studies are retained as replication evidence
+- no incomplete Phase 3 campaign roots are part of the promoted evidence set
 
 ## Current Evidence State
 
@@ -53,30 +54,33 @@ Current promotion boundary:
 | `E-H2-P2-LARGE` | `H2` LayerNorm large-batch regime | `layernorm_v2_large_regime` study `run_20260327T183158Z_37695a2d` | qualified homogeneous `RTX A6000` pool | the large-batch LayerNorm regime is currently a stronger negative result: `prune_rank` reached `1.0029x` vs default while `prune_rank_profiled` regressed to `0.9856x`; the regime split therefore clarifies that the current profiling recipe is not helping uniformly across LayerNorm workloads | High | the mechanism behind the large-batch regression is still explanatory work rather than settled fact | Yes |
 | `E-H3-P2-CONTEXT` | `H3` expanded-space context | `gemm_v2_baseline_mapping` study `run_20260327T164637Z_0403b989`; `gemm_v2_aligned_reference` study `run_20260327T190124Z_3a34cdc7` | qualified homogeneous `RTX A6000` pool | aligned GEMM remained more flattering than representative GEMM for the compile-ranked selectors in Phase 2: for `prune_rank`, representative GEMM averaged `0.8265x` vs default while aligned GEMM averaged `0.8795x`; the same directional effect held for `prune_rank_profiled` | Medium | this is contextual Phase 2 evidence, not a separately re-pre-registered hypothesis row | Yes |
 | `E-CONF-LN-BASELINE` | evaluation confound | original `layernorm_reportable_g3_requal` run family inside `h2_followup_g3`, later corrected by `layernorm_reportable_g3_baselinefix` | `gpunode3` / `NVIDIA RTX A6000` | the historical LayerNorm `default_config` confound was real and materially affected the first focused `H2` follow-up; it has now been resolved by the corrected baseline rerun and should be retained as a methodological lesson rather than an active blocker | High | no active unresolved confound remains on this issue; the row is retained so the paper can explain why the corrected rerun was necessary | No |
-| `E-P3-READY` | `R5` implementation readiness | Phase 3 implementation pass on top of the completed Phase 2 baseline; local validation of new selector revisions, GEMM v3 split-`k` kernel surface, diagnostic reporting outputs, studies, campaigns, and helper script `scripts/run_phase3_cycle.sh` | local implementation environment plus config-level CLI validation | the bounded Phase 3 corrective surface is implemented and locally validated; the project is ready for the next A6000 execution block without reopening the research scope | Medium | this row proves readiness, not comparative scientific direction; `compute_schedule_diag` still needs its first live validation and execution pass | No |
+| `E-P3-READY` | `R5` implementation readiness | Phase 3 implementation pass on top of the completed Phase 2 baseline; local validation of new selector revisions, GEMM v3 split-`k` kernel surface, diagnostic reporting outputs, studies, campaigns, and helper script `scripts/run_phase3_cycle.sh` | local implementation environment plus config-level CLI validation | the bounded Phase 3 corrective surface was implemented and locally validated before the later live execution block; this row is retained as provenance for the execution launch point, not as the main Phase 3 result | Medium | this row proves readiness, not comparative scientific direction; it is superseded scientifically by the completed Phase 3 evidence rows below | No |
+| `E-P3-INTEGRITY` | `R5` Phase 3 artifact integrity | canonical confirmation studies plus reusable analysis bundle `artifacts/analysis/phase3_20260329/` | qualified homogeneous `RTX A6000` pool | the completed Phase 3 program is internally consistent: all canonical and replication campaigns finished successfully, all promoted studies emitted their expected report sets under the diagnostic/reportable rules, and the reusable analysis bundle records integrity, replication consistency, frontier diagnostics, and keep/drop decisions | High | this row proves completeness and provenance, not scientific direction by itself | No |
+| `E-H5-P3` | `H5` representative GEMM transfer-safe test | `gemm_v3_baseline_mapping` canonical study `run_20260329T010211Z_dfb53abb`, supported by replication study `run_20260328T010058Z_7226d3f1` | qualified homogeneous `RTX A6000` pool | `H5` is unsupported: the canonical representative GEMM v3 study gives `v4_transfer_safe_profiled=0.1609x` vs default, far below both parent `prune_rank=1.0324x` and `naive_random_search=1.0427x`; the earlier main Phase 3 run also left `H5` unsupported, so no rerun gate is triggered | High | this is a bounded negative result for the current v4 rule, not proof that representative GEMM is now solved by the parent selector | Yes |
+| `E-H4-P3-ABLATION` | `H4` / transfer mechanism | `gemm_v3_selector_ablation` canonical study `run_20260329T034953Z_e8b8ac98`, supported by replication study `run_20260328T034306Z_5055e181` | qualified homogeneous `RTX A6000` pool | the Phase 3 ablation shows that frontier-only and profiled-v4 fail almost identically on the expanded representative GEMM space; profiling therefore does not rescue the revised selector once the frontier is wrong | High | this deepens the transfer-failure story for the current revision family but does not rule out future revisions motivated by a new concrete mechanism | Yes |
+| `E-P3-SCHEDULE` | `R5` GEMM schedule-family diagnostic | `gemm_v3_schedule_diag` canonical study `run_20260328T212649Z_7755304a`; Phase 3 analysis bundle `frontier_diagnostics_summary.csv` and `splitk_decision_table.csv` | qualified homogeneous `RTX A6000` pool | the diagnostic schedule batch completed successfully and shows that non-unit `split_k` values appear only as dominated frontier alternatives; they never survive as chosen or best-scored canonical GEMM families | High | diagnostic-only evidence explains failure modes but does not by itself prove reportable superiority or inferiority | No |
+| `E-H3-P3-CONTEXT` | `H3` Phase 3 aligned-context refresh | `gemm_v3_aligned_reference` canonical study `run_20260329T045530Z_7086b0e7`, compared against canonical `gemm_v3_baseline_mapping` | qualified homogeneous `RTX A6000` pool | the Phase 3 aligned refresh does not strengthen the earlier `H3` story: aligned GEMM remains context, but the canonical `prune_rank` mean (`1.0158x`) is slightly below the canonical representative GEMM mean (`1.0324x`) | Medium | this weakens Phase-3-specific reinforcement without overturning the broader earlier H3 evidence from validation and Phase 2 | Yes |
+| `E-H2-P3-SMALL` | `H2` LayerNorm small-batch microstudy | `layernorm_v2_small_microstudy` canonical study `run_20260329T053448Z_7c6e5dc1`, supported by replication study `run_20260328T231251Z_29646063` | qualified homogeneous `RTX A6000` pool | the small-batch microstudy remains weak and noisy: canonical `prune_rank_profiled` improves only slightly over default (`1.0013x`) and only modestly over `prune_rank` (`0.9721x`), while `naive_random_search` is much higher but unstable; this is not a strong profiling success story | Medium | replication variability is large enough that the correct paper framing is bounded and cautious, not promotive | No |
+| `E-H2-P3-LARGE` | `H2` LayerNorm large-batch microstudy | `layernorm_v2_large_microstudy` canonical study `run_20260329T053455Z_c4118a25`, supported by replication study `run_20260328T231256Z_847b98a5` | qualified homogeneous `RTX A6000` pool | the large-batch microstudy continues to favor compile-only ranking: canonical `prune_rank=1.0149x` vs default while `prune_rank_profiled=0.9971x` and `prune_rank_revised=0.9777x`; this keeps LayerNorm as a bounded explanatory thread rather than a major positive result | High | the evidence is strong enough to bound the claim, but still not rich enough to motivate a major new LayerNorm selector program | No |
+| `E-P3-ROWS` | `R5` LayerNorm keep/drop decision | Phase 3 analysis bundle `rows_per_program_decision_table.csv`, grounded in canonical `layernorm_v2_small_microstudy` and `layernorm_v2_large_microstudy` | qualified homogeneous `RTX A6000` pool | `rows_per_program` should be retired from the main reportable LayerNorm surface: non-unit selections occur only in weak or regressing profiled/revised paths and do not produce a stable selector-level gain | High | the knob can remain as archived diagnostic surface, but it no longer belongs in the mainline paper-facing tuning surface | No |
 
 ## Hypothesis Status Snapshot
 
 | Hypothesis | Current Status | Notes |
 | --- | --- | --- |
-| `H1` | Strong support, including the expanded v2 space | supported by the original validation batch, strengthened by the `gpunode3` confirmation runs, and preserved by the completed `gemm_v2_baseline_mapping` study |
-| `H2` | Regime-split weak or negative result | the pooled corrected rerun remained unsupported; the Phase 2 split studies show a marginal small-batch gain and a large-batch regression under the current `memory_activity_lite` recipe |
-| `H3` | Broad support plus Phase 2 contextual reinforcement | supported by the broad original and broad `gpunode3` studies, with the completed aligned-vs-representative v2 reference preserving the same direction |
-| `H4` | Mixed after expansion | the frontier-aware retry succeeded on the narrower representative GEMM space, but the expanded v2 baseline mapping and ablation show that the current revision does not generalize cleanly |
-| `H5` | Admitted and unevaluated | Phase 3 will test whether a transfer-safe frontier plus one bounded new schedule family (`split_k`) can recover near-random-search representative GEMM performance under unchanged matched-budget rules |
+| `H1` | Strong overall, but Phase 3 only contextually reinforcing | supported by the original validation batch, strengthened by the `gpunode3` confirmation runs, and preserved directionally by Phase 3 even though the canonical `H1_phase3_gemm` batch missed the pre-registered `+0.02` margin |
+| `H2` | Regime-split weak or negative result | the pooled corrected rerun remained unsupported; the Phase 2 split studies and Phase 3 microstudy keep LayerNorm bounded to a weak small-batch and negative large-batch story |
+| `H3` | Broad historical support, not reinforced by Phase 3 | supported by the earlier validation and Phase 2 evidence, but the Phase 3 aligned refresh did not make aligned GEMM more flattering than representative GEMM |
+| `H4` | Mixed and transfer-limited | the frontier-aware retry succeeded on the narrower representative GEMM space, but the expanded v2 and v3 studies show that the current revision family does not generalize cleanly |
+| `H5` | Unsupported | the completed representative GEMM v3 mapping and ablation show that the current transfer-safe v4 selector family remains far below both parent `prune_rank` and `naive_random_search` |
 
 ## Current Next Evidence Targets
 
-- preserve the Phase 2 analysis bundle and the dated Phase 2 analysis log as the canonical parent reference for Phase 3
-- execute the bounded Phase 3 corrective pass:
-  - `gemm_v3_baseline_mapping`
-  - `gemm_v3_selector_ablation`
-  - `gemm_v3_schedule_diag`
-  - `gemm_v3_aligned_reference`
-  - `layernorm_v2_microstudy`
-- do not promote partial Phase 3 GEMM v3 results into this registry in isolation; promote only once the bounded R5 queue is complete enough to interpret `H5` and the supporting keep/drop decisions together
-- evaluate whether `split_k` stays in the main GEMM surface
-- evaluate whether `rows_per_program` stays in the main LayerNorm surface
+- preserve the reusable Phase 2 and Phase 3 analysis bundles as the canonical parent references for synthesis
+- use the completed Phase 3 confirmation studies as the primary artifact sources for updated figures and tables
+- do not schedule a new rerun by default:
+  - the explicit Phase 3 rerun gates were checked and none triggered
+- focus next on synthesis, figure extraction, and paper-facing claim tightening rather than exploratory expansion
 
 ## Evidence Source Notes
 
@@ -96,10 +100,21 @@ Current promotion boundary:
   - `layernorm_v2_small_regime` study `run_20260327T183157Z_53565cba`
   - `layernorm_v2_large_regime` study `run_20260327T183158Z_37695a2d`
   - `gemm_v2_aligned_reference` study `run_20260327T190124Z_3a34cdc7`
+- The completed canonical Phase 3 sources are:
+  - `gemm_v3_baseline_mapping` study `run_20260329T010211Z_dfb53abb`
+  - `gemm_v3_selector_ablation` study `run_20260329T034953Z_e8b8ac98`
+  - `gemm_v3_schedule_diag` study `run_20260328T212649Z_7755304a`
+  - `gemm_v3_aligned_reference` study `run_20260329T045530Z_7086b0e7`
+  - `layernorm_v2_small_microstudy` study `run_20260329T053448Z_7c6e5dc1`
+  - `layernorm_v2_large_microstudy` study `run_20260329T053455Z_c4118a25`
 - The reusable Phase 2 analysis bundle is:
   - `artifacts/analysis/phase2_20260327/`
+- The reusable Phase 3 analysis bundle is:
+  - `artifacts/analysis/phase3_20260329/`
 - The detailed chronological record for the completed Phase 2 analysis is:
   - `docs/research/logs/2026-03-27_phase2_execution_analysis.md`
+- The detailed chronological record for the completed Phase 3 analysis is:
+  - `docs/research/logs/2026-03-29_phase3_execution_analysis.md`
 - The detailed chronological record for the full `gpunode3` block should be maintained in a dated log entry under `logs/`.
 - The detailed chronological record for the corrected follow-up block should also be maintained in a dated log entry under `logs/`.
 - Batch-level study outputs remain the automated result source.
