@@ -12,6 +12,7 @@ from kernel_tuner.common.schema import (
     CandidateConfig,
     ComparisonClass,
     RuntimeMeasurement,
+    RuntimeStatus,
     SelectionDecision,
 )
 from kernel_tuner.config_space.generator import config_dict_from_record
@@ -145,7 +146,11 @@ def run_baseline_mode(
         runtime_records.extend(request_benchmark(config_id))
     runtime_scores = aggregate_runtime_scores(runtime_records)
     selected = min(runtime_scores, key=lambda config_id: (runtime_scores[config_id], config_id)) if runtime_scores else None
-    decision_status = "selected" if selected is not None else "failed_no_successful_measurements"
+    budget_limited = any(record.status == RuntimeStatus.SKIPPED_BUDGET for record in runtime_records)
+    if selected is None:
+        decision_status = "failed_no_successful_measurements"
+    else:
+        decision_status = "selected_budget_limited" if budget_limited else "selected"
     return SelectionDecision(
         run_id=run_id,
         strategy_id=strategy_id,

@@ -1,0 +1,35 @@
+\section{Extended Results and Exact Artifact Mapping}
+
+The final manuscript uses a narrow figure set, but the underlying evidence is broader. Table~\ref{tab:artifactmap} records the canonical artifact map used by the first draft.
+
+\begin{table*}[t]
+\centering
+\small
+\begin{tabular}{p{0.19\textwidth}p{0.61\textwidth}p{0.14\textwidth}}
+\toprule
+Artifact role & Canonical source & Used by \\
+\midrule
+Final representative headline & \artifact{artifacts/studies/gemm\_final\_baseline\_mapping/run\_20260330T014317Z\_359c1904} & Figure 2, Table 4 \\
+Final mainline ablation & \artifact{artifacts/studies/gemm\_final\_selector\_ablation/run\_20260330T023529Z\_7c800187} & Figure 5, Table 4 \\
+Aligned context & \artifact{artifacts/studies/gemm\_v2\_aligned\_reference/run\_20260327T190124Z\_3a34cdc7} plus \artifact{gemm\_v2\_baseline\_mapping} & Figure 3 \\
+LayerNorm regime split & \artifact{artifacts/studies/layernorm\_v2\_small\_regime/run\_20260327T183157Z\_53565cba} plus \artifact{layernorm\_v2\_large\_regime/run\_20260327T183158Z\_37695a2d} & Figure 4 \\
+Phase 3 transfer failure & \artifact{artifacts/studies/gemm\_v3\_baseline\_mapping/run\_20260329T010211Z\_dfb53abb} and \artifact{gemm\_v3\_selector\_ablation/run\_20260329T034953Z\_e8b8ac98} & \texttt{H5} text, Table 4 \\
+Chosen-vs-best diagnostic & \artifact{artifacts/studies/gemm\_v3\_schedule\_diag/run\_20260328T212649Z\_7755304a} & Figure 5B \\
+Final claim bundle & \artifact{artifacts/analysis/final\_paper\_20260330/} & Whole draft \\
+\bottomrule
+\end{tabular}
+\caption{Canonical artifact map for the first draft.}
+\label{tab:artifactmap}
+\end{table*}
+
+The most important numeric comparisons used directly in the draft are:
+\begin{itemize}
+\item \textbf{Phase 2 representative GEMM:} random 1.0331, \texttt{prune\_rank} 0.8265, \texttt{prune\_rank\_profiled} 0.8444, revised 0.1458.
+\item \textbf{Phase 2 aligned GEMM:} random 0.9951, \texttt{prune\_rank} 0.8795, \texttt{prune\_rank\_profiled} 0.8873, revised 0.1702.
+\item \textbf{Phase 2 LayerNorm small-batch:} \texttt{prune\_rank} 1.0100, profiled 1.0113.
+\item \textbf{Phase 2 LayerNorm large-batch:} \texttt{prune\_rank} 1.0029, profiled 0.9856.
+\item \textbf{Phase 3 representative GEMM with \texttt{split\_k}:} parent 1.0324, random 1.0427, transfer-safe profiled 0.1609.
+\item \textbf{R6 final representative GEMM:} parent 0.8101, random 1.0011, guarded profiled 1.0286.
+\end{itemize}
+
+These comparisons are sufficient for the first draft because they support the final claim ledger directly. Additional per-class breakdowns, stability reports, and opportunity catalogs should remain appendix or supplement material unless a later revision needs them in the main paper.

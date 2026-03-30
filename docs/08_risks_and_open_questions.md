@@ -170,9 +170,9 @@ Mitigation:
 
 The initial implementation milestone resolves most of the original blocking questions. The remaining open item is intentionally kept visible.
 
-Resolved for the initial implementation milestone:
+Resolved for the current project phase:
 
-1. Authoritative benchmark machine: `gpunode2`
+1. Qualified benchmark machine class: the homogeneous `RTX A6000` pool on `gpunode2` and `gpunode3`
 2. Primary-study GPU model: `NVIDIA RTX A6000` (`49140 MiB`)
 3. Initial environment pins:
    - Python `3.12.3`
@@ -185,11 +185,11 @@ Resolved for the initial implementation milestone:
    - `pandas==3.0.1`
    - `pyarrow==23.0.1`
    - `pytest==8.4.2`
-4. Reportable Slurm policy: pin reportable runs to `--nodelist=gpunode2` and do not mix `gpunode2` with `gpunode3` within one comparative study
+4. Reportable Slurm policy: keep reportable runs inside the homogeneous `RTX A6000` pool and record exact node provenance per run
 
 Still open:
 
-1. What clock-control or thermal-control knobs are actually available on `gpunode2`, and should the project use them or remain on a record-only policy?
+1. What clock-control or thermal-control knobs are actually available on the `RTX A6000` pool, and should the project use them or remain on a record-only policy?
 
 ## Non-Blocking Open Questions
 

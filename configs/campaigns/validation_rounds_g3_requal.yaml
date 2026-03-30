@@ -1,0 +1,37 @@
+campaign_id: validation_rounds_g3_requal
+round_id: round_validation_v2_g3_requal
+templates:
+  - template_id: gemm_aligned_repeatability_g3
+    experiment_ids: [gemm_aligned_reportable_g3_requal]
+    seeds: [7]
+    repeats: 3
+    selector_revision_ids: [v2_validation]
+  - template_id: gemm_representative_repeatability_g3
+    experiment_ids: [gemm_reportable_g3_requal]
+    seeds: [7]
+    repeats: 3
+    selector_revision_ids: [v2_validation]
+  - template_id: gemm_representative_robustness_g3
+    experiment_ids: [gemm_reportable_g3_requal]
+    seeds: [7, 19, 43]
+    repeats: 1
+    selector_revision_ids: [v2_validation]
+  - template_id: layernorm_repeatability_g3
+    experiment_ids: [layernorm_reportable_g3_requal]
+    seeds: [7]
+    repeats: 3
+    selector_revision_ids: [v2_validation]
+  - template_id: layernorm_robustness_g3
+    experiment_ids: [layernorm_reportable_g3_requal]
+    seeds: [7, 19, 43]
+    repeats: 1
+    selector_revision_ids: [v2_validation]
+studies:
+  - study_id: validation_phase_g3_requal
+    requires_templates:
+      - gemm_aligned_repeatability_g3
+      - gemm_representative_repeatability_g3
+      - gemm_representative_robustness_g3
+      - layernorm_repeatability_g3
+      - layernorm_robustness_g3
+notes: Full same-stack RTX A6000 requalification batch for gpunode3.

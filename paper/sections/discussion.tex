@@ -1,0 +1,29 @@
+\section{Discussion and Limitations}
+\label{sec:discussion}
+
+The project ends with a stronger and narrower story than it began with. The strongest support is for a limited but meaningful claim: lightweight signals are useful, but mostly for pruning and controlled frontier construction rather than for fully solving final ranking. The final mainline result is therefore positive in exactly the way the evidence allows and no stronger.
+
+\paragraph{Why compile signals prune better than they rank.}
+Compile-adjacent resource signals expose obvious failures such as excessive footprint or poor occupancy potential, but they do not directly encode the fine-grained runtime tradeoffs that separate several already-valid GEMM families. The repeated gap between compile-ranked selection and the best reachable representative GEMM family supports this reading across multiple rounds.
+
+\paragraph{Why aligned workloads mislead.}
+Aligned GEMM is useful because it shows what a selector looks like on regular shapes. It becomes misleading when treated as the main truth source. The project preserves aligned GEMM in the paper precisely because it demonstrates how an apparently better result can emerge from an easier workload rather than from a better selector.
+
+\paragraph{Why LayerNorm stayed secondary.}
+LayerNorm did not fail because it was uninteresting. It stayed secondary because the evidence never justified a strong matched-budget success claim. The regime split was still valuable: it explained why a pooled interpretation was too coarse and why the extra LayerNorm knob did not belong in the final mainline surface.
+
+\paragraph{Why transfer failed on the expanded \texttt{split\_k} space.}
+The negative Phase 3 result is not an embarrassment to hide. It is a central part of the paper's credibility. The selector family that looked promising on a narrower space did not survive the expanded space, and the diagnostic evidence shows that the admitted orthogonal schedule family did not become a useful mainline choice. That bounded failure is what justifies the keep/drop decisions and the return to a conservative final surface.
+
+\paragraph{Why the final result is intentionally conservative.}
+The final mainline selector is not a heroic last-minute heuristic sweep. It is a carefully bounded corrective pass on the paper-facing non-\texttt{split\_k} surface. The paper should make that explicit. The value of the result comes from the combination of positive evidence and disciplined scope control, not from pretending that the final selector is universally robust.
+
+The paper also has clear non-claims:
+\begin{itemize}
+\item It is not a universal Triton autotuner.
+\item It does not make multi-architecture claims.
+\item It does not show that profiling always helps.
+\item It does not show that revised selectors always transfer across search spaces.
+\end{itemize}
+
+Those limits are not a weakness of presentation. They are part of the project's final contribution: a matched-budget tuning study can still be useful and paper-worthy when it states exactly where the method works, where it fails, and why.

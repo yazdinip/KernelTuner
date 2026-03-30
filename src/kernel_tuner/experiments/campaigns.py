@@ -174,6 +174,8 @@ def _materialize_run_matrix(
                                     "selector_revision_id": selector_revision_id or None,
                                     "execution_mode": (
                                         template.execution_mode.value
+                                        if hasattr(template.execution_mode, "value")
+                                        else str(template.execution_mode)
                                         if template.execution_mode is not None
                                         else None
                                     ),
@@ -233,14 +235,51 @@ def _execute_campaign(run_dir: Path) -> dict[str, object]:
 
     if all(job["status"] == "success" for job in jobs):
         study_results = []
+        available_templates = {str(job["template_id"]) for job in jobs if job.get("template_id")}
         for study_binding in campaign_spec.studies:
+            required_templates = set(study_binding.requires_templates)
+            missing_templates = sorted(required_templates - available_templates)
+            if missing_templates:
+                study_results.append(
+                    {
+                        "study_id": study_binding.study_id,
+                        "status": "skipped_requires_templates",
+                        "missing_templates": missing_templates,
+                    }
+                )
+                continue
             study_path = (
                 Path(study_binding.study_path).resolve()
                 if study_binding.study_path
                 else study_config_path(study_binding.study_id, run_dir)
             )
-            result = compare_runs_from_path(study_path)
-            study_results.append({"study_id": study_binding.study_id, **result})
+            try:
+                result = compare_runs_from_path(study_path)
+                study_results.append({"study_id": study_binding.study_id, "status": "success", **result})
+            except Exception as exc:
+                study_results.append(
+                    {
+                        "study_id": study_binding.study_id,
+                        "status": "failed",
+                        "error": str(exc),
+                    }
+                )
+                status_payload["study_results"] = study_results
+                status_payload["terminal_status"] = RunStatus.PARTIAL_FAILURE.value
+                store.write_json_artifact("campaign_status", status_payload, filename="campaign_status.json")
+                summary = {
+                    "campaign_id": campaign_spec.campaign_id,
+                    "campaign_run_id": run_dir.name,
+                    "round_id": campaign_spec.round_id,
+                    "job_count": len(jobs),
+                    "completed_jobs": sum(1 for item in jobs if item["status"] == "success"),
+                    "failed_jobs": sum(1 for item in jobs if item["status"] == "failed"),
+                    "study_results": study_results,
+                    "run_dirs": [job["run_dir"] for job in jobs if job.get("run_dir")],
+                }
+                store.write_json_artifact("campaign_summary", summary, filename="campaign_summary.json")
+                store.finalize(RunStatus.PARTIAL_FAILURE, warnings=[str(exc)])
+                raise
         status_payload["study_results"] = study_results
         status_payload["terminal_status"] = RunStatus.SUCCESS.value
     else:

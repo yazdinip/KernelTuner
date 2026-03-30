@@ -1,0 +1,14 @@
+\section{Related Work}
+\label{sec:related}
+
+\paragraph{Triton and GPU kernel autotuning.}
+Modern GPU kernel systems expose rich schedule spaces that make manual default selection difficult. Triton is especially relevant because it exposes schedule decisions directly at the kernel authoring level, making matched-budget tuning and failure analysis scientifically meaningful rather than purely black-box \citep{triton2021}.
+
+\paragraph{Heuristic and search-based autotuning.}
+General autotuning frameworks such as OpenTuner treat tuning as a configurable search problem \citep{ansel2014opentuner}. Systems such as TVM and Ansor pushed this further for tensor programs and learned or search-driven schedule discovery \citep{chen2018tvm,zheng2020ansor,chen2018learningtensor}. Our goal is narrower: we do not aim to compete with unconstrained autotuning. We study whether a bounded heuristic ladder can spend a small measurement budget intelligently and still produce interpretable evidence when it fails.
+
+\paragraph{Schedule reasoning and auto-scheduling.}
+Halide's learned autoscheduler and related systems show that structured schedule spaces can be reasoned about using cost models and search \citep{adams2019halide}. This paper differs in emphasis. We care less about asymptotically stronger search and more about what a modest matched-budget selector can and cannot do when backed by bottleneck-oriented evidence.
+
+\paragraph{Profiling-guided tuning and workload realism.}
+Prior autotuning systems often combine static features, runtime measurements, and heuristic exploration. Our contribution is not the general idea of using profiling. It is the disciplined separation between reportable and diagnostic profiling, plus the evidence that workload realism and regime splitting can matter as much as the profiling signals themselves. The final paper therefore positions \system as a measured systems study of tuning limits and bounded improvements rather than as a comprehensive auto-scheduler.

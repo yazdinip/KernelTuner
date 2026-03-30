@@ -1,0 +1,22 @@
+counter_set_id: compute_schedule_diag
+description: >
+  Diagnostic-only GEMM counter set for explaining schedule-family outcomes under
+  the Phase 3 split-K representative studies.
+tool: ncu
+replay_mode: kernel
+target_processes: all
+diagnostic_only: true
+kernel_name_regex: matmul_kernel
+kernel_family_filters:
+  - gemm
+counters:
+  - sm__warps_active.avg.pct_of_peak_sustained_active
+  - smsp__inst_executed_pipe_tensor_op_hmma.avg
+  - smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct
+  - dram__throughput.avg.pct_of_peak_sustained_elapsed
+  - l1tex__t_sector_pipe_lsu_mem_global_op_ld_hit_rate.pct
+minimum_availability: 0.9
+notes: >
+  Adds one memory-pressure signal and one load-efficiency signal on top of the
+  core GEMM compute counters. This set is for schedule diagnostics only and does
+  not define the main reportable comparison surface.

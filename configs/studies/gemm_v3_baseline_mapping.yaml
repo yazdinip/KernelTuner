@@ -1,0 +1,101 @@
+study_id: gemm_v3_baseline_mapping
+hypotheses:
+  - hypothesis_id: H1_phase3_gemm
+    description: >
+      On the Phase 3 representative GEMM space, cheap compile-ranked selection still
+      lags the best reachable held-out result.
+    clauses:
+      - left:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_v3_representative
+          kernel_family: gemm
+          strategy_id: naive_random_search
+          reduction: mean
+        comparator: greater_than
+        right:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_v3_representative
+          kernel_family: gemm
+          strategy_id: prune_rank
+          reduction: mean
+        minimum_delta: 0.02
+  - hypothesis_id: H5_phase3_gemm
+    description: >
+      A transfer-safe frontier policy recovers near-random-search representative GEMM
+      performance on the expanded split-K schedule space under the same matched budget.
+    clauses:
+      - left:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_v3_representative
+          kernel_family: gemm
+          strategy_id: prune_rank_revised
+          selector_version: phase3_gemm_v3
+          selector_revision_id: v4_transfer_safe_profiled
+          reduction: mean
+        comparator: greater_than
+        right:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_v3_representative
+          kernel_family: gemm
+          strategy_id: prune_rank
+          selector_version: phase3_gemm_v3
+          reduction: mean
+        minimum_delta: 0.05
+      - left:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_v3_representative
+          kernel_family: gemm
+          strategy_id: naive_random_search
+          selector_version: phase3_gemm_v3
+          reduction: mean
+        comparator: less_than_or_equal
+        right:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_v3_representative
+          kernel_family: gemm
+          strategy_id: prune_rank_revised
+          selector_version: phase3_gemm_v3
+          selector_revision_id: v4_transfer_safe_profiled
+          reduction: mean
+        minimum_delta: 0.02
+    notes: >
+      The workload-class and seed-spread condition is assessed in the analysis log
+      using the emitted stability and frontier-diagnostics artifacts.
+run_groups:
+  - group_id: gemm_v3_representative
+    experiment_ids: [gemm_v3_reportable]
+    include_latest_runs: 6
+    kernel_family: gemm
+    selector_version: phase3_gemm_v3
+    counter_set_id: compute_lite
+    budget_id: gemm_v3_reportable_matched
+group_by:
+  - kernel_family
+  - workload_class
+  - selector_version
+  - selector_revision_id
+  - counter_set_id
+  - budget_id
+  - seed
+primary_metric: geomean_speedup_vs_default_config
+secondary_metrics:
+  - speedup_vs_naive_random_search
+  - winner_rate
+  - regret_vs_best_measured_calibration
+  - selection_agreement
+  - stability_band
+  - signal_runtime_correlation
+  - counter_availability
+reportability_filter: true
+environment_filter:
+  gpu_name: NVIDIA RTX A6000
+comparison_rules:
+  repeatability_runs: 3
+  robustness_seeds: [7, 19, 43]
+output_root: artifacts/studies

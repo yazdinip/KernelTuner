@@ -18,24 +18,31 @@ def _load_triton_components():
     def layer_norm_kernel(
         x_ptr,
         y_ptr,
+        rows,
         stride_x_row,
         stride_y_row,
         hidden_size,
         eps,
+        out_dtype_flag: tl.constexpr,
         BLOCK_SIZE: tl.constexpr,
+        ROWS_PER_PROGRAM: tl.constexpr,
     ):
-        row = tl.program_id(axis=0)
+        row_block = tl.program_id(axis=0)
+        row_offsets = row_block * ROWS_PER_PROGRAM + tl.arange(0, ROWS_PER_PROGRAM)
         cols = tl.arange(0, BLOCK_SIZE)
-        x_ptrs = x_ptr + row * stride_x_row + cols
-        mask = cols < hidden_size
+        x_ptrs = x_ptr + row_offsets[:, None] * stride_x_row + cols[None, :]
+        mask = (row_offsets[:, None] < rows) & (cols[None, :] < hidden_size)
         x = tl.load(x_ptrs, mask=mask, other=0.0).to(tl.float32)
-        mean = tl.sum(x, axis=0) / hidden_size
-        centered = x - mean
-        variance = tl.sum(centered * centered, axis=0) / hidden_size
+        mean = tl.sum(x, axis=1) / hidden_size
+        centered = tl.where(mask, x - mean[:, None], 0.0)
+        variance = tl.sum(centered * centered, axis=1) / hidden_size
         inv_std = tl.rsqrt(variance + eps)
-        y = centered * inv_std
-        y_ptrs = y_ptr + row * stride_y_row + cols
-        tl.store(y_ptrs, y.to(tl.float16), mask=mask)
+        y = centered * inv_std[:, None]
+        y_ptrs = y_ptr + row_offsets[:, None] * stride_y_row + cols[None, :]
+        if out_dtype_flag == 1:
+            tl.store(y_ptrs, y.to(tl.bfloat16), mask=mask)
+        else:
+            tl.store(y_ptrs, y.to(tl.float16), mask=mask)
 
     return triton, layer_norm_kernel
 
@@ -82,26 +89,35 @@ class LayerNormKernel:
         missing = required - set(config)
         if missing:
             return False, f"missing config parameters: {sorted(missing)}"
-        if config["block_size"] <= 0 or config["num_warps"] <= 0 or config["num_stages"] <= 0:
-            return False, "block_size, num_warps, and num_stages must be positive"
+        if (
+            config["block_size"] <= 0
+            or config["num_warps"] <= 0
+            or config["num_stages"] <= 0
+            or config.get("rows_per_program", 1) <= 0
+        ):
+            return False, "block_size, num_warps, num_stages, and rows_per_program must be positive"
         if config["block_size"] < shape.dim("hidden"):
-            return False, "block_size must cover the full hidden dimension in v1"
+            return False, "block_size must cover the full hidden dimension"
         if config["block_size"] & (config["block_size"] - 1):
             return False, "block_size must be a power of two"
         return True, None
 
     def run_kernel(self, inputs: dict[str, Any], shape: ProblemShape, config: dict[str, int]) -> Any:
-        _, layer_norm_kernel = _load_triton_components()
+        triton, layer_norm_kernel = _load_triton_components()
         rows = shape.dim("rows")
         hidden = shape.dim("hidden")
-        layer_norm_kernel[(rows,)](
+        rows_per_program = config.get("rows_per_program", 1)
+        layer_norm_kernel[(triton.cdiv(rows, rows_per_program),)](
             inputs["x"],
             inputs["out"],
+            rows,
             inputs["x"].stride(0),
             inputs["out"].stride(0),
             hidden,
             1e-5,
+            out_dtype_flag=1 if shape.dtype == "bf16" else 0,
             BLOCK_SIZE=config["block_size"],
+            ROWS_PER_PROGRAM=rows_per_program,
             num_warps=config["num_warps"],
             num_stages=config["num_stages"],
         )
@@ -152,14 +168,18 @@ class LayerNormKernel:
         metadata["signal_backend"] = "heuristic_fallback"
         metadata["occupancy_method"] = "warps_only"
         try:
+            rows_per_program = config.get("rows_per_program", 1)
             compiled = layer_norm_kernel.warmup(
                 inputs["x"],
                 inputs["out"],
+                shape.dim("rows"),
                 inputs["x"].stride(0),
                 inputs["out"].stride(0),
                 shape.dim("hidden"),
                 1e-5,
+                out_dtype_flag=1 if shape.dtype == "bf16" else 0,
                 BLOCK_SIZE=config["block_size"],
+                ROWS_PER_PROGRAM=rows_per_program,
                 num_warps=config["num_warps"],
                 num_stages=config["num_stages"],
                 grid=(1,),

@@ -1,20 +1,33 @@
+import json
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
+import pytest
 
 from kernel_tuner.analysis.comparison import (
+    compare_runs,
+    _aggregate_opportunities,
     _build_stability_report,
     _build_strategy_rows,
+    _compare_hypothesis_values,
     _evaluate_hypotheses,
 )
-from kernel_tuner.common.schema import HypothesisClause, HypothesisMetricRef, HypothesisSpec, StudySpec
+from kernel_tuner.common.schema import (
+    HypothesisClause,
+    HypothesisComparator,
+    HypothesisMetricRef,
+    HypothesisSpec,
+    RunGroupSpec,
+    StudySpec,
+)
 from kernel_tuner.analysis.opportunities import (
     build_bottleneck_signatures,
     build_counter_availability_records,
     build_opportunity_catalog,
 )
-from kernel_tuner.common.config import load_experiment_spec, load_kernel_spec
+from kernel_tuner.common.config import load_experiment_spec, load_kernel_spec, load_study_spec
 from kernel_tuner.common.provenance import capture_environment_metadata, capture_invocation_metadata
 from kernel_tuner.common.schema import Manifest
 
@@ -256,6 +269,102 @@ def test_evaluate_hypotheses_uses_clause_based_metrics():
     assert results.iloc[0]["status"] == "supported"
 
 
+def test_less_than_or_equal_comparator_allows_small_regression_within_delta():
+    supported = _compare_hypothesis_values(
+        1.01,
+        1.00,
+        HypothesisComparator.LESS_THAN_OR_EQUAL,
+        0.02,
+    )
+
+    assert supported is True
+
+
+def test_aggregate_opportunities_uses_weighted_regret_and_preserves_provenance():
+    aggregated = _aggregate_opportunities(
+        [
+            {
+                "group_id": "gemm_representative",
+                "summary": {"run_id": "run_a"},
+                "experiment_spec": type("Spec", (), {"experiment_id": "gemm_reportable"})(),
+                "opportunity_catalog": pd.DataFrame(
+                    [
+                        {
+                            "opportunity_tag": "selector_revision_candidate",
+                            "occurrences": 2,
+                            "selected_regret_count": 1,
+                            "regret_weight": 2,
+                            "avg_regret_to_best_measured": 0.20,
+                            "kernel_ids": "gemm",
+                            "workload_classes": "square_compute",
+                            "strategy_ids": "prune_rank",
+                            "run_ids": "run_a",
+                            "config_ids": "cfg_a",
+                            "recommended_actions": "investigate",
+                        }
+                    ]
+                ),
+            },
+            {
+                "group_id": "gemm_representative",
+                "summary": {"run_id": "run_b"},
+                "experiment_spec": type("Spec", (), {"experiment_id": "gemm_reportable"})(),
+                "opportunity_catalog": pd.DataFrame(
+                    [
+                        {
+                            "opportunity_tag": "selector_revision_candidate",
+                            "occurrences": 1,
+                            "selected_regret_count": 1,
+                            "regret_weight": 1,
+                            "avg_regret_to_best_measured": 0.05,
+                            "kernel_ids": "gemm",
+                            "workload_classes": "m_dominant",
+                            "strategy_ids": "prune_rank_revised",
+                            "run_ids": "run_b",
+                            "config_ids": "cfg_b",
+                            "recommended_actions": "investigate",
+                        }
+                    ]
+                ),
+            },
+        ]
+    )
+
+    row = aggregated.iloc[0]
+    assert row["avg_regret_to_best_measured"] == (0.20 * 2 + 0.05 * 1) / 3
+    assert row["run_ids"] == "run_a,run_b"
+    assert row["strategy_ids"] == "prune_rank,prune_rank_revised"
+
+
+def test_aggregate_opportunities_handles_legacy_catalog_rows_without_new_columns():
+    aggregated = _aggregate_opportunities(
+        [
+            {
+                "group_id": "gemm_representative",
+                "summary": {"run_id": "run_legacy"},
+                "experiment_spec": type("Spec", (), {"experiment_id": "gemm_reportable"})(),
+                "opportunity_catalog": pd.DataFrame(
+                    [
+                        {
+                            "opportunity_tag": "selector_revision_candidate",
+                            "occurrences": 3,
+                            "selected_regret_count": 1,
+                            "avg_regret_to_best_measured": 0.25,
+                            "recommended_actions": "investigate",
+                        }
+                    ]
+                ),
+            }
+        ]
+    )
+
+    row = aggregated.iloc[0]
+    assert row["occurrences"] == 3
+    assert row["regret_weight"] == 3
+    assert row["avg_regret_to_best_measured"] == 0.25
+    assert row["run_ids"] == "run_legacy"
+
+
 def test_opportunity_catalog_contains_expected_template():
     experiment_spec = load_experiment_spec(Path("configs/experiments/gemm_development.yaml"))
     compile_signals = pd.DataFrame(
@@ -336,3 +445,91 @@ def test_opportunity_catalog_contains_expected_template():
     catalog = build_opportunity_catalog(frame)
 
     assert "reduce_num_stages_or_tile_size" in set(catalog["opportunity_tag"])
+
+
+def test_run_group_selector_version_defaults_to_no_filter():
+    group = RunGroupSpec(group_id="group")
+
+    assert group.selector_version is None
+
+
+def test_phase2_studies_declare_expected_selector_versions():
+    baseline = load_study_spec(Path("configs/studies/gemm_v2_baseline_mapping.yaml"))
+    ablation = load_study_spec(Path("configs/studies/gemm_v2_selector_ablation.yaml"))
+    small = load_study_spec(Path("configs/studies/layernorm_v2_small_regime.yaml"))
+    large = load_study_spec(Path("configs/studies/layernorm_v2_large_regime.yaml"))
+    aligned = load_study_spec(Path("configs/studies/gemm_v2_aligned_reference.yaml"))
+
+    assert baseline.run_groups[0].selector_version == "phase2_gemm_v2"
+    assert [group.selector_version for group in ablation.run_groups] == [
+        "phase2_gemm_v2_parent",
+        "phase2_gemm_v2_frontier",
+        "phase2_gemm_v2_v3",
+    ]
+    assert small.run_groups[0].selector_version == "phase2_layernorm_v2"
+    assert large.run_groups[0].selector_version == "phase2_layernorm_v2"
+    assert aligned.run_groups[0].selector_version == "phase2_gemm_v2"
+
+
+def test_compare_runs_supports_diagnostic_only_studies_without_held_out_rows(tmp_path, monkeypatch):
+    study = StudySpec(
+        study_id="gemm_diag_study",
+        hypotheses=[],
+        run_groups=[],
+        output_root=str(tmp_path),
+        primary_metric="geomean_speedup_vs_default_config",
+    )
+
+    payload = {
+        "group_id": "gemm_diag_group",
+        "run_dir": tmp_path / "diagnostic_run",
+        "summary": {
+            "run_id": "run_diag",
+            "reportability": {"comparison_class": "non_comparable"},
+        },
+        "experiment_spec": SimpleNamespace(
+            experiment_id="gemm_v3_schedule_diag",
+            study_kind="diagnostic_only",
+        ),
+        "kernel_spec": SimpleNamespace(family="gemm"),
+        "manifest": SimpleNamespace(),
+        "run_labels": {
+            "execution_mode": "diagnostic_only",
+            "reportability_mode": "diagnostic_only",
+        },
+        "selection_decisions": pd.DataFrame(),
+        "runtime_measurements": pd.DataFrame(),
+        "held_out_per_shape": pd.DataFrame(),
+        "counter_availability": pd.DataFrame(),
+        "opportunity_catalog": pd.DataFrame(),
+        "frontier_diagnostics": pd.DataFrame(
+            [
+                {
+                    "strategy_id": "prune_rank_revised",
+                    "diagnostic_role": "selected_config",
+                    "rank_index": 0,
+                    "config_id": "cfg_best",
+                }
+            ]
+        ),
+        "chosen_vs_best_family": pd.DataFrame(
+            [
+                {
+                    "strategy_id": "prune_rank_revised",
+                    "selected_matches_best_scored": True,
+                }
+            ]
+        ),
+    }
+
+    monkeypatch.setattr(
+        "kernel_tuner.analysis.comparison._resolve_run_payloads",
+        lambda study_spec, study_path: [payload],
+    )
+
+    result = compare_runs(study)
+
+    summary = json.loads(Path(result["cross_run_summary"]).read_text(encoding="utf-8"))
+    assert summary["diagnostic_only"] is True
+    assert summary["strategy_summary"] == []
+    assert summary["diagnostic_summary"]["selected_config_ids"] == ["cfg_best"]

@@ -3,6 +3,7 @@ description: Memory-oriented Nsight Compute counter set for reportable LayerNorm
 tool: ncu
 replay_mode: kernel
 target_processes: all
+kernel_name_regex: layer_norm_kernel
 kernel_family_filters:
   - layernorm
 counters:

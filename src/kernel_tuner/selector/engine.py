@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -21,6 +22,7 @@ from kernel_tuner.common.schema import (
     ComparisonClass,
     CompileSignalRecord,
     ExperimentSpec,
+    FrontierUnionPolicy,
     MeasurementPhase,
     ProfileMeasurement,
     ProfileStatus,
@@ -48,6 +50,16 @@ def _group_candidates(candidates: Iterable[CandidateConfig]) -> dict[str, list[C
     for candidate in candidates:
         grouped[candidate.config_id].append(candidate)
     return dict(grouped)
+
+
+def _config_map_for_id(
+    config_id: str,
+    candidate_groups: dict[str, list[CandidateConfig]],
+) -> dict[str, int]:
+    candidates = candidate_groups.get(config_id)
+    if not candidates:
+        return {}
+    return candidates[0].config
 
 
 def _aggregate_compile_signals(
@@ -324,6 +336,197 @@ def _revised_profile_rank_key(
     )
 
 
+def _config_feature_value(
+    config_id: str,
+    feature_name: str,
+    candidate_groups: dict[str, list[CandidateConfig]],
+) -> float | int | bool | None:
+    candidates = candidate_groups.get(config_id)
+    if not candidates:
+        return None
+    config = candidates[0].config
+    if feature_name in config:
+        return config[feature_name]
+    block_m = config.get("block_m")
+    block_n = config.get("block_n")
+    if feature_name == "tile_area" and block_m is not None and block_n is not None:
+        return block_m * block_n
+    if feature_name == "shape_balance" and block_m is not None and block_n is not None:
+        larger = max(block_m, block_n)
+        if larger <= 0:
+            return None
+        return min(block_m, block_n) / larger
+    if feature_name == "moderated_tile_area" and block_m is not None and block_n is not None:
+        return math.sqrt(block_m * block_n)
+    if feature_name == "group_size_m_centered":
+        group_size_m = config.get("group_size_m", 1)
+        return 1.0 / (1.0 + abs(group_size_m - 4))
+    if feature_name in {
+        "tile_fit_ratio_m",
+        "tile_fit_ratio_n",
+        "masked_overcoverage_ratio",
+        "aspect_match_score",
+    }:
+        values: list[float] = []
+        for candidate in candidates:
+            dims = candidate.shape_dimensions or {}
+            m = dims.get("m")
+            n = dims.get("n")
+            if m is None or n is None or block_m is None or block_n is None:
+                continue
+            if feature_name == "tile_fit_ratio_m":
+                values.append(1.0 if block_m <= m else (m / block_m))
+                continue
+            if feature_name == "tile_fit_ratio_n":
+                values.append(1.0 if block_n <= n else (n / block_n))
+                continue
+            if feature_name == "masked_overcoverage_ratio":
+                if block_m <= 0 or block_n <= 0:
+                    continue
+                tiled_m = math.ceil(m / block_m) * block_m
+                tiled_n = math.ceil(n / block_n) * block_n
+                total = tiled_m * tiled_n
+                covered = m * n
+                values.append(1.0 - (covered / total))
+                continue
+            shape_aspect = m / n if n else None
+            tile_aspect = block_m / block_n if block_n else None
+            if shape_aspect is None or tile_aspect is None or shape_aspect <= 0 or tile_aspect <= 0:
+                continue
+            values.append(min(shape_aspect, tile_aspect) / max(shape_aspect, tile_aspect))
+        if values:
+            return sum(values) / len(values)
+    return None
+
+
+def _feature_snapshot(
+    config_id: str,
+    compile_summary: dict[str, dict[str, float | int | bool | None]],
+    profile_metrics: dict[str, dict[str, float | None]],
+    candidate_groups: dict[str, list[CandidateConfig]],
+) -> dict[str, object]:
+    candidates = candidate_groups.get(config_id, [])
+    config = candidates[0].config if candidates else {}
+    snapshot: dict[str, object] = {
+        "config_id": config_id,
+        "config": dict(sorted(config.items())),
+        "workload_classes": sorted({candidate.workload_class for candidate in candidates if candidate.workload_class}),
+    }
+    for feature_name in [
+        "occupancy_estimate",
+        "register_count",
+        "shared_memory_bytes",
+        "warps_active",
+        "tensor_ops",
+        "long_scoreboard_stall",
+        "dram_throughput",
+        "lg_throttle",
+        "shared_conflicts",
+        "tile_area",
+        "moderated_tile_area",
+        "shape_balance",
+        "tile_fit_ratio_m",
+        "tile_fit_ratio_n",
+        "masked_overcoverage_ratio",
+        "aspect_match_score",
+        "group_size_m_centered",
+        "split_k",
+    ]:
+        if feature_name in {"occupancy_estimate", "register_count", "shared_memory_bytes"}:
+            snapshot[feature_name] = compile_summary.get(config_id, {}).get(feature_name)
+        elif feature_name in {
+            "warps_active",
+            "tensor_ops",
+            "long_scoreboard_stall",
+            "dram_throughput",
+            "lg_throttle",
+            "shared_conflicts",
+        }:
+            snapshot[feature_name] = profile_metrics.get(config_id, {}).get(feature_name)
+        else:
+            snapshot[feature_name] = _config_feature_value(config_id, feature_name, candidate_groups)
+    return snapshot
+
+
+def _matches_frontier_union_recovery(
+    config_id: str,
+    policy: FrontierUnionPolicy,
+    candidate_groups: dict[str, list[CandidateConfig]],
+    *,
+    parent_has_256_square: bool,
+) -> bool:
+    config = _config_map_for_id(config_id, candidate_groups)
+    if not config:
+        return False
+    if policy.recovery_split_k_value is not None and config.get("split_k", 1) != policy.recovery_split_k_value:
+        return False
+    if policy.recovery_group_size_m_values and config.get("group_size_m") not in policy.recovery_group_size_m_values:
+        return False
+    if policy.recovery_block_m_values and config.get("block_m") not in policy.recovery_block_m_values:
+        return False
+    if policy.recovery_block_n_values and config.get("block_n") not in policy.recovery_block_n_values:
+        return False
+    block_m = config.get("block_m")
+    block_n = config.get("block_n")
+    if (
+        policy.recovery_max_block_diff is not None
+        and block_m is not None
+        and block_n is not None
+        and abs(block_m - block_n) > policy.recovery_max_block_diff
+    ):
+        return False
+    if (
+        not policy.allow_256_square_without_parent
+        and not parent_has_256_square
+        and block_m == 256
+        and block_n == 256
+    ):
+        return False
+    return True
+
+
+def _apply_frontier_union_policy(
+    ranked_ids: list[str],
+    policy: FrontierUnionPolicy,
+    compile_summary: dict[str, dict[str, float | int | bool | None]],
+    candidate_groups: dict[str, list[CandidateConfig]],
+) -> tuple[list[str], list[str], list[str]]:
+    parent_top = list(ranked_ids[: policy.parent_top_k])
+    parent_has_256_square = any(
+        _config_map_for_id(config_id, candidate_groups).get("block_m") == 256
+        and _config_map_for_id(config_id, candidate_groups).get("block_n") == 256
+        for config_id in parent_top
+    )
+    recovery_pool = [
+        config_id
+        for config_id in ranked_ids
+        if config_id not in parent_top
+        and _matches_frontier_union_recovery(
+            config_id,
+            policy,
+            candidate_groups,
+            parent_has_256_square=parent_has_256_square,
+        )
+    ]
+    recovery_ranked = sorted(
+        recovery_pool,
+        key=lambda config_id: _feature_rank_key(
+            config_id,
+            policy.recovery_ranking_features,
+            compile_summary,
+            {},
+            candidate_groups,
+        ),
+    )
+    recovery_top = recovery_ranked[: policy.recovery_top_k]
+    union_ids = list(parent_top)
+    for config_id in recovery_top:
+        if config_id not in union_ids:
+            union_ids.append(config_id)
+    reordered = union_ids + [config_id for config_id in ranked_ids if config_id not in union_ids]
+    return reordered, union_ids, recovery_top
+
+
 def _metric_value(
     *,
     config_id: str,
@@ -331,11 +534,14 @@ def _metric_value(
     source: str,
     compile_summary: dict[str, dict[str, float | int | bool | None]],
     profile_metrics: dict[str, dict[str, float | None]],
+    candidate_groups: dict[str, list[CandidateConfig]],
 ) -> float | int | bool | None:
     if source == "compile":
         return compile_summary.get(config_id, {}).get(feature_name)
     if source == "profile":
         return profile_metrics.get(config_id, {}).get(feature_name)
+    if source == "config":
+        return _config_feature_value(config_id, feature_name, candidate_groups)
     raise ValueError(f"unsupported selector feature source '{source}'")
 
 
@@ -358,20 +564,22 @@ def _compare_rule(value: float | int | bool | None, comparator: str, threshold: 
     raise ValueError(f"unsupported prune comparator '{comparator}'")
 
 
-def _revision_rank_key(
+def _feature_rank_key(
     config_id: str,
-    selector_revision: SelectorRevisionSpec,
+    ranking_features,
     compile_summary: dict[str, dict[str, float | int | bool | None]],
     profile_metrics: dict[str, dict[str, float | None]],
+    candidate_groups: dict[str, list[CandidateConfig]],
 ) -> tuple[object, ...]:
     key: list[object] = []
-    for feature in selector_revision.ranking_features:
+    for feature in ranking_features:
         value = _metric_value(
             config_id=config_id,
             feature_name=feature.feature_name,
             source=feature.source,
             compile_summary=compile_summary,
             profile_metrics=profile_metrics,
+            candidate_groups=candidate_groups,
         )
         if value is None:
             fallback: float = (
@@ -387,11 +595,28 @@ def _revision_rank_key(
     return tuple(key)
 
 
+def _revision_rank_key(
+    config_id: str,
+    selector_revision: SelectorRevisionSpec,
+    compile_summary: dict[str, dict[str, float | int | bool | None]],
+    profile_metrics: dict[str, dict[str, float | None]],
+    candidate_groups: dict[str, list[CandidateConfig]],
+) -> tuple[object, ...]:
+    return _feature_rank_key(
+        config_id,
+        selector_revision.ranking_features,
+        compile_summary,
+        profile_metrics,
+        candidate_groups,
+    )
+
+
 def _apply_revision_prunes(
     config_ids: list[str],
     selector_revision: SelectorRevisionSpec,
     compile_summary: dict[str, dict[str, float | int | bool | None]],
     profile_metrics: dict[str, dict[str, float | None]],
+    candidate_groups: dict[str, list[CandidateConfig]],
 ) -> tuple[list[str], dict[str, str]]:
     surviving: list[str] = []
     reasons: dict[str, str] = {}
@@ -404,6 +629,7 @@ def _apply_revision_prunes(
                 source=rule.source,
                 compile_summary=compile_summary,
                 profile_metrics=profile_metrics,
+                candidate_groups=candidate_groups,
             )
             if _compare_rule(value, rule.comparator, rule.threshold):
                 reasons[config_id] = rule.prune_reason
@@ -431,9 +657,53 @@ def run_selector_mode(
     candidate_groups = _group_candidates(candidate_records)
     compile_summary = _aggregate_compile_signals(compile_signals)
     ranked_ids, pruned_ids, prune_reasons = _prune_candidates(candidate_groups, compile_summary)
+    compile_rank_ids = list(ranked_ids)
+    frontier_rank_ids = list(ranked_ids)
+    frontier_union_ids: list[str] = []
+    frontier_recovery_ids: list[str] = []
+    restrict_selection_to_ids: set[str] | None = None
     requested_mode = _mode_name(selector_mode)
     actual_mode = requested_mode
     rationale = [f"started with {len(candidate_groups)} candidate configs", f"pruned {len(pruned_ids)} configs"]
+
+    if (
+        requested_mode == SelectorMode.PRUNE_RANK_REVISED.value
+        and selector_revision is not None
+        and selector_revision.frontier_ranking_features
+    ):
+        ranked_ids = sorted(
+            ranked_ids,
+            key=lambda config_id: _feature_rank_key(
+                config_id,
+                selector_revision.frontier_ranking_features,
+                compile_summary,
+                {},
+                candidate_groups,
+            ),
+        )
+        rationale.append(
+            f"re-ranked compile frontier using revision '{selector_revision.revision_id}' before profiling"
+        )
+        frontier_rank_ids = list(ranked_ids)
+    if (
+        requested_mode == SelectorMode.PRUNE_RANK_REVISED.value
+        and selector_revision is not None
+        and selector_revision.frontier_union_policy is not None
+        and ranked_ids
+    ):
+        ranked_ids, frontier_union_ids, frontier_recovery_ids = _apply_frontier_union_policy(
+            ranked_ids,
+            selector_revision.frontier_union_policy,
+            compile_summary,
+            candidate_groups,
+        )
+        frontier_rank_ids = list(ranked_ids)
+        if selector_revision.frontier_union_policy.restrict_selection_to_union:
+            restrict_selection_to_ids = set(frontier_union_ids)
+        rationale.append(
+            f"built guarded frontier union with {len(frontier_union_ids)} configs for revision "
+            f"'{selector_revision.revision_id}'"
+        )
 
     if not ranked_ids:
         return SelectionDecision(
@@ -452,7 +722,11 @@ def run_selector_mode(
             decision_wall_clock_s=time.perf_counter() - started,
             rationale_summary="no candidates survived pruning",
             decision_status="failed_no_candidates",
-            calibration_metadata={"prune_reasons": prune_reasons},
+            calibration_metadata={
+                "prune_reasons": prune_reasons,
+                "compile_rank_ids": compile_rank_ids,
+                "frontier_rank_ids": frontier_rank_ids,
+            },
         )
 
     if requested_mode == SelectorMode.PRUNE_ONLY.value:
@@ -479,6 +753,8 @@ def run_selector_mode(
         )
 
     profiled_records: list[ProfileMeasurement] = []
+    profile_metrics: dict[str, dict[str, float | None]] = {}
+    profiled_ids: list[str] = []
     benchmark_order = list(ranked_ids)
     if requested_mode in {
         SelectorMode.PRUNE_RANK_PROFILED.value,
@@ -521,6 +797,7 @@ def run_selector_mode(
                             selector_revision,
                             compile_summary,
                             profile_metrics,
+                            candidate_groups,
                         )
                         pruned_ids.extend(sorted(revision_prunes))
                         prune_reasons.update(revision_prunes)
@@ -534,18 +811,25 @@ def run_selector_mode(
                                 key=lambda config_id: _profile_rank_key(config_id, profile_metrics),
                             )
                         else:
-                            reordered_profiled = sorted(
-                                surviving_profiled,
-                                key=lambda config_id: _revision_rank_key(
-                                    config_id,
-                                    selector_revision,
-                                    compile_summary,
-                                    profile_metrics,
-                                ),
-                            )
-                            rationale.append(
-                                f"profile-reordered {len(reordered_profiled)} configs using revision '{selector_revision.revision_id}'"
-                            )
+                            if selector_revision.ranking_features:
+                                reordered_profiled = sorted(
+                                    surviving_profiled,
+                                    key=lambda config_id: _revision_rank_key(
+                                        config_id,
+                                        selector_revision,
+                                        compile_summary,
+                                        profile_metrics,
+                                        candidate_groups,
+                                    ),
+                                )
+                                rationale.append(
+                                    f"profile-reordered {len(reordered_profiled)} configs using revision '{selector_revision.revision_id}'"
+                                )
+                            else:
+                                reordered_profiled = list(surviving_profiled)
+                                rationale.append(
+                                    f"kept frontier-ranked profile prefix order for revision '{selector_revision.revision_id}' without profile reranking"
+                                )
                 else:
                     reordered_profiled = sorted(
                         successful_profile_ids,
@@ -563,15 +847,50 @@ def run_selector_mode(
         runtime_records.extend(request_benchmark(config_id))
 
     runtime_scores = aggregate_runtime_scores(runtime_records)
-    selected = _select_with_tolerance(runtime_scores, benchmark_order)
+    best_scored_config_id = (
+        min(runtime_scores, key=lambda config_id: (runtime_scores[config_id], config_id))
+        if runtime_scores
+        else None
+    )
+    selection_scores = (
+        {
+            config_id: score
+            for config_id, score in runtime_scores.items()
+            if restrict_selection_to_ids is None or config_id in restrict_selection_to_ids
+        }
+    )
+    selected = _select_with_tolerance(selection_scores, benchmark_order)
+    budget_limited = any(
+        record.status == RuntimeStatus.SKIPPED_BUDGET for record in runtime_records
+    ) or any(record.profile_status == ProfileStatus.SKIPPED_BUDGET for record in profiled_records)
     if selected is None:
         decision_status = "failed_no_successful_measurements"
         rationale.append("no successful calibration measurements were available")
     else:
-        decision_status = "selected"
+        decision_status = "selected_budget_limited" if budget_limited else "selected"
         rationale.append(
             f"benchmarked {len(benchmark_ids)} configs and selected the best score within a 2% tie band"
         )
+
+    diagnostic_limit = min(len(compile_rank_ids), max(budgets.max_benchmarks, budgets.max_profiles))
+    compile_frontier_preview = compile_rank_ids[:diagnostic_limit]
+    frontier_preview = frontier_rank_ids[:diagnostic_limit]
+    rejected_top_compile_ids = [
+        config_id for config_id in compile_frontier_preview if config_id not in frontier_preview
+    ]
+    snapshot_ids = []
+    for config_id in [selected, best_scored_config_id, *compile_frontier_preview, *frontier_preview]:
+        if config_id is not None and config_id not in snapshot_ids:
+            snapshot_ids.append(config_id)
+    feature_snapshots = [
+        _feature_snapshot(
+            config_id,
+            compile_summary,
+            profile_metrics,
+            candidate_groups,
+        )
+        for config_id in snapshot_ids
+    ]
 
     return SelectionDecision(
         run_id=run_id,
@@ -593,7 +912,18 @@ def run_selector_mode(
         rationale_summary="; ".join(rationale),
         decision_status=decision_status,
         score_map=runtime_scores,
-        calibration_metadata={"prune_reasons": prune_reasons},
+        calibration_metadata={
+            "prune_reasons": prune_reasons,
+            "compile_rank_ids": compile_rank_ids,
+            "frontier_rank_ids": frontier_rank_ids,
+            "profile_prefix_ids": profiled_ids,
+            "rejected_top_compile_ids": rejected_top_compile_ids,
+            "best_scored_config_id": best_scored_config_id,
+            "frontier_union_ids": frontier_union_ids,
+            "frontier_recovery_ids": frontier_recovery_ids,
+            "selection_restricted_to_union": restrict_selection_to_ids is not None,
+            "feature_snapshots": feature_snapshots,
+        },
     )
 
 

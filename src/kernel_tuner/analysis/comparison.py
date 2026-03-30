@@ -73,10 +73,23 @@ def compare_runs(
     store.initialize_manifest(manifest)
     try:
         run_payloads = _resolve_run_payloads(study_spec, study_path)
+        if not run_payloads:
+            raise ValueError("no study runs matched the configured groups and filters")
         strategy_rows = _build_strategy_rows(run_payloads)
-        stability_report = _build_stability_report(strategy_rows)
-        hypothesis_results = _evaluate_hypotheses(study_spec, strategy_rows, stability_report)
+        frontier_diagnostics = _aggregate_frontier_diagnostics(run_payloads)
+        family_mismatch = _aggregate_family_mismatch(run_payloads)
         opportunity_catalog = _aggregate_opportunities(run_payloads)
+        diagnostic_only = _is_diagnostic_only_study(run_payloads)
+        if strategy_rows.empty:
+            if not diagnostic_only:
+                raise ValueError("no held-out strategy rows were available after loading matched study runs")
+            if frontier_diagnostics.empty and family_mismatch.empty and opportunity_catalog.empty:
+                raise ValueError("no diagnostic artifacts were available after loading matched study runs")
+            stability_report = pd.DataFrame()
+            hypothesis_results = pd.DataFrame()
+        else:
+            stability_report = _build_stability_report(strategy_rows)
+            hypothesis_results = _evaluate_hypotheses(study_spec, strategy_rows, stability_report)
 
         if not strategy_rows.empty:
             store.write_csv_artifact("study_strategy_metrics", strategy_rows, filename="study_strategy_metrics.csv")
@@ -86,8 +99,28 @@ def compare_runs(
             store.write_csv_artifact("hypothesis_results", hypothesis_results, filename="hypothesis_results.csv")
         if not opportunity_catalog.empty:
             store.write_csv_artifact("opportunity_catalog", opportunity_catalog, filename="opportunity_catalog.csv")
+        if not frontier_diagnostics.empty:
+            store.write_csv_artifact(
+                "frontier_diagnostics",
+                frontier_diagnostics,
+                filename="frontier_diagnostics.csv",
+            )
+        if not family_mismatch.empty:
+            store.write_csv_artifact(
+                "family_mismatch_summary",
+                family_mismatch,
+                filename="family_mismatch_summary.csv",
+            )
         plot_path = _write_comparison_plot(store, strategy_rows)
-        evidence_bundle = _build_evidence_bundle(strategy_rows, stability_report, hypothesis_results, run_payloads)
+        evidence_bundle = _build_evidence_bundle(
+            strategy_rows,
+            stability_report,
+            hypothesis_results,
+            run_payloads,
+            opportunity_catalog,
+            frontier_diagnostics,
+            family_mismatch,
+        )
         figure_manifest = _build_figure_manifest(store, plot_path)
         store.write_json_artifact("evidence_bundle", evidence_bundle, filename="evidence_bundle.json")
         store.write_json_artifact("figure_manifest", figure_manifest, filename="figure_manifest.json")
@@ -100,6 +133,14 @@ def compare_runs(
             "primary_metric": study_spec.primary_metric,
             "secondary_metrics": study_spec.secondary_metrics,
             "group_by": study_spec.group_by,
+            "diagnostic_only": diagnostic_only,
+            "diagnostic_summary": _build_diagnostic_summary(
+                run_payloads,
+                frontier_diagnostics,
+                family_mismatch,
+            )
+            if diagnostic_only
+            else {},
             "strategy_summary": _strategy_summary(strategy_rows),
             "hypothesis_summary": hypothesis_results.to_dict(orient="records"),
             "artifact_locations": {
@@ -108,6 +149,8 @@ def compare_runs(
                 "stability_report": str(store.run_dir / "stability_report.csv") if not stability_report.empty else "",
                 "hypothesis_results": str(store.run_dir / "hypothesis_results.csv") if not hypothesis_results.empty else "",
                 "opportunity_catalog": str(store.run_dir / "opportunity_catalog.csv") if not opportunity_catalog.empty else "",
+                "frontier_diagnostics": str(store.run_dir / "frontier_diagnostics.csv") if not frontier_diagnostics.empty else "",
+                "family_mismatch_summary": str(store.run_dir / "family_mismatch_summary.csv") if not family_mismatch.empty else "",
                 "comparison_plot": str(store.run_dir / plot_path) if plot_path else "",
                 "evidence_bundle": str(store.run_dir / "evidence_bundle.json"),
                 "figure_manifest": str(store.run_dir / "figure_manifest.json"),
@@ -213,6 +256,8 @@ def _load_run_payload(run_dir: Path, group_id: str) -> dict[str, Any]:
     held_out_per_shape = _read_csv_if_exists(run_dir / "held_out_per_shape.csv")
     counter_availability = _read_csv_if_exists(run_dir / "counter_availability_report.csv")
     opportunity_catalog = _read_csv_if_exists(run_dir / "opportunity_catalog.csv")
+    frontier_diagnostics = _read_csv_if_exists(run_dir / "frontier_diagnostics.csv")
+    chosen_vs_best_family = _read_csv_if_exists(run_dir / "chosen_vs_best_family.csv")
     return {
         "group_id": group_id,
         "run_dir": run_dir,
@@ -226,6 +271,8 @@ def _load_run_payload(run_dir: Path, group_id: str) -> dict[str, Any]:
         "held_out_per_shape": held_out_per_shape,
         "counter_availability": counter_availability,
         "opportunity_catalog": opportunity_catalog,
+        "frontier_diagnostics": frontier_diagnostics,
+        "chosen_vs_best_family": chosen_vs_best_family,
     }
 
 
@@ -288,7 +335,10 @@ def _build_strategy_rows(run_payloads: list[dict[str, Any]]) -> pd.DataFrame:
             if not counter_availability.empty
             else {}
         )
-        for workload_class in sorted(held_out["workload_class"].dropna().unique()):
+        workload_classes = sorted(held_out["workload_class"].dropna().unique())
+        if not workload_classes:
+            continue
+        for workload_class in workload_classes:
             subset = held_out[held_out["workload_class"] == workload_class].copy()
             pivot = subset.pivot(index="shape_id", columns="strategy_id", values="latency_median_us")
             for strategy_id in pivot.columns:
@@ -486,10 +536,12 @@ def _evaluate_clause(
         right_value = clause.right_constant
     supported = _compare_hypothesis_values(left_value, right_value, clause.comparator, clause.minimum_delta)
     comparator_name = clause.comparator.value if hasattr(clause.comparator, "value") else str(clause.comparator)
+    delta = left_value - right_value
     evidence = (
         f"{clause.left.metric}={left_value:.4f} "
         f"{comparator_name} "
-        f"{right_value:.4f} with minimum_delta={clause.minimum_delta:.4f}"
+        f"{right_value:.4f} with minimum_delta={clause.minimum_delta:.4f} "
+        f"(observed_delta={delta:.4f})"
     )
     return {"status": "ok", "supported": supported, "evidence": evidence}
 
@@ -543,16 +595,102 @@ def _compare_hypothesis_values(
     if name == HypothesisComparator.GREATER_THAN_OR_EQUAL.value:
         return left >= right + minimum_delta
     if name == HypothesisComparator.LESS_THAN.value:
-        return left < right - minimum_delta
+        return left < right + minimum_delta
     if name == HypothesisComparator.LESS_THAN_OR_EQUAL.value:
-        return left <= right - minimum_delta
+        return left <= right + minimum_delta
     raise ValueError(f"unsupported hypothesis comparator '{comparator}'")
 
 
 def _aggregate_opportunities(run_payloads: list[dict[str, Any]]) -> pd.DataFrame:
+    legacy_defaults: dict[str, object] = {
+        "occurrences": 0,
+        "selected_regret_count": 0,
+        "regret_weight": 0,
+        "avg_regret_to_best_measured": None,
+        "kernel_ids": "",
+        "workload_classes": "",
+        "strategy_ids": "",
+        "run_ids": "",
+        "config_ids": "",
+        "recommended_actions": "",
+    }
+
+    def _join_unique(values: pd.Series) -> str:
+        return ",".join(
+            sorted(
+                {
+                    item
+                    for value in values.dropna()
+                    for item in str(value).split(",")
+                    if item
+                }
+            )
+        )
+
     rows: list[pd.DataFrame] = []
     for payload in run_payloads:
         frame = payload["opportunity_catalog"]
+        if frame.empty:
+            continue
+        decorated = frame.copy()
+        for column, default in legacy_defaults.items():
+            if column not in decorated.columns:
+                decorated[column] = default
+        decorated["occurrences"] = pd.to_numeric(decorated["occurrences"], errors="coerce").fillna(0).astype(int)
+        decorated["selected_regret_count"] = (
+            pd.to_numeric(decorated["selected_regret_count"], errors="coerce").fillna(0).astype(int)
+        )
+        decorated["regret_weight"] = pd.to_numeric(decorated["regret_weight"], errors="coerce").fillna(0).astype(int)
+        missing_regret_weight = decorated["regret_weight"] <= 0
+        decorated.loc[missing_regret_weight, "regret_weight"] = decorated.loc[missing_regret_weight, "occurrences"]
+        decorated["group_id"] = payload["group_id"]
+        decorated["run_id"] = payload["summary"]["run_id"]
+        if "run_ids" in decorated.columns:
+            missing_run_ids = decorated["run_ids"].astype(str).eq("") | decorated["run_ids"].isna()
+            decorated.loc[missing_run_ids, "run_ids"] = payload["summary"]["run_id"]
+        decorated["experiment_id"] = payload["experiment_spec"].experiment_id
+        rows.append(decorated)
+    if not rows:
+        return pd.DataFrame()
+    combined = pd.concat(rows, ignore_index=True)
+    combined["weighted_regret_sum"] = (
+        pd.to_numeric(combined.get("avg_regret_to_best_measured"), errors="coerce").fillna(0.0)
+        * pd.to_numeric(combined.get("regret_weight"), errors="coerce").fillna(0.0)
+    )
+    aggregated = (
+        combined.groupby("opportunity_tag", dropna=False)
+        .agg(
+            occurrences=("occurrences", "sum"),
+            selected_regret_count=("selected_regret_count", "sum"),
+            regret_weight=("regret_weight", "sum"),
+            weighted_regret_sum=("weighted_regret_sum", "sum"),
+            avg_regret_to_best_measured=("avg_regret_to_best_measured", "mean"),
+            kernel_ids=("kernel_ids", _join_unique),
+            workload_classes=("workload_classes", _join_unique),
+            strategy_ids=("strategy_ids", _join_unique),
+            run_ids=("run_ids", _join_unique),
+            config_ids=("config_ids", _join_unique),
+            recommended_actions=("recommended_actions", lambda values: "; ".join(sorted(set(values)))),
+        )
+        .reset_index()
+        .sort_values(by=["selected_regret_count", "occurrences", "opportunity_tag"], ascending=[False, False, True])
+    )
+    aggregated["avg_regret_to_best_measured"] = aggregated.apply(
+        lambda row: (
+            row["weighted_regret_sum"] / row["regret_weight"]
+            if row["regret_weight"] and not pd.isna(row["regret_weight"])
+            else row["avg_regret_to_best_measured"]
+        ),
+        axis=1,
+    )
+    aggregated = aggregated.drop(columns=["weighted_regret_sum"])
+    return aggregated
+
+
+def _aggregate_frontier_diagnostics(run_payloads: list[dict[str, Any]]) -> pd.DataFrame:
+    rows: list[pd.DataFrame] = []
+    for payload in run_payloads:
+        frame = payload["frontier_diagnostics"]
         if frame.empty:
             continue
         decorated = frame.copy()
@@ -563,18 +701,74 @@ def _aggregate_opportunities(run_payloads: list[dict[str, Any]]) -> pd.DataFrame
     if not rows:
         return pd.DataFrame()
     combined = pd.concat(rows, ignore_index=True)
-    aggregated = (
-        combined.groupby("opportunity_tag", dropna=False)
-        .agg(
-            occurrences=("occurrences", "sum"),
-            selected_regret_count=("selected_regret_count", "sum"),
-            avg_regret_to_best_measured=("avg_regret_to_best_measured", "mean"),
-            recommended_actions=("recommended_actions", lambda values: "; ".join(sorted(set(values)))),
-        )
-        .reset_index()
-        .sort_values(by=["selected_regret_count", "occurrences", "opportunity_tag"], ascending=[False, False, True])
+    return combined.sort_values(
+        by=["group_id", "strategy_id", "diagnostic_role", "run_id", "rank_index"],
+        ascending=[True, True, True, True, True],
     )
-    return aggregated
+
+
+def _aggregate_family_mismatch(run_payloads: list[dict[str, Any]]) -> pd.DataFrame:
+    rows: list[pd.DataFrame] = []
+    for payload in run_payloads:
+        frame = payload["chosen_vs_best_family"]
+        if frame.empty:
+            continue
+        decorated = frame.copy()
+        decorated["group_id"] = payload["group_id"]
+        decorated["run_id"] = payload["summary"]["run_id"]
+        decorated["experiment_id"] = payload["experiment_spec"].experiment_id
+        rows.append(decorated)
+    if not rows:
+        return pd.DataFrame()
+    combined = pd.concat(rows, ignore_index=True)
+    return combined.sort_values(
+        by=["group_id", "strategy_id", "run_id"],
+        ascending=[True, True, True],
+    )
+
+
+def _is_diagnostic_only_study(run_payloads: list[dict[str, Any]]) -> bool:
+    if not run_payloads:
+        return False
+    return all(_is_diagnostic_only_payload(payload) for payload in run_payloads)
+
+
+def _is_diagnostic_only_payload(payload: dict[str, Any]) -> bool:
+    labels = payload.get("run_labels") or {}
+    execution_mode = labels.get("execution_mode") or labels.get("reportability_mode")
+    if execution_mode == "diagnostic_only":
+        return True
+    study_kind = getattr(payload["experiment_spec"], "study_kind", None)
+    if hasattr(study_kind, "value"):
+        study_kind = study_kind.value
+    return study_kind == "diagnostic_only"
+
+
+def _build_diagnostic_summary(
+    run_payloads: list[dict[str, Any]],
+    frontier_diagnostics: pd.DataFrame,
+    family_mismatch: pd.DataFrame,
+) -> dict[str, Any]:
+    selected_rows = (
+        frontier_diagnostics[frontier_diagnostics["diagnostic_role"] == "selected_config"]
+        if not frontier_diagnostics.empty and "diagnostic_role" in frontier_diagnostics.columns
+        else pd.DataFrame()
+    )
+    selected_configs = []
+    if not selected_rows.empty and "config_id" in selected_rows.columns:
+        selected_configs = sorted(set(selected_rows["config_id"].dropna().astype(str)))
+    selected_mismatch_count = 0
+    if not family_mismatch.empty and "selected_matches_best_scored" in family_mismatch.columns:
+        mismatch_series = family_mismatch["selected_matches_best_scored"].fillna(False).astype(bool)
+        selected_mismatch_count = int((~mismatch_series).sum())
+    return {
+        "run_count": len(run_payloads),
+        "selected_strategy_count": int(selected_rows["strategy_id"].nunique()) if not selected_rows.empty else 0,
+        "selected_config_ids": selected_configs,
+        "frontier_row_count": int(len(frontier_diagnostics)),
+        "family_mismatch_row_count": int(len(family_mismatch)),
+        "selected_mismatch_count": selected_mismatch_count,
+    }
 
 
 def _strategy_summary(strategy_rows: pd.DataFrame) -> list[dict[str, Any]]:
@@ -659,6 +853,9 @@ def _build_evidence_bundle(
     stability_report: pd.DataFrame,
     hypothesis_results: pd.DataFrame,
     run_payloads: list[dict[str, Any]],
+    opportunity_catalog: pd.DataFrame,
+    frontier_diagnostics: pd.DataFrame,
+    family_mismatch: pd.DataFrame,
 ) -> dict[str, Any]:
     return {
         "run_count": len(run_payloads),
@@ -675,6 +872,9 @@ def _build_evidence_bundle(
         "strategy_summary": _strategy_summary(strategy_rows),
         "stability_report": stability_report.to_dict(orient="records"),
         "hypothesis_results": hypothesis_results.to_dict(orient="records"),
+        "opportunity_catalog": opportunity_catalog.to_dict(orient="records"),
+        "frontier_diagnostics": frontier_diagnostics.to_dict(orient="records"),
+        "family_mismatch_summary": family_mismatch.to_dict(orient="records"),
     }
 
 

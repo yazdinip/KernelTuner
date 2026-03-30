@@ -1,0 +1,33 @@
+kernel_id: layernorm_baselinefix
+family: layernorm
+description: >
+  Triton LayerNorm kernel specification with a universally valid default config
+  for the representative hidden-size range used in the follow-up studies.
+shape_schema:
+  required_dims:
+    - rows
+    - hidden
+  required_metadata:
+    - dtype
+    - layout
+dtype_support:
+  - fp16
+  - bf16
+config_parameters:
+  block_size: [1024, 2048, 4096]
+  num_warps: [4, 8]
+  num_stages: [2, 4]
+reference_impl: torch.nn.functional.layer_norm
+supports_profiling: true
+correctness_policy:
+  atol: 2.0e-2
+  rtol: 2.0e-2
+  reference_dtype: fp32
+default_config:
+  block_size: 4096
+  num_warps: 4
+  num_stages: 2
+tags:
+  - validation-phase
+  - memory-bound
+  - baseline-fixed

@@ -1,0 +1,17 @@
+\section{Introduction}
+
+Triton makes it practical to express high-performance GPU kernels in a compact schedule-oriented style, but that convenience does not remove the core tuning problem. A single kernel family can still expose a large number of tile, launch, and pipelining choices, and the best configuration can change with workload geometry and hardware bottlenecks. In practice, many tuning workflows either trust a default schedule, run a small naive search, or escalate to expensive profiling and full autotuning. That gap motivates this project: can a matched-budget tuner use lightweight signals to spend a small amount of search and profiling effort more intelligently?
+
+This paper studies that question as an empirical systems problem rather than as a black-box autotuning benchmark. We ask whether a bottleneck-aware, schedule-first selector can improve held-out Triton kernel performance relative to default settings or equally budgeted naive baselines, while still producing interpretable failures when it does not. The project therefore values negative results and transfer failures, not only positive speedups. We treat the selector, workload design, and evidence discipline as part of the scientific contribution.
+
+The final project arc is narrower and stronger than the initial exploratory framing. The evidence shows that pruning is easier than ranking, that representative workloads matter more than aligned convenience cases, and that profiling is not uniformly beneficial across kernels or workload regimes. The revised-selector story is also mixed: a narrow frontier-aware success does not automatically transfer to larger spaces. However, after locking the paper-facing surface to a conservative non-\texttt{split\_k} mainline, a guarded final selector does recover the strongest representative GEMM result in the project. That combination of positive and bounded negative outcomes is the paper's real contribution.
+
+We make four contributions:
+\begin{itemize}
+\item We present \system, a schedule-first matched-budget tuning framework for Triton kernels that cleanly separates reportable and diagnostic evidence.
+\item We provide a workload-aware empirical study across representative GEMM, aligned GEMM, and regime-split LayerNorm on a homogeneous RTX A6000 pool.
+\item We show how transfer failures, diagnostic studies, and keep/drop decisions strengthen the research story rather than weakening it, including bounded negative results for \texttt{split\_k} and \texttt{rows\_per\_program}.
+\item We demonstrate that a final conservative mainline selector can materially improve representative GEMM under the same budget without reopening the research program.
+\end{itemize}
+
+The rest of the paper is organized as follows. Section~\ref{sec:background} frames the tuning problem and workload roles. Section~\ref{sec:design} describes \system and the final paper-facing tuning surfaces. Section~\ref{sec:methodology} describes the experimental protocol and evidence discipline. Section~\ref{sec:results} presents the main empirical findings from cheap-signal limits through the final mainline result. Section~\ref{sec:discussion} discusses what the project does and does not establish. Section~\ref{sec:related} positions the work relative to prior autotuning and profiling-guided tuning systems.

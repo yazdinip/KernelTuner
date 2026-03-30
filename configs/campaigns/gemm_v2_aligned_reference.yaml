@@ -1,0 +1,21 @@
+campaign_id: gemm_v2_aligned_reference
+round_id: round_phase2_gemm_v2_aligned
+templates:
+  - template_id: gemm_v2_aligned_repeatability
+    experiment_ids: [gemm_v2_aligned_reportable]
+    seeds: [7]
+    repeats: 3
+    selector_revision_ids: [v3_h4_targeted]
+  - template_id: gemm_v2_aligned_robustness
+    experiment_ids: [gemm_v2_aligned_reportable]
+    seeds: [7, 19, 43]
+    repeats: 1
+    selector_revision_ids: [v3_h4_targeted]
+studies:
+  - study_id: gemm_v2_aligned_reference
+    requires_templates:
+      - gemm_v2_aligned_repeatability
+      - gemm_v2_aligned_robustness
+notes: >
+  Optional aligned GEMM reference campaign for refreshing the H3 contrast under
+  the expanded Phase 2 GEMM space.

@@ -1,0 +1,15 @@
+campaign_id: gemm_v3_schedule_diag
+round_id: round_phase3_gemm_v3_schedule_diag
+templates:
+  - template_id: gemm_v3_schedule_diag
+    experiment_ids: [gemm_v3_schedule_diag]
+    seeds: [7]
+    repeats: 1
+    selector_revision_ids: [v4_transfer_safe_profiled]
+studies:
+  - study_id: gemm_v3_schedule_diag
+    requires_templates:
+      - gemm_v3_schedule_diag
+notes: >
+  Phase 3 diagnostic-only GEMM campaign for schedule-family interpretation and
+  frontier-diagnostics capture under the compute_schedule_diag counter set.

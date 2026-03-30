@@ -23,6 +23,13 @@ The paper should be framed as an empirical systems study:
 
 The intended claim is not that `KernelTuner` is a universal autotuner. The intended claim is that a bottleneck-aware, schedule-first tuner can sometimes beat default and naive baselines under constrained budget, and that the same experimental machinery can explain negative results where it cannot.
 
+Final project-level implication:
+
+- cheap compile-adjacent signals are strong enough to prune but not strong enough to carry representative GEMM ranking by themselves,
+- narrow heuristic wins do not automatically transfer to expanded spaces,
+- bounded negative results can still improve the paper by producing principled keep/drop decisions,
+- and a conservative final non-`split_k` mainline selector can recover the strongest representative GEMM result in the project without reopening the research program.
+
 ## Fixed Research Posture
 
 The following are fixed for the research program unless a new ADR-level decision replaces them:
@@ -32,7 +39,7 @@ The following are fixed for the research program unless a new ADR-level decision
 - **Project horizon:** term-sized
 - **Primary case study:** GEMM
 - **Validation case study:** LayerNorm
-- **Execution environment:** one pinned Linux CUDA host, one GPU model
+- **Execution environment:** one homogeneous Linux CUDA pool, one GPU model
 - **Comparator style:** matched-budget baselines
 - **Selector style:** heuristic ladder first, learned model optional and late
 
@@ -103,6 +110,14 @@ A negative result is acceptable only if the following are still true:
 
 The working thesis for the project is:
 
-> Many poor Triton schedule choices can be filtered or deprioritized with cheap signals, but strong final selection requires a small amount of bottleneck-aware profiling whose value depends on the kernel family and workload class.
+> Many poor Triton schedule choices can be filtered or deprioritized with cheap signals, but strong final selection requires conservative frontier construction plus a small amount of bounded profiling whose value depends strongly on kernel family and workload class.
 
 This thesis is what the rest of the research package is designed to test, refine, or reject.
+
+Final posture after `R6`:
+
+- representative GEMM is the truth source for the paper headline,
+- aligned GEMM is supporting context only,
+- LayerNorm is a bounded regime-split secondary story,
+- `split_k` and `rows_per_program` remain archived diagnostic surfaces rather than final mainline knobs,
+- and no new selector-family expansion is part of the current paper-facing program.

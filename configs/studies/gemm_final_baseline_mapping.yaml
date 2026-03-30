@@ -1,0 +1,120 @@
+study_id: gemm_final_baseline_mapping
+hypotheses:
+  - hypothesis_id: R6_profiled_headline
+    description: >
+      The guarded profiled v5 revision materially improves the final representative
+      GEMM mainline result and approaches naive random search.
+    clauses:
+      - left:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_final_representative
+          kernel_family: gemm
+          strategy_id: prune_rank_revised
+          selector_version: phase6_gemm_final
+          selector_revision_id: v5_mainline_profiled
+          reduction: mean
+        comparator: greater_than
+        right:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_final_representative
+          kernel_family: gemm
+          strategy_id: prune_rank
+          selector_version: phase6_gemm_final
+          reduction: mean
+        minimum_delta: 0.05
+      - left:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_final_representative
+          kernel_family: gemm
+          strategy_id: naive_random_search
+          selector_version: phase6_gemm_final
+          reduction: mean
+        comparator: less_than_or_equal
+        right:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_final_representative
+          kernel_family: gemm
+          strategy_id: prune_rank_revised
+          selector_version: phase6_gemm_final
+          selector_revision_id: v5_mainline_profiled
+          reduction: mean
+        minimum_delta: 0.03
+  - hypothesis_id: R6_frontier_headline
+    description: >
+      The guarded frontier-only v5 revision materially improves the final
+      representative GEMM mainline result and approaches naive random search.
+    clauses:
+      - left:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_final_representative
+          kernel_family: gemm
+          strategy_id: prune_rank_revised
+          selector_version: phase6_gemm_final
+          selector_revision_id: v5_mainline_frontier
+          reduction: mean
+        comparator: greater_than
+        right:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_final_representative
+          kernel_family: gemm
+          strategy_id: prune_rank
+          selector_version: phase6_gemm_final
+          reduction: mean
+        minimum_delta: 0.05
+      - left:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_final_representative
+          kernel_family: gemm
+          strategy_id: naive_random_search
+          selector_version: phase6_gemm_final
+          reduction: mean
+        comparator: less_than_or_equal
+        right:
+          source: strategy_rows
+          metric: geomean_speedup_vs_default_config
+          group_id: gemm_final_representative
+          kernel_family: gemm
+          strategy_id: prune_rank_revised
+          selector_version: phase6_gemm_final
+          selector_revision_id: v5_mainline_frontier
+          reduction: mean
+        minimum_delta: 0.03
+run_groups:
+  - group_id: gemm_final_representative
+    experiment_ids: [gemm_final_reportable]
+    include_latest_runs: 12
+    kernel_family: gemm
+    selector_version: phase6_gemm_final
+    counter_set_id: compute_lite
+    budget_id: gemm_final_reportable_matched
+group_by:
+  - kernel_family
+  - workload_class
+  - selector_version
+  - selector_revision_id
+  - counter_set_id
+  - budget_id
+  - seed
+primary_metric: geomean_speedup_vs_default_config
+secondary_metrics:
+  - speedup_vs_naive_random_search
+  - winner_rate
+  - regret_vs_best_measured_calibration
+  - selection_agreement
+  - stability_band
+  - signal_runtime_correlation
+  - counter_availability
+reportability_filter: true
+environment_filter:
+  gpu_name: NVIDIA RTX A6000
+comparison_rules:
+  repeatability_runs: 3
+  robustness_seeds: [7, 19, 43]
+output_root: artifacts/studies

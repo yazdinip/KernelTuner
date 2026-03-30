@@ -38,9 +38,11 @@ def _load_required_manifest(run_dir: Path):
     return RunStore.from_run_dir(run_dir).load_manifest()
 
 
-def _load_table(store: RunStore, logical_name: str) -> pd.DataFrame:
+def _load_table(store: RunStore, logical_name: str, *, required: bool = False) -> pd.DataFrame:
     path = store.run_dir / f"{logical_name}.parquet"
     if not path.exists():
+        if required:
+            raise FileNotFoundError(f"run directory '{store.run_dir}' is missing required artifact '{logical_name}.parquet'")
         return pd.DataFrame()
     return store.load_table(logical_name)
 
@@ -211,6 +213,101 @@ def _counter_availability_summary(availability: pd.DataFrame) -> dict[str, bool]
     return {str(strategy_id): bool(value) for strategy_id, value in grouped.to_dict().items()}
 
 
+def _frontier_diagnostics(selection_decisions: pd.DataFrame) -> pd.DataFrame:
+    if selection_decisions.empty or "calibration_metadata" not in selection_decisions.columns:
+        return pd.DataFrame()
+    rows: list[dict[str, Any]] = []
+    role_columns = {
+        "compile_frontier": "compile_rank_ids",
+        "frontier_rank": "frontier_rank_ids",
+        "profile_prefix": "profile_prefix_ids",
+        "rejected_compile": "rejected_top_compile_ids",
+    }
+    for record in selection_decisions.to_dict(orient="records"):
+        metadata = record.get("calibration_metadata") or {}
+        snapshot_map = {
+            snapshot.get("config_id"): snapshot
+            for snapshot in metadata.get("feature_snapshots", [])
+            if isinstance(snapshot, dict) and snapshot.get("config_id")
+        }
+        for role, column in role_columns.items():
+            for rank_index, config_id in enumerate(metadata.get(column, [])):
+                snapshot = snapshot_map.get(config_id, {"config_id": config_id})
+                rows.append(
+                    {
+                        "strategy_id": record.get("strategy_id"),
+                        "selector_mode": record.get("selector_mode"),
+                        "diagnostic_role": role,
+                        "rank_index": rank_index,
+                        **snapshot,
+                    }
+                )
+        for role, config_id in {
+            "selected_config": record.get("selected_config_id"),
+            "best_scored_config": metadata.get("best_scored_config_id"),
+        }.items():
+            if config_id is None:
+                continue
+            snapshot = snapshot_map.get(config_id, {"config_id": config_id})
+            rows.append(
+                {
+                    "strategy_id": record.get("strategy_id"),
+                    "selector_mode": record.get("selector_mode"),
+                    "diagnostic_role": role,
+                    "rank_index": 0,
+                    **snapshot,
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def _chosen_vs_best_family(selection_decisions: pd.DataFrame) -> pd.DataFrame:
+    if selection_decisions.empty or "calibration_metadata" not in selection_decisions.columns:
+        return pd.DataFrame()
+    rows: list[dict[str, Any]] = []
+    for record in selection_decisions.to_dict(orient="records"):
+        metadata = record.get("calibration_metadata") or {}
+        score_map = record.get("score_map") or {}
+        selected_config_id = record.get("selected_config_id")
+        best_scored_config_id = metadata.get("best_scored_config_id")
+        if selected_config_id is None and best_scored_config_id is None:
+            continue
+        snapshot_map = {
+            snapshot.get("config_id"): snapshot
+            for snapshot in metadata.get("feature_snapshots", [])
+            if isinstance(snapshot, dict) and snapshot.get("config_id")
+        }
+        selected_snapshot = snapshot_map.get(selected_config_id, {})
+        best_snapshot = snapshot_map.get(best_scored_config_id, {})
+        selected_score = score_map.get(selected_config_id) if selected_config_id is not None else None
+        best_score = score_map.get(best_scored_config_id) if best_scored_config_id is not None else None
+        rows.append(
+            {
+                "strategy_id": record.get("strategy_id"),
+                "selector_mode": record.get("selector_mode"),
+                "selected_config_id": selected_config_id,
+                "best_scored_config_id": best_scored_config_id,
+                "selected_matches_best_scored": selected_config_id == best_scored_config_id,
+                "selected_score": selected_score,
+                "best_scored_score": best_score,
+                "selected_score_regret": (
+                    (selected_score - best_score)
+                    if selected_score is not None and best_score is not None
+                    else None
+                ),
+                "selected_config": selected_snapshot.get("config"),
+                "best_scored_config": best_snapshot.get("config"),
+                "selected_masked_overcoverage_ratio": selected_snapshot.get("masked_overcoverage_ratio"),
+                "best_masked_overcoverage_ratio": best_snapshot.get("masked_overcoverage_ratio"),
+                "selected_aspect_match_score": selected_snapshot.get("aspect_match_score"),
+                "best_aspect_match_score": best_snapshot.get("aspect_match_score"),
+                "selected_split_k": selected_snapshot.get("split_k"),
+                "best_split_k": best_snapshot.get("split_k"),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def _write_speedup_plot(store: RunStore, comparison: pd.DataFrame) -> str | None:
     if comparison.empty:
         return None
@@ -237,20 +334,28 @@ def summarize_run(run_dir: str | Path) -> dict[str, object]:
     manifest = _load_required_manifest(run_path)
     store = RunStore.from_run_dir(run_path)
     experiment_spec_path = run_path / "experiment_spec.yaml"
-    if not experiment_spec_path.exists():
-        raise FileNotFoundError(f"run directory '{run_path}' is missing experiment_spec.yaml")
     source_experiment_path = experiment_spec_path
+    if not experiment_spec_path.exists():
+        source_experiment_path = None
     if manifest.invocation.experiment_config_path:
         candidate = Path(manifest.invocation.experiment_config_path)
         if candidate.exists():
             source_experiment_path = candidate
+    if source_experiment_path is None or not Path(source_experiment_path).exists():
+        raise FileNotFoundError(
+            f"run directory '{run_path}' is missing experiment_spec.yaml and manifest fallback is unavailable"
+        )
     experiment_spec = load_experiment_spec(source_experiment_path)
     kernel_spec = load_kernel_spec(kernel_config_path(experiment_spec.kernels[0], source_experiment_path))
 
-    compile_signals = _load_table(store, "compile_signals")
-    runtime_measurements = _load_table(store, "runtime_measurements")
-    profile_measurements = _load_table(store, "profile_measurements")
-    selection_decisions = _load_table(store, "selection_decisions")
+    compile_signals = _load_table(store, "compile_signals", required=True)
+    runtime_measurements = _load_table(store, "runtime_measurements", required=True)
+    profile_measurements = _load_table(
+        store,
+        "profile_measurements",
+        required=bool(experiment_spec.counter_set_id),
+    )
+    selection_decisions = _load_table(store, "selection_decisions", required=True)
 
     selection_decisions = _decode_jsonish_columns(selection_decisions, ["score_map", "calibration_metadata"])
     profile_measurements = _decode_jsonish_columns(profile_measurements, ["counter_map", "profiler_metadata"])
@@ -293,6 +398,8 @@ def summarize_run(run_dir: str | Path) -> dict[str, object]:
     pairwise = _pairwise_speedups(strategy_metrics, runtime_measurements)
     correlations = _signal_runtime_correlation(compile_signals, runtime_measurements)
     held_out_per_shape = _held_out_per_shape(runtime_measurements, experiment_spec)
+    frontier_diagnostics = _frontier_diagnostics(selection_decisions)
+    chosen_vs_best_family = _chosen_vs_best_family(selection_decisions)
 
     counter_set = None
     if experiment_spec.counter_set_id:
@@ -347,6 +454,18 @@ def summarize_run(run_dir: str | Path) -> dict[str, object]:
         )
     if not held_out_per_shape.empty:
         store.write_csv_artifact("held_out_per_shape", held_out_per_shape, filename="held_out_per_shape.csv")
+    if not frontier_diagnostics.empty:
+        store.write_csv_artifact(
+            "frontier_diagnostics",
+            frontier_diagnostics,
+            filename="frontier_diagnostics.csv",
+        )
+    if not chosen_vs_best_family.empty:
+        store.write_csv_artifact(
+            "chosen_vs_best_family",
+            chosen_vs_best_family,
+            filename="chosen_vs_best_family.csv",
+        )
     if not availability_frame.empty:
         store.write_csv_artifact(
             "counter_availability_report",
@@ -400,12 +519,34 @@ def summarize_run(run_dir: str | Path) -> dict[str, object]:
         and "shape_id" in runtime_measurements.columns
         else 0
     )
+    policy = experiment_spec.reportability_policy
+    held_out_per_class = (
+        held_out_per_shape.groupby("workload_class", dropna=False)["shape_id"].nunique().to_dict()
+        if not held_out_per_shape.empty and "workload_class" in held_out_per_shape.columns
+        else {}
+    )
+    comparison_classes = {value for value in comparison_class_by_strategy.values() if value is not None}
+    matched_budget_only = bool(comparison_classes) and comparison_classes == {"matched_budget"}
+    decision_statuses = (
+        set(selection_decisions["decision_status"].dropna().astype(str))
+        if "decision_status" in selection_decisions.columns
+        else set()
+    )
+    has_budget_limited_decision = any(status.endswith("budget_limited") for status in decision_statuses)
     is_reportable = bool(
         experiment_spec.study_kind == "reportable"
-        and held_out_shape_count > 0
-        and all(value == "matched_budget" for value in comparison_class_by_strategy.values())
+        and held_out_shape_count >= policy.minimum_held_out_shapes
+        and matched_budget_only
+        and not has_budget_limited_decision
         and (not counter_compatibility or counter_compatibility.get("acceptable", True))
         and (not counter_availability_ok or all(counter_availability_ok.values()))
+        and (
+            policy.minimum_held_out_per_workload_class == 0
+            or (
+                held_out_per_class
+                and all(count >= policy.minimum_held_out_per_workload_class for count in held_out_per_class.values())
+            )
+        )
     )
 
     winner_rates = (
@@ -454,6 +595,7 @@ def summarize_run(run_dir: str | Path) -> dict[str, object]:
             "profile_failures": profile_failures,
             "comparison_class_by_strategy": comparison_class_by_strategy,
             "held_out_shape_count": held_out_shape_count,
+            "held_out_shape_count_by_workload_class": held_out_per_class,
             "counter_availability": counter_availability_ok,
             "winner_rates": winner_rates,
             "opportunity_counts": summarize_opportunity_counts(signatures_frame),
@@ -473,7 +615,10 @@ def summarize_run(run_dir: str | Path) -> dict[str, object]:
             "target": experiment_spec.analysis_settings.reportability_target,
             "is_reportable": is_reportable,
             "comparison_class": "matched_budget" if is_reportable else "non_comparable",
-            "counter_set_accepted": all(counter_availability_ok.values()) if counter_availability_ok else True,
+            "matched_budget_only": matched_budget_only,
+            "budget_limited_decision_present": has_budget_limited_decision,
+            "counter_set_accepted": bool(counter_compatibility.get("acceptable", True))
+            and (all(counter_availability_ok.values()) if counter_availability_ok else True),
             "counter_compatibility": counter_compatibility,
         },
         uncertainty_metrics={
@@ -486,6 +631,12 @@ def summarize_run(run_dir: str | Path) -> dict[str, object]:
             "budget_usage": str(store.run_dir / "budget_usage.csv") if not budget_usage.empty else "",
             "held_out_pairwise": str(store.run_dir / "held_out_pairwise.csv") if not pairwise.empty else "",
             "held_out_per_shape": str(store.run_dir / "held_out_per_shape.csv") if not held_out_per_shape.empty else "",
+            "frontier_diagnostics": (
+                str(store.run_dir / "frontier_diagnostics.csv") if not frontier_diagnostics.empty else ""
+            ),
+            "chosen_vs_best_family": (
+                str(store.run_dir / "chosen_vs_best_family.csv") if not chosen_vs_best_family.empty else ""
+            ),
             "signal_runtime_correlations": (
                 str(store.run_dir / "signal_runtime_correlations.csv") if not correlations.empty else ""
             ),

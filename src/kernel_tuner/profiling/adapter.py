@@ -9,6 +9,7 @@ import re
 import subprocess
 import time
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -29,7 +30,7 @@ from kernel_tuner.common.schema import (
     ProfileStatus,
     ProblemShape,
 )
-from kernel_tuner.config_space.generator import config_dict_from_record, generate_candidate_records
+from kernel_tuner.config_space.generator import config_dict_from_record, generate_candidate_bundle
 from kernel_tuner.kernels.registry import resolve_kernel
 
 
@@ -55,7 +56,7 @@ def _maybe_float(value: str | None) -> float | None:
 
 def _extract_csv_rows(stdout: str) -> list[dict[str, str]]:
     lines = stdout.splitlines()
-    header_index = next((index for index, line in enumerate(lines) if line.startswith('"ID","Process ID"')), None)
+    header_index = next((index for index, line in enumerate(lines) if '"Kernel Name"' in line), None)
     if header_index is None:
         return []
     reader = csv.DictReader(io.StringIO("\n".join(lines[header_index:])))
@@ -66,16 +67,35 @@ def _choose_kernel_row(
     rows: list[dict[str, str]],
     *,
     kernel_name_regex: str | None,
-) -> dict[str, str] | None:
+) -> tuple[dict[str, str] | None, dict[str, Any]]:
     if not rows:
-        return None
+        return None, {"kernel_attribution_status": "no_rows", "kernel_name_candidates": [], "matched_row_count": 0}
 
-    filtered = rows
+    kernel_names = sorted({row.get("Kernel Name", "") for row in rows if row.get("Kernel Name")})
+    filtered: list[dict[str, str]] = rows
     if kernel_name_regex:
         pattern = re.compile(kernel_name_regex)
         matched = [row for row in rows if pattern.search(row.get("Kernel Name", ""))]
-        if matched:
-            filtered = matched
+        if not matched:
+            return None, {
+                "kernel_attribution_status": "regex_no_match",
+                "kernel_name_candidates": kernel_names,
+                "matched_row_count": 0,
+            }
+        matched_names = sorted({row.get("Kernel Name", "") for row in matched if row.get("Kernel Name")})
+        if len(matched_names) > 1:
+            return None, {
+                "kernel_attribution_status": "regex_ambiguous",
+                "kernel_name_candidates": matched_names,
+                "matched_row_count": len(matched),
+            }
+        filtered = matched
+    elif len(kernel_names) > 1:
+        return None, {
+            "kernel_attribution_status": "ambiguous_without_regex",
+            "kernel_name_candidates": kernel_names,
+            "matched_row_count": len(rows),
+        }
 
     duration_key = "gpu__time_duration.sum"
     filtered = sorted(
@@ -85,7 +105,14 @@ def _choose_kernel_row(
             row.get("Kernel Name", ""),
         ),
     )
-    return filtered[-1] if filtered else None
+    return (
+        filtered[-1] if filtered else None,
+        {
+            "kernel_attribution_status": "matched",
+            "kernel_name_candidates": kernel_names,
+            "matched_row_count": len(filtered),
+        },
+    )
 
 
 def _parse_counter_map(
@@ -93,14 +120,69 @@ def _parse_counter_map(
     counters: list[str],
     *,
     kernel_name_regex: str | None,
-) -> tuple[dict[str, float | None], list[str], str | None]:
+) -> tuple[dict[str, float | None], list[str], str | None, dict[str, Any]]:
     rows = _extract_csv_rows(stdout)
-    row = _choose_kernel_row(rows, kernel_name_regex=kernel_name_regex)
+    row, diagnostics = _choose_kernel_row(rows, kernel_name_regex=kernel_name_regex)
     if row is None:
-        return ({counter: None for counter in counters}, counters, None)
+        return (
+            {counter: None for counter in counters},
+            counters,
+            None,
+            {
+                "row_count": len(rows),
+                **diagnostics,
+            },
+        )
     counter_map = {counter: _maybe_float(row.get(counter)) for counter in counters}
     missing = [counter for counter, value in counter_map.items() if value is None]
-    return counter_map, missing, row.get("Kernel Name")
+    return (
+        counter_map,
+        missing,
+        row.get("Kernel Name"),
+        {
+            "row_count": len(rows),
+            **diagnostics,
+        },
+    )
+
+
+@lru_cache(maxsize=1)
+def _ncu_version() -> str | None:
+    try:
+        completed = subprocess.run(
+            ["ncu", "--version"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        return None
+    if completed.returncode != 0:
+        return None
+    lines = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
+    return lines[-1] if lines else None
+
+
+def _base_profiler_metadata(
+    *,
+    command: list[str],
+    counter_set: CounterSetSpec,
+    kernel_name_regex: str | None,
+    experiment_spec: ExperimentSpec,
+) -> dict[str, Any]:
+    return {
+        "command": command,
+        "requested_counters": list(counter_set.counters),
+        "target_processes": counter_set.target_processes or "all",
+        "replay_mode": counter_set.replay_mode or experiment_spec.profiling_settings.replay_mode,
+        "kernel_name_regex": kernel_name_regex,
+        "ncu_args": list(counter_set.ncu_args),
+        "minimum_availability": counter_set.minimum_availability,
+        "diagnostic_only": counter_set.diagnostic_only,
+        "timeout_s": experiment_spec.profiling_settings.timeout_s,
+        "cooldown_s": experiment_spec.profiling_settings.cooldown_s,
+        "ncu_version": _ncu_version(),
+    }
 
 
 def _build_profile_command(
@@ -152,6 +234,13 @@ def profile_candidate(
     )
     command = _build_profile_command(counter_set, experiment_spec.profiling_settings, payload)
     command_started = time.perf_counter()
+    kernel_name_regex = counter_set.kernel_name_regex or experiment_spec.profiling_settings.kernel_name_regex
+    base_metadata = _base_profiler_metadata(
+        command=command,
+        counter_set=counter_set,
+        kernel_name_regex=kernel_name_regex,
+        experiment_spec=experiment_spec,
+    )
     try:
         completed = subprocess.run(
             command,
@@ -169,7 +258,11 @@ def profile_candidate(
             config_id=candidate.config_id,
             counter_set_id=counter_set.counter_set_id,
             profile_status=ProfileStatus.TOOL_UNAVAILABLE,
-            profiler_metadata={"command": command},
+            profiler_metadata={
+                **base_metadata,
+                "returncode": None,
+                "duration_s": time.perf_counter() - command_started,
+            },
             notes="ncu executable not found",
         )
         if experiment_spec.profiling_settings.cooldown_s > 0.0:
@@ -183,11 +276,11 @@ def profile_candidate(
             shape_id=shape.shape_id,
             config_id=candidate.config_id,
             counter_set_id=counter_set.counter_set_id,
-            profile_status=ProfileStatus.PROFILE_FAILED,
+            profile_status=ProfileStatus.TIMEOUT,
             profiler_metadata={
-                "command": command,
+                **base_metadata,
+                "returncode": None,
                 "duration_s": time.perf_counter() - command_started,
-                "timeout_s": experiment_spec.profiling_settings.timeout_s,
             },
             notes=f"ncu timed out: {exc}",
         )
@@ -195,21 +288,27 @@ def profile_candidate(
             time.sleep(experiment_spec.profiling_settings.cooldown_s)
         return ProfileOutcome(measurement=measurement, stdout=exc.stdout or "", stderr=exc.stderr or "")
 
-    kernel_name_regex = counter_set.kernel_name_regex or experiment_spec.profiling_settings.kernel_name_regex
-    counter_map, missing_counters, matched_kernel_name = _parse_counter_map(
+    counter_map, missing_counters, matched_kernel_name, diagnostics = _parse_counter_map(
         completed.stdout,
         counter_set.counters,
         kernel_name_regex=kernel_name_regex,
     )
-    unsupported = bool(missing_counters) or bool(
+    unsupported_metric = bool(
         re.search(r"(unknown metric|unsupported metric|not supported)", completed.stderr, re.IGNORECASE)
     )
     status = ProfileStatus.SUCCESS
     notes = None
-    if completed.returncode != 0:
-        status = ProfileStatus.PROFILE_FAILED
+    attribution_failed = matched_kernel_name is None or diagnostics.get("kernel_attribution_status") != "matched"
+    if completed.returncode != 0 and unsupported_metric:
+        status = ProfileStatus.UNSUPPORTED_COUNTER
+        notes = completed.stderr.strip() or completed.stdout.strip() or "unsupported counter"
+    elif completed.returncode != 0:
+        status = ProfileStatus.INVOCATION_FAILED
         notes = completed.stderr.strip() or completed.stdout.strip() or "ncu invocation failed"
-    elif unsupported:
+    elif attribution_failed:
+        status = ProfileStatus.NO_PROFILE_DATA
+        notes = f"no attributable profiler row: {diagnostics.get('kernel_attribution_status')}"
+    elif missing_counters:
         status = ProfileStatus.UNSUPPORTED_COUNTER
         notes = "missing or unsupported counters: " + ", ".join(sorted(missing_counters))
 
@@ -223,13 +322,12 @@ def profile_candidate(
         profile_status=status,
         counter_map=counter_map,
         profiler_metadata={
-            "command": command,
+            **base_metadata,
             "returncode": completed.returncode,
             "duration_s": time.perf_counter() - command_started,
             "matched_kernel_name": matched_kernel_name,
-            "kernel_name_regex": kernel_name_regex,
-            "replay_mode": counter_set.replay_mode or experiment_spec.profiling_settings.replay_mode,
-            "cooldown_s": experiment_spec.profiling_settings.cooldown_s,
+            "missing_counters": missing_counters,
+            **diagnostics,
         },
         notes=notes,
     )
@@ -246,7 +344,8 @@ def profile_experiment(
     if not experiment_spec.counter_set_id:
         raise ValueError("profile command requires experiment_spec.counter_set_id")
     counter_set = load_counter_set(counter_set_path(experiment_spec.counter_set_id, experiment_path))
-    candidates = generate_candidate_records(experiment_spec, experiment_path=experiment_path)
+    candidate_bundle = generate_candidate_bundle(experiment_spec, experiment_path=experiment_path)
+    candidates = candidate_bundle["records"]
     from kernel_tuner.experiments.orchestrator import _profile_shapes, _shape_split
 
     calibration_shapes, _ = _shape_split(experiment_spec)
@@ -254,7 +353,9 @@ def profile_experiment(
     measurements = []
     for index, shape in enumerate(selected_shapes):
         shape_candidates = [candidate for candidate in candidates if candidate.shape_id == shape.shape_id]
-        candidate = shape_candidates[0]
+        candidate = next((item for item in shape_candidates if item.is_valid), None)
+        if candidate is None:
+            candidate = shape_candidates[0]
         outcome = profile_candidate(
             run_id="standalone",
             strategy_id="profile_cli",
@@ -270,6 +371,7 @@ def profile_experiment(
         "experiment_id": experiment_spec.experiment_id,
         "profile_shape_count": len(measurements),
         "measurements": measurements,
+        "generation_metadata": candidate_bundle["metadata"],
     }
 
 

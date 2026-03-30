@@ -1,0 +1,48 @@
+study_id: gemm_final_selector_ablation
+hypotheses: []
+run_groups:
+  - group_id: gemm_final_parent
+    experiment_ids: [gemm_final_ablation_parent]
+    include_latest_runs: 6
+    kernel_family: gemm
+    selector_version: phase6_gemm_final_parent
+    counter_set_id: compute_lite
+    budget_id: gemm_final_reportable_matched
+  - group_id: gemm_final_frontier
+    experiment_ids: [gemm_final_ablation_frontier]
+    include_latest_runs: 6
+    kernel_family: gemm
+    selector_version: phase6_gemm_final_frontier
+    counter_set_id: compute_lite
+    budget_id: gemm_final_reportable_matched
+  - group_id: gemm_final_profiled
+    experiment_ids: [gemm_final_ablation_profiled]
+    include_latest_runs: 6
+    kernel_family: gemm
+    selector_version: phase6_gemm_final_profiled
+    counter_set_id: compute_lite
+    budget_id: gemm_final_reportable_matched
+group_by:
+  - kernel_family
+  - workload_class
+  - selector_version
+  - selector_revision_id
+  - counter_set_id
+  - budget_id
+  - seed
+primary_metric: geomean_speedup_vs_default_config
+secondary_metrics:
+  - speedup_vs_naive_random_search
+  - winner_rate
+  - regret_vs_best_measured_calibration
+  - selection_agreement
+  - stability_band
+  - signal_runtime_correlation
+  - counter_availability
+reportability_filter: true
+environment_filter:
+  gpu_name: NVIDIA RTX A6000
+comparison_rules:
+  repeatability_runs: 3
+  robustness_seeds: [7, 19, 43]
+output_root: artifacts/studies

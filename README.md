@@ -20,9 +20,9 @@ The repository is no longer docs-only. It contains a working v1 experimentation 
 
 Current emphasis has shifted from foundational implementation to research validation:
 
-- stabilizing repeated reportable runs on the pinned baseline
+- stabilizing repeated reportable runs on the homogeneous `RTX A6000` pool (`gpunode2`, `gpunode3`)
 - comparing runs across workload classes and kernel families
-- expanding mechanism-level analysis from signals and profiles
+- expanding the code-backed tuning surface where evidence justifies it
 - using evidence to justify any selector revision
 
 ## Research Posture
@@ -80,7 +80,7 @@ scripts/
 
 ## Quickstart
 
-On the pinned GPU environment:
+On the current homogeneous `RTX A6000` pool:
 
 ```bash
 export KTUNE_SCRATCH=/scratch/scratch-space/expires-xxxx/$USER/kerneltuner
@@ -97,10 +97,16 @@ Useful starting configs:
 
 - `configs/kernels/gemm.yaml`
 - `configs/kernels/layernorm.yaml`
+- `configs/kernels/gemm_v2.yaml`
+- `configs/kernels/layernorm_v2.yaml`
 - `configs/experiments/gemm_smoke.yaml`
 - `configs/experiments/gemm_reportable.yaml`
 - `configs/experiments/layernorm_reportable.yaml`
+- `configs/experiments/gemm_v2_reportable.yaml`
+- `configs/experiments/layernorm_v2_small_reportable.yaml`
+- `configs/experiments/layernorm_v2_large_reportable.yaml`
 - `configs/studies/validation_phase.yaml`
+- `configs/studies/gemm_v2_baseline_mapping.yaml`
 
 If you do not want to choose a scratch path manually, see the more explicit environment setup flow in [docs/gpu_job_guide.md](docs/gpu_job_guide.md).
 
@@ -112,6 +118,9 @@ For cluster execution, the repo includes reusable Slurm scripts:
 - `scripts/slurm/submit_kerneltuner.sh`
 
 The submit wrapper now supports explicit node pinning for reportable runs through `--nodelist`.
+For Phase 2 work, `gpunode2` and `gpunode3` are treated as one qualified `RTX A6000`
+pool, so reportable submissions may pin either host or otherwise restrict scheduling to
+that homogeneous class.
 
 Example:
 
@@ -119,7 +128,7 @@ Example:
 scripts/slurm/submit_kerneltuner.sh \
   --list configs/experiments/slurm_experiment_list.example.txt \
   --partition gpunodes \
-  --nodelist gpunode2 \
+  --nodelist <gpunode2-or-gpunode3> \
   --gpu-type rtx_a6000 \
   --gpus 1 \
   --time 0-04:00 \

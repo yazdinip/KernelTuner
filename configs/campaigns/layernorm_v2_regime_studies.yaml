@@ -1,0 +1,31 @@
+campaign_id: layernorm_v2_regime_studies
+round_id: round_phase2_layernorm_v2_regimes
+templates:
+  - template_id: layernorm_small_repeatability
+    experiment_ids: [layernorm_v2_small_reportable]
+    seeds: [7]
+    repeats: 3
+  - template_id: layernorm_small_robustness
+    experiment_ids: [layernorm_v2_small_reportable]
+    seeds: [7, 19, 43]
+    repeats: 1
+  - template_id: layernorm_large_repeatability
+    experiment_ids: [layernorm_v2_large_reportable]
+    seeds: [7]
+    repeats: 3
+  - template_id: layernorm_large_robustness
+    experiment_ids: [layernorm_v2_large_reportable]
+    seeds: [7, 19, 43]
+    repeats: 1
+studies:
+  - study_id: layernorm_v2_small_regime
+    requires_templates:
+      - layernorm_small_repeatability
+      - layernorm_small_robustness
+  - study_id: layernorm_v2_large_regime
+    requires_templates:
+      - layernorm_large_repeatability
+      - layernorm_large_robustness
+notes: >
+  Phase 2 LayerNorm regime campaign that evaluates small-batch and large-batch
+  behavior separately under the expanded v2 kernel space.
