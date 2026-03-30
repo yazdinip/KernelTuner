@@ -1,0 +1,15 @@
+\section{Background and Problem Setting}
+\label{sec:background}
+
+Triton kernels expose a schedule-first space that is rich enough to be meaningful and small enough to study mechanistically. For GEMM, the critical knobs include tile geometry, reduction depth, grouped launch order, warp count, and pipelining depth. For LayerNorm, the active knobs are narrower, but work granularity and launch scale still matter. This paper does not study arbitrary algorithmic variants. It studies whether a bounded selector can reason about these schedule choices using lightweight evidence rather than broad brute-force search.
+
+\input{tables/table_scope}
+\input{tables/table_knobs_signals}
+
+Our interpretation vocabulary is bottleneck-driven. Cheap compile-adjacent signals such as register count, shared-memory footprint, and occupancy estimate help detect obviously poor candidates, but they are only indirect proxies for runtime behavior. Limited Tier 1 profiling adds a small amount of runtime evidence, but only on calibration subsets and only when counter availability is good enough to remain reportable. Everything else stays diagnostic-only. This distinction keeps the paper honest: the selector should not quietly consume evidence that the results section later treats as too fragile to trust.
+
+The workload program is equally important. Representative GEMM is the paper's truth source because it includes irregular aspect ratios and masked edges that can expose ranking failures. Aligned GEMM is deliberately retained as a supporting context workload because it can make the selector look better than it really is. LayerNorm plays a different role: it is a secondary validation kernel used to test whether bounded profiling helps more on a workload with stronger memory behavior. The final evidence shows that this story is regime-split rather than uniformly positive.
+
+\input{tables/table_workloads}
+
+The project's hypotheses were intentionally staged. Early rounds asked whether cheap signals prune better than they rank and whether aligned workloads flatter the selector. Middle rounds asked whether bounded profiling or frontier-aware revisions transfer. The final round did not introduce a new hypothesis. Instead, it froze a conservative non-\texttt{split\_k} surface and asked whether one last guarded selector family could produce a credible final mainline result. That separation matters for interpretation: the paper's positive headline comes from a final consolidation pass, not from rewriting the earlier transfer failure into a success story.

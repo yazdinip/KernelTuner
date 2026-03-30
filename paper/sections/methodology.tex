@@ -1,0 +1,32 @@
+\section{Experimental Methodology}
+\label{sec:methodology}
+
+The methodology is designed to answer one narrow question fairly: under the same measurement budget, does a bottleneck-aware selector choose better configurations than default settings or naive search baselines?
+
+\paragraph{Environment.}
+All promoted primary studies use a homogeneous RTX A6000 pool across \texttt{gpunode2} and \texttt{gpunode3}. The research documentation treats these nodes as one qualified environment, not as separate experimental conditions. This matters because the final paper uses repeated and cross-run evidence gathered across both nodes while still making only single-architecture claims.
+
+\paragraph{Matched-budget protocol.}
+Every comparative result in the paper is budget matched. Default, naive random search, compile-ranked selection, profiled selection, and revised selectors all operate under explicit run limits. Diagnostic studies are allowed to collect extra explanation, but those results are never promoted as if they were part of the main matched-budget comparison.
+
+\paragraph{Repeatability and robustness.}
+The project uses two complementary modes:
+\begin{itemize}
+\item \textbf{Repeatability:} three repeated runs with the same seed.
+\item \textbf{Robustness:} one run each at seeds 7, 19, and 43.
+\end{itemize}
+This separation matters in the final headline. The guarded \texttt{v5\_mainline\_profiled} result is clearly positive on mean performance, but it is still described as a bounded improvement because it does not clear the stricter positive-seed gate required for the strongest promotion tier.
+
+\paragraph{Promotion rules.}
+The paper only promotes evidence that survives three filters:
+\begin{enumerate}
+\item the relevant campaign and study completed successfully;
+\item the source artifact is repo-local and canonical;
+\item the claim wording is admitted by the final claim inventory.
+\end{enumerate}
+This is why the final figure set reuses Phase 2 aligned-context evidence and Phase 3 schedule diagnostics even after the R6 run. The optional aligned refresh was skipped by gate, so the stronger earlier aligned comparison remains the paper-safe source.
+
+\paragraph{Evidence discipline.}
+The final promotion boundary is the bundle under \artifact{artifacts/analysis/final\_paper\_20260330/}. Paragraph-level results in the paper must trace to both a claim row in \artifact{docs/research/11\_final\_claim\_inventory.md} and a canonical artifact path in the final bundle. Incomplete or superseded campaign roots, scratch-only experiment trees, and archived raw Phase 3 roots moved under \artifact{/tmp/.../phase3\_raw} are intentionally excluded from promotion.
+
+\input{tables/table_claims}

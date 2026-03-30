@@ -1,0 +1,63 @@
+\documentclass[10pt,twocolumn]{article}
+
+\usepackage[margin=0.75in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{amsmath}
+\usepackage{enumitem}
+\usepackage{xspace}
+\usepackage{hyperref}
+\usepackage{natbib}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  citecolor=blue,
+  urlcolor=blue
+}
+
+\setlist[itemize]{leftmargin=1.2em, itemsep=2pt, topsep=3pt}
+\setlist[enumerate]{leftmargin=1.4em, itemsep=2pt, topsep=3pt}
+\setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
+\setlength{\floatsep}{8pt plus 2pt minus 2pt}
+\setlength{\intextsep}{8pt plus 2pt minus 2pt}
+
+\newcommand{\system}{KernelTuner\xspace}
+\newcommand{\artifact}[1]{\texttt{#1}}
+\newcommand{\claimid}[1]{\texttt{#1}}
+
+\title{Bottleneck-Aware Schedule-First Tuning for Triton Kernels Under Matched Budget}
+\author{Project Draft}
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\input{sections/abstract}
+\end{abstract}
+
+\input{sections/introduction}
+\input{sections/background}
+\input{sections/design}
+\input{sections/methodology}
+\input{sections/results}
+\input{sections/discussion}
+\input{sections/related_work}
+\input{sections/conclusion}
+
+\appendix
+\input{appendix/extended_methods}
+\input{appendix/extended_results}
+\input{appendix/provenance}
+
+\bibliographystyle{plainnat}
+\bibliography{refs}
+
+\end{document}
