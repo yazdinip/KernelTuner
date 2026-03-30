@@ -1,7 +1,7 @@
 \section{Background and Problem Setting}
 \label{sec:background}
 
-Triton kernels expose a schedule-first space that is rich enough to be meaningful and small enough to study mechanistically. For GEMM, the critical knobs include tile geometry, reduction depth, grouped launch order, warp count, and pipelining depth. For LayerNorm, the active knobs are narrower, but work granularity and launch scale still matter. This paper does not study arbitrary algorithmic variants. It studies whether a bounded selector can reason about these schedule choices using lightweight evidence rather than broad brute-force search.
+This paper treats Triton tuning as a schedule-selection problem in the spirit of prior autoscheduling work, but on a deliberately narrower surface. Halide and TVM-style systems search over richer schedule languages and broader compiler representations \citep{ragankelley2012halide,mullapudi2016halide,adams2019halide,chen2018tvm,zheng2020ansor,zheng2022tensorir}. Triton, by contrast, exposes a compact set of meta-parameters directly at the kernel level \citep{tillet2019triton,openai2021triton}. That makes the space rich enough to be meaningful and small enough to study mechanistically. For GEMM, the critical knobs include tile geometry, reduction depth, grouped launch order, warp count, and pipelining depth. For LayerNorm, the active knobs are narrower, but work granularity and launch scale still matter. This paper does not study arbitrary algorithmic variants. It studies whether a bounded selector can reason about these schedule choices using lightweight evidence rather than broad brute-force search.
 
 \input{tables/table_scope}
 \input{tables/table_knobs_signals}
@@ -13,3 +13,5 @@ The workload program is equally important. Representative GEMM is the paper's tr
 \input{tables/table_workloads}
 
 The project's hypotheses were intentionally staged. Early rounds asked whether cheap signals prune better than they rank and whether aligned workloads flatter the selector. Middle rounds asked whether bounded profiling or frontier-aware revisions transfer. The final round did not introduce a new hypothesis. Instead, it froze a conservative non-\texttt{split\_k} surface and asked whether one last guarded selector family could produce a credible final mainline result. That separation matters for interpretation: the paper's positive headline comes from a final consolidation pass, not from rewriting the earlier transfer failure into a success story.
+
+This framing also distinguishes the project from recent agentic GPU optimization work. Systems such as CUDA Agent target full CUDA kernel generation or broader search over implementation programs \citep{dai2026cudaagent}. Our goal is narrower: keep the Triton implementation fixed, keep the budget explicit, and make it possible to explain both wins and failures with recorded bottleneck evidence.
