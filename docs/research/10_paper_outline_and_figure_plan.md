@@ -10,8 +10,9 @@ Depends On: [01_research_program.md](01_research_program.md), [06_hypotheses_and
 
 | Section | Purpose | Primary Source Docs | Primary Artifact Sources |
 | --- | --- | --- | --- |
-| Introduction | motivate bottleneck-aware Triton tuning and state the research question | `01_research_program.md`, proposal | manual prose plus final hypothesis summary |
-| Background and Tuning Space | explain schedule-first tuning and knob families | `02_tuning_theory_and_knob_space.md`, `03_bottleneck_taxonomy.md` | knob-to-signal matrix, bottleneck taxonomy table |
+| Introduction | motivate bottleneck-aware Triton tuning and state the research question | `01_research_program.md`, `12_related_work_and_positioning.md`, proposal | manual prose plus final hypothesis summary |
+| Related Work | position the project against autoscheduling, tensor-compiler autotuning, Triton-native tuning, external autotuners, and agentic CUDA optimization | `12_related_work_and_positioning.md` | reference shelf plus narrative synthesis |
+| Background and Tuning Space | explain schedule-first tuning and knob families | `02_tuning_theory_and_knob_space.md`, `03_bottleneck_taxonomy.md`, `12_related_work_and_positioning.md` | knob-to-signal matrix, bottleneck taxonomy table |
 | Method | describe the selector ladder, signal tiers, workload program, and matched-budget protocol | `04_signal_and_profiling_plan.md`, `05_workload_matrix_and_case_studies.md`, `06_hypotheses_and_ablation_plan.md` | protocol tables, workload tables, study configs |
 | Experimental Setup | pin the environment, workloads, and evaluation rules | `05_workload_matrix_and_case_studies.md`, top-level protocol and environment docs | environment provenance, experiment configs |
 | Results | answer `H1` through `H5` with cross-run evidence, including the completed Phase 3 bounded negative-result and the completed R6 final-mainline lock | `06_hypotheses_and_ablation_plan.md`, `08_evidence_registry.md`, `11_final_claim_inventory.md` | `cross_run_summary.json`, stability reports, held-out comparison tables, final bundle summaries |
@@ -30,6 +31,7 @@ Depends On: [01_research_program.md](01_research_program.md), [06_hypotheses_and
 | `T5` | Workload matrix by kernel family and class | `05_workload_matrix_and_case_studies.md` |
 | `T6` | Selector ladder and hypothesis mapping | `06_hypotheses_and_ablation_plan.md` |
 | `T7` | Final hypothesis status summary | `08_evidence_registry.md` and final cross-run summary |
+| `T8` | Related-work positioning table | `12_related_work_and_positioning.md` |
 
 ## Required Figures
 
