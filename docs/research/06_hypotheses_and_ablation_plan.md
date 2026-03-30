@@ -122,8 +122,14 @@ Latest evaluated batches:
   - `layernorm_v2_small_microstudy` study `run_20260329T053448Z_7c6e5dc1`
   - `layernorm_v2_large_microstudy` study `run_20260329T053455Z_c4118a25`
 - the canonical Phase 3 analysis summary is recorded in [logs/2026-03-29_phase3_execution_analysis.md](logs/2026-03-29_phase3_execution_analysis.md)
+- the final R6 mainline studies are:
+  - `gemm_final_baseline_mapping` study `run_20260330T014317Z_359c1904`
+  - `gemm_final_selector_ablation` study `run_20260330T023529Z_7c800187`
+- the final paper-evidence bundle is:
+  - `artifacts/analysis/final_paper_20260330/`
+- the final synthesis record is [logs/2026-03-30_r6_final_synthesis_and_evidence_lock.md](logs/2026-03-30_r6_final_synthesis_and_evidence_lock.md)
 
-Current post-Phase-3 rule:
+Current post-`R6` rule:
 
 - no new top-level hypotheses are admitted beyond `H5`
 - `H1` remains strong overall:
@@ -136,12 +142,16 @@ Current post-Phase-3 rule:
 - `H4` should now be interpreted as mixed and transfer-limited:
   - the narrower representative GEMM retry supported the frontier-aware revision
   - the expanded v2 and v3 spaces did not preserve that success
+  - the final non-`split_k` R6 mainline ablation recovered a bounded positive result, but this is a consolidation result rather than a new hypothesis
 - `H5` is now answered:
   - the transfer-safe v4 selector remained far below both parent `prune_rank` and `naive_random_search`
   - the current `H5` outcome is therefore `unsupported`
 - the completed Phase 3 execution also resolved two bounded keep/drop decisions:
   - retire `split_k` from the main GEMM reportable surface
   - retire `rows_per_program` from the main LayerNorm reportable surface
+- the completed `R6` execution does **not** add `H6`
+  - it exists to lock the final non-`split_k` mainline surface and determine whether one last guarded selector family is worth promoting as the project headline
+  - the resulting positive `v5_mainline_profiled` result should be written as a final mainline consolidation outcome, not as a new top-level hypothesis
 
 ## Hypothesis Cross-Reference
 

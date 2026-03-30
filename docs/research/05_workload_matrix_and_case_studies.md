@@ -49,6 +49,14 @@ The Phase 3 GEMM study keeps the same representative workload classes but enlarg
 - The completed Phase 3 batch answered that question negatively for the current v4 rule: the transfer-safe selector did not recover near-random-search performance after the space admitted `split_k`.
 - The resulting scientific value is now a bounded transfer-failure result plus a keep/drop decision for `split_k`, not an expanded new optimization surface.
 
+### Final representative GEMM mainline study
+
+Config: `configs/experiments/gemm_final_reportable.yaml`
+
+- The final headline uses the same representative workload classes as the earlier GEMM reportable programs.
+- The final paper-facing surface is the non-`split_k` mainline only.
+- This is the truth source for the final project headline.
+
 ### Phase 3 aligned GEMM context study
 
 Config: `configs/experiments/gemm_v3_aligned_reportable.yaml`
@@ -58,6 +66,7 @@ This is still a supporting context workload, not the primary optimization target
 - It exists to refresh the `H3` interpretation under the Phase 3 search space.
 - It should not replace the representative GEMM study as the main paper-facing truth source.
 - The completed Phase 3 aligned run did not strengthen the earlier `H3` story; it remains context rather than a new primary source of support.
+- The optional R6 aligned refresh was gate-skipped, so the final paper-facing aligned-context source remains the stronger Phase 2 aligned comparison.
 
 ### Development and smoke GEMM studies
 
@@ -113,6 +122,8 @@ Current interpretation:
 - `layernorm_v2_large_reportable`
 - `gemm_v3_reportable`
 - `gemm_v3_aligned_reportable`
+- `gemm_final_reportable`
+- `gemm_final_aligned_reportable`
 
 ### Development only
 
@@ -145,3 +156,10 @@ Current Phase 3 workload rule:
 - keep the representative GEMM and aligned GEMM class definitions stable while the search space changes
 - keep LayerNorm split into `small_batch` and `large_batch`
 - use the completed Phase 3 runs to explain transfer and schedule-family behavior, not to reopen the entire workload program
+
+Final workload rule:
+
+- representative GEMM is the paper truth source
+- aligned GEMM is supporting evaluation context
+- LayerNorm remains regime-split and secondary
+- final promoted figures should prefer stable Phase 2 or R6 sources over optional or skipped refresh runs

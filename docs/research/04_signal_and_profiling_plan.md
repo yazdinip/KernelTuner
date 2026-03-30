@@ -242,6 +242,15 @@ Current implication:
 - the completed results show that profiling did not rescue the revised selector once the frontier was wrong
 - the completed results also show that neither `split_k` nor `rows_per_program` earned promotion into the main reportable knob surfaces
 
+## Final Signal Policy
+
+For the final paper-facing package:
+
+- `compute_lite` is the reportable Tier 1 GEMM counter set on the final representative GEMM mainline surface
+- `compute_schedule_diag` remains diagnostic-only and exists to explain family mismatch rather than to support the headline superiority claim
+- `memory_activity_lite` remains useful for bounded LayerNorm explanation, not for reopening LayerNorm as a primary optimization path
+- the final representative GEMM headline is a conservative non-`split_k` mainline result, so no additional profiling program is promoted beyond these already-qualified sets
+
 ## Counter Availability Risk
 
 Profiler counters are not equally reliable. The research program therefore treats counter availability as part of the evidence, not as an invisible tooling detail.

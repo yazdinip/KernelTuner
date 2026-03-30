@@ -25,9 +25,14 @@ Current environment policy:
 Current promotion boundary:
 
 - the completed bounded Phase 3 execution program is now promoted in this registry
-- the canonical confirmation studies are the primary Phase 3 evidence set
+- the completed bounded `R6` final-mainline program is now also promoted
+- the canonical confirmation studies remain the primary Phase 3 evidence set
+- the canonical `R6` studies are:
+  - `gemm_final_baseline_mapping` `run_20260330T014317Z_359c1904`
+  - `gemm_final_selector_ablation` `run_20260330T023529Z_7c800187`
+- the optional `R6` aligned refresh and confirmation reruns were skipped by gate and are therefore not missing evidence
 - the earlier main Phase 3 studies are retained as replication evidence
-- no incomplete Phase 3 campaign roots are part of the promoted evidence set
+- no incomplete Phase 3 or `R6` campaign roots are part of the promoted evidence set
 
 ## Current Evidence State
 
@@ -63,24 +68,40 @@ Current promotion boundary:
 | `E-H2-P3-SMALL` | `H2` LayerNorm small-batch microstudy | `layernorm_v2_small_microstudy` canonical study `run_20260329T053448Z_7c6e5dc1`, supported by replication study `run_20260328T231251Z_29646063` | qualified homogeneous `RTX A6000` pool | the small-batch microstudy remains weak and noisy: canonical `prune_rank_profiled` improves only slightly over default (`1.0013x`) and only modestly over `prune_rank` (`0.9721x`), while `naive_random_search` is much higher but unstable; this is not a strong profiling success story | Medium | replication variability is large enough that the correct paper framing is bounded and cautious, not promotive | No |
 | `E-H2-P3-LARGE` | `H2` LayerNorm large-batch microstudy | `layernorm_v2_large_microstudy` canonical study `run_20260329T053455Z_c4118a25`, supported by replication study `run_20260328T231256Z_847b98a5` | qualified homogeneous `RTX A6000` pool | the large-batch microstudy continues to favor compile-only ranking: canonical `prune_rank=1.0149x` vs default while `prune_rank_profiled=0.9971x` and `prune_rank_revised=0.9777x`; this keeps LayerNorm as a bounded explanatory thread rather than a major positive result | High | the evidence is strong enough to bound the claim, but still not rich enough to motivate a major new LayerNorm selector program | No |
 | `E-P3-ROWS` | `R5` LayerNorm keep/drop decision | Phase 3 analysis bundle `rows_per_program_decision_table.csv`, grounded in canonical `layernorm_v2_small_microstudy` and `layernorm_v2_large_microstudy` | qualified homogeneous `RTX A6000` pool | `rows_per_program` should be retired from the main reportable LayerNorm surface: non-unit selections occur only in weak or regressing profiled/revised paths and do not produce a stable selector-level gain | High | the knob can remain as archived diagnostic surface, but it no longer belongs in the mainline paper-facing tuning surface | No |
+| `E-R6-INTEGRITY` | `R6` final artifact integrity | `gemm_final_baseline_mapping` campaign `run_20260330T003313Z_9e0cdfce`; `gemm_final_selector_ablation` campaign `run_20260330T014321Z_c4e9fa9d`; final bundle `artifacts/analysis/final_paper_20260330/` | qualified homogeneous `RTX A6000` pool | the bounded final-mainline program completed cleanly: both required campaigns finished with `0` failures, the optional aligned refresh and confirmation reruns were skipped by explicit gate, and the final paper bundle pins all promoted sources to stable repo-local artifacts | High | this row proves completeness and promotion discipline rather than scientific direction by itself | No |
+| `E-R6-HEADLINE` | `R6` final representative GEMM mainline | `gemm_final_baseline_mapping` canonical study `run_20260330T014317Z_359c1904`, with mechanism support from `gemm_final_selector_ablation` `run_20260330T023529Z_7c800187` | qualified homogeneous `RTX A6000` pool | the guarded `v5_mainline_profiled` selector is the final positive mainline result: it reaches `1.0286x` vs default on representative GEMM, beating parent `prune_rank=0.8101x` by `0.2185` while also surpassing `naive_random_search=1.0011x`; the final bundle treats this as a bounded improvement rather than the strongest promotion tier because the stricter positive-seed gate did not clear | High | this is the final non-`split_k` mainline result and must not be merged conceptually with the unsupported `H5` split-`k` result | Yes |
+| `E-R6-ABLATION` | `R6` final revised-selector mechanism | `gemm_final_selector_ablation` canonical study `run_20260330T023529Z_7c800187` | qualified homogeneous `RTX A6000` pool | the final guarded mainline ablation shows that both `v5_mainline_frontier` (`1.0272x`) and `v5_mainline_profiled` (`1.0283x`) recover the parent baseline (`0.8103x`) on the non-`split_k` surface, with profiling adding only a very small increment once the conservative frontier union is in place | High | the ablation is final-mainline evidence only; it does not overturn the earlier bounded negative result for the Phase 3 `split_k` space | Yes |
+| `E-R6-BUNDLE` | final paper-evidence lock | `artifacts/analysis/final_paper_20260330/` and [11_final_claim_inventory.md](11_final_claim_inventory.md) | repository-local promoted artifact set | the final paper-evidence package is now reproducible from repo-local artifacts: the canonical artifact map, figure source map, final claim table, and final claim inventory all agree on one narrow figure set and one final wording discipline | High | if a future paper draft needs a figure not covered by this bundle, that request should be treated as a provenance gap rather than as justification for a new exploratory run | No |
 
 ## Hypothesis Status Snapshot
 
 | Hypothesis | Current Status | Notes |
 | --- | --- | --- |
-| `H1` | Strong overall, but Phase 3 only contextually reinforcing | supported by the original validation batch, strengthened by the `gpunode3` confirmation runs, and preserved directionally by Phase 3 even though the canonical `H1_phase3_gemm` batch missed the pre-registered `+0.02` margin |
+| `H1` | Strong overall | supported by the original validation batch, strengthened by the `gpunode3` confirmation runs, and reinforced by the Phase 2 expanded non-`split_k` representative GEMM result |
 | `H2` | Regime-split weak or negative result | the pooled corrected rerun remained unsupported; the Phase 2 split studies and Phase 3 microstudy keep LayerNorm bounded to a weak small-batch and negative large-batch story |
-| `H3` | Broad historical support, not reinforced by Phase 3 | supported by the earlier validation and Phase 2 evidence, but the Phase 3 aligned refresh did not make aligned GEMM more flattering than representative GEMM |
-| `H4` | Mixed and transfer-limited | the frontier-aware retry succeeded on the narrower representative GEMM space, but the expanded v2 and v3 studies show that the current revision family does not generalize cleanly |
-| `H5` | Unsupported | the completed representative GEMM v3 mapping and ablation show that the current transfer-safe v4 selector family remains far below both parent `prune_rank` and `naive_random_search` |
+| `H3` | Contextual support | supported by the earlier validation and Phase 2 evidence; the Phase 3 aligned refresh did not strengthen it, and the final paper bundle intentionally uses the stronger Phase 2 aligned context |
+| `H4` | Mixed and transfer-limited | the frontier-aware retry succeeded on the narrower representative GEMM space, the expanded v2 and v3 spaces did not preserve that success, and the final non-`split_k` R6 mainline pass recovers a bounded positive result only after a more conservative surface lock |
+| `H5` | Unsupported | the completed representative GEMM v3 mapping and ablation show that the current transfer-safe v4 selector family remains far below both parent `prune_rank` and `naive_random_search` on the expanded `split_k` space |
+
+## Final Mainline Snapshot
+
+The final mainline headline is intentionally tracked separately from `H5`.
+
+- `R6_profiled_headline` is the final positive mainline result:
+  - `v5_mainline_profiled=1.0286x` vs default on representative GEMM
+  - parent `prune_rank=0.8101x`
+  - `naive_random_search=1.0011x`
+- this is written as a bounded improvement rather than the strongest promotion tier because the stricter positive-seed gate did not clear
+- `H5` remains unsupported and stays specific to the expanded Phase 3 `split_k` surface
 
 ## Current Next Evidence Targets
 
-- preserve the reusable Phase 2 and Phase 3 analysis bundles as the canonical parent references for synthesis
-- use the completed Phase 3 confirmation studies as the primary artifact sources for updated figures and tables
+- preserve the reusable Phase 2, Phase 3, and final-paper bundles as the canonical parent references for writing and handoff
+- use the final paper bundle as the paper-facing promotion boundary
 - do not schedule a new rerun by default:
-  - the explicit Phase 3 rerun gates were checked and none triggered
-- focus next on synthesis, figure extraction, and paper-facing claim tightening rather than exploratory expansion
+  - the Phase 3 rerun gates did not trigger
+  - the bounded R6 program completed and the optional aligned refresh / confirmation reruns were skipped by gate rather than dropped accidentally
+- focus next on synthesis, figure extraction, presentation material, and manuscript drafting rather than further exploratory expansion
 
 ## Evidence Source Notes
 
@@ -107,16 +128,25 @@ Current promotion boundary:
   - `gemm_v3_aligned_reference` study `run_20260329T045530Z_7086b0e7`
   - `layernorm_v2_small_microstudy` study `run_20260329T053448Z_7c6e5dc1`
   - `layernorm_v2_large_microstudy` study `run_20260329T053455Z_c4118a25`
+- The completed canonical `R6` sources are:
+  - `gemm_final_baseline_mapping` study `run_20260330T014317Z_359c1904`
+  - `gemm_final_selector_ablation` study `run_20260330T023529Z_7c800187`
+  - `gemm_final_aligned_reference` was intentionally skipped by gate
 - The reusable Phase 2 analysis bundle is:
   - `artifacts/analysis/phase2_20260327/`
 - The reusable Phase 3 analysis bundle is:
   - `artifacts/analysis/phase3_20260329/`
+- The final paper-evidence bundle is:
+  - `artifacts/analysis/final_paper_20260330/`
 - The detailed chronological record for the completed Phase 2 analysis is:
   - `docs/research/logs/2026-03-27_phase2_execution_analysis.md`
 - The detailed chronological record for the completed Phase 3 analysis is:
   - `docs/research/logs/2026-03-29_phase3_execution_analysis.md`
+- The detailed chronological record for the completed final-mainline synthesis is:
+  - `docs/research/logs/2026-03-30_r6_final_synthesis_and_evidence_lock.md`
 - The detailed chronological record for the full `gpunode3` block should be maintained in a dated log entry under `logs/`.
 - The detailed chronological record for the corrected follow-up block should also be maintained in a dated log entry under `logs/`.
+- Noncanonical Phase 3 raw experiment roots moved under `/tmp/.../phase3_raw` are archival provenance only and are not promoted figure or claim sources.
 - Batch-level study outputs remain the automated result source.
 - This registry remains the authoritative place to assign project-level confidence and next actions.
 

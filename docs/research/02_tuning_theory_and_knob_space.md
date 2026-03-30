@@ -111,3 +111,21 @@ Completed Phase 3 decision:
 - The completed Phase 3 evidence did not justify keeping it in the main reportable GEMM surface.
 - `rows_per_program` likewise did not justify staying in the main reportable LayerNorm surface.
 - Both knobs remain scientifically useful as archived bounded experiments, but not as current mainline paper-surface knobs.
+
+## Final Mainline Surfaces
+
+The final paper-facing tuning surfaces are now:
+
+- `configs/kernels/gemm_final.yaml`
+  - inherits the Phase 2 non-`split_k` GEMM surface
+  - keeps `block_m`, `block_n`, `block_k`, `group_size_m`, `num_warps`, and `num_stages`
+  - excludes `split_k`
+- `configs/kernels/layernorm_final.yaml`
+  - inherits the regime-aware LayerNorm surface
+  - keeps `block_size`, `num_warps`, and `num_stages`
+  - fixes `rows_per_program=1` on the final reportable surface
+
+Paper-facing rule:
+
+- `split_k` and `rows_per_program` stay implemented for archival or diagnostic reproducibility
+- they are not part of the final mainline surface used for headline claims

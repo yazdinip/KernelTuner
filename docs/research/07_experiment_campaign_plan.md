@@ -44,12 +44,19 @@ As of March 29, 2026:
   - `split_k` is retired from the main GEMM surface
   - `rows_per_program` is retired from the main LayerNorm surface
   - no bounded tie-break rerun is currently required
+- `R6` is now complete:
+  - the final paper-facing non-`split_k` GEMM mainline surface has been exercised
+  - the final representative GEMM mapping and selector ablation both completed successfully
+  - the aligned refresh was skipped by gate
+  - the confirmation reruns were skipped by gate
+  - the final paper bundle is now the promotion boundary for paper-facing claims
 
 Current implication:
 
 - the controlled Phase 2 deepening pass is complete
 - the bounded Phase 3 corrective pass is complete
-- the current work should synthesize and harden the evidence rather than reopen the search space by default
+- the bounded R6 final-mainline lock is complete
+- no further execution round is justified inside the current paper-facing program
 
 ## Repeatability And Robustness Modes
 
@@ -70,6 +77,7 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 | `R3` Opportunity-guided refinement | test one revised selector batch motivated by real evidence | `R2` produced at least one stable opportunity entry | revised-selector runs on reportable GEMM and LayerNorm under unchanged budget | revised-vs-current comparison, opportunity catalog update, case-study plots | revised selector either demonstrates a real gain or produces a clear negative result | `H4` becomes answerable |
 | `R4` Transfer and limits | consolidate the strongest and weakest cases and document the study boundaries | `R3` complete | selected diagnostic follow-ups, confirmation reruns, final study comparisons | final hypothesis status, final figure bundle, limitations write-up | all paper figures and tables have artifact sources and no unresolved gating confound remains | final paper assembly |
 | `R5` Bounded corrective transfer pass | test whether a transfer-safe frontier plus one new orthogonal schedule family can recover strong representative GEMM behavior without reopening the whole program | `R4` analysis isolated one concrete expanded-space mechanism worth correcting | representative GEMM v3 mapping, GEMM v3 selector ablation, GEMM schedule diagnostics, aligned GEMM v3 context, bounded LayerNorm microstudy | updated hypothesis status, frontier diagnostics, family-mismatch summaries, split-`k` keep/drop evidence | `H5` is answered and the project can either pivot back to synthesis or record a clean bounded failure | paper-ready mainline GEMM transfer claim or paper-ready bounded negative result |
+| `R6` Final mainline consolidation and paper-evidence lock | freeze the final reportable surfaces, run one last bounded representative-GEMM push on the non-`split_k` mainline, and lock the final paper bundle | `R5` complete and keep/drop decisions recorded | final representative GEMM mapping, final selector ablation, conditional aligned-context refresh, final claim bundle generation | final claim inventory, final figure source map, headline result summary, final bundle index | either one stable final positive representative-GEMM headline is promoted or the narrative is locked as a bounded limitation with no further selector-family expansion | final paper-evidence package with stable repo-local sources |
 
 ## Current Round Status
 
@@ -81,6 +89,7 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 | `R3` | Mixed after expansion | the narrower representative GEMM retry supported `H4`, but the expanded v2 GEMM baseline mapping and selector ablation show that the current frontier-aware revision does not generalize cleanly to the larger space |
 | `R4` | Complete | the Phase 2 evidence bundle, docs, and figure plan are aligned closely enough to support a bounded next execution pass |
 | `R5` | Complete as a bounded negative-result and keep/drop round | the transfer-safe selector revisions, GEMM v3 split-`k` surface, schedule-diagnostic batch, aligned-context refresh, and LayerNorm microstudy all completed; `H5` is unsupported, `split_k` is retired from the main GEMM surface, and `rows_per_program` is retired from the main LayerNorm surface |
+| `R6` | Complete as the final bounded mainline lock | `gemm_final_baseline_mapping` and `gemm_final_selector_ablation` both completed successfully; the optional aligned refresh and confirmation reruns were skipped by gate; the final promoted interpretation now lives in the final paper bundle and claim inventory |
 
 ## Current Run Matrix
 
@@ -122,6 +131,14 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 - `configs/experiments/layernorm_v2_small_microstudy.yaml`
 - `configs/experiments/layernorm_v2_large_microstudy.yaml`
 
+### R6 final-mainline studies
+
+- `configs/experiments/gemm_final_reportable.yaml`
+- `configs/experiments/gemm_final_ablation_parent.yaml`
+- `configs/experiments/gemm_final_ablation_frontier.yaml`
+- `configs/experiments/gemm_final_ablation_profiled.yaml`
+- `configs/experiments/gemm_final_aligned_reportable.yaml`
+
 ### Development studies
 
 - `configs/experiments/gemm_development.yaml`
@@ -151,6 +168,9 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 - `configs/studies/gemm_v3_aligned_reference.yaml`
 - `configs/studies/layernorm_v2_small_microstudy.yaml`
 - `configs/studies/layernorm_v2_large_microstudy.yaml`
+- `configs/studies/gemm_final_baseline_mapping.yaml`
+- `configs/studies/gemm_final_selector_ablation.yaml`
+- `configs/studies/gemm_final_aligned_reference.yaml`
 
 ### Current campaign entrypoint
 
@@ -169,6 +189,9 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 - `configs/campaigns/gemm_v3_schedule_diag.yaml`
 - `configs/campaigns/gemm_v3_aligned_reference.yaml`
 - `configs/campaigns/layernorm_v2_microstudy.yaml`
+- `configs/campaigns/gemm_final_baseline_mapping.yaml`
+- `configs/campaigns/gemm_final_selector_ablation.yaml`
+- `configs/campaigns/gemm_final_aligned_reference.yaml`
 
 ## Required Artifacts Per Round
 
@@ -180,35 +203,42 @@ Repeatability isolates measurement noise. Robustness isolates search-order sensi
 | `R3` | opportunity catalog, revised-selector comparison, selected failure case studies |
 | `R4` | final cross-run summary, final figure/table source map, final hypothesis status table |
 | `R5` | representative GEMM v3 comparison, selector ablation, schedule diagnostics, aligned-context refresh, bounded LayerNorm microstudy |
+| `R6` | final representative GEMM comparison, final selector ablation, conditional aligned-context refresh, final claim inventory, final paper bundle |
 
 ## Immediate Work Queue
 
-The immediate queue is now synthesis and credibility hardening rather than new execution.
+The immediate queue is now documentation, figure extraction, and handoff rather than additional execution.
 
-### Step 1: freeze the canonical Phase 3 evidence set
+### Step 1: keep the final promoted evidence set stable
 
-- use the latest confirmation studies as the canonical primary evidence
-- retain the earlier main Phase 3 studies as replication evidence
-- keep incomplete or superseded rerun roots out of the promoted artifact set
+- use `artifacts/analysis/final_paper_20260330/` as the final bundle boundary
+- keep the canonical R6 studies pinned to:
+  - `gemm_final_baseline_mapping` `run_20260330T014317Z_359c1904`
+  - `gemm_final_selector_ablation` `run_20260330T023529Z_7c800187`
 
-### Step 2: generate and maintain the reusable Phase 3 analysis bundle
+### Step 2: write only from promoted sources
 
-- `artifacts/analysis/phase3_20260329/`
-- campaign integrity
-- study integrity
-- replication consistency
-- frontier diagnostics
-- keep/drop decision tables
+- use Phase 2 for aligned-context and LayerNorm regime figures
+- use Phase 3 for split-`k` and family-mismatch diagnostics
+- use R6 for the final representative GEMM headline and final ablation
 
-### Step 3: promote the completed R5 interpretation into the research layer
+### Step 3: do not reopen execution by default
+
+- the aligned refresh was intentionally skipped by gate
+- the confirmation reruns were intentionally skipped by gate
+- no further selector-family expansion or new execution round is justified unless a paper-facing provenance gap appears later
+
+### Step 5: promote the completed R5 and R6 interpretation into the research layer
 
 - append a dated Phase 3 execution-analysis log
+- append a dated R6 execution-analysis log
 - update the evidence registry and opportunity log
 - update the figure plan and paper outline
 - record that `H5` is unsupported
 - record that `split_k` and `rows_per_program` are retired from the mainline surfaces
+- record the final mainline headline decision
 
-### Step 4: rerun only if an explicit credibility gate is later hit
+### Step 6: rerun only if an explicit credibility gate is later hit
 
 - no bounded rerun is currently required
 - any future rerun must be justified by a concrete contradiction, near-threshold instability, or unresolved keep/drop ambiguity

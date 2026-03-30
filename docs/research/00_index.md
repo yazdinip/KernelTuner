@@ -31,9 +31,8 @@ This package is the paper backbone. It should make it possible to answer:
 
 Current project phase:
 
-- the backbone is now relatively stable
-- the main moving documents are the evidence registry, opportunity log, and dated logs
-- the package is now in Phase 3 synthesis and credibility-hardening mode rather than corrective execution mode
+- the backbone is now in final evidence-lock mode rather than execution mode
+- the main moving documents are now the evidence registry, final claim inventory, and dated synthesis logs
 - `gpunode2` and `gpunode3` are now treated as one qualified `RTX A6000` pool for new primary studies
 - the latest detailed execution record is [logs/2026-03-26_g3_requalification_and_followup_execution.md](logs/2026-03-26_g3_requalification_and_followup_execution.md)
 - the latest corrective follow-up record is [logs/2026-03-27_g3_followup_baselinefix_and_v3_retry.md](logs/2026-03-27_g3_followup_baselinefix_and_v3_retry.md)
@@ -41,10 +40,12 @@ Current project phase:
 - the latest full Phase 2 result interpretation is [logs/2026-03-27_phase2_execution_analysis.md](logs/2026-03-27_phase2_execution_analysis.md)
 - the latest bounded Phase 3 implementation record is [logs/2026-03-27_phase3_transfer_safe_implementation.md](logs/2026-03-27_phase3_transfer_safe_implementation.md)
 - the completed Phase 3 execution analysis is [logs/2026-03-29_phase3_execution_analysis.md](logs/2026-03-29_phase3_execution_analysis.md)
+- the completed R6 final synthesis and evidence lock is [logs/2026-03-30_r6_final_synthesis_and_evidence_lock.md](logs/2026-03-30_r6_final_synthesis_and_evidence_lock.md)
 - the earlier documentation freeze point remains recorded in [logs/2026-03-28_phase3_documentation_boundary.md](logs/2026-03-28_phase3_documentation_boundary.md) as historical context only
 - the canonical reusable Phase 2 artifact summary lives under `artifacts/analysis/phase2_20260327/`
 - the canonical reusable Phase 3 artifact summary lives under `artifacts/analysis/phase3_20260329/`
-- the completed bounded R5 batch is now promoted; only explicit future tie-break reruns would sit outside the current backbone
+- the canonical final paper-evidence bundle lives under `artifacts/analysis/final_paper_20260330/`
+- the completed bounded R6 batch is now promoted; no further selector-family expansion is justified inside the current paper backbone
 
 ## Reading Order
 
@@ -58,7 +59,8 @@ Current project phase:
 8. [08_evidence_registry.md](08_evidence_registry.md)
 9. [09_opportunity_log.md](09_opportunity_log.md)
 10. [10_paper_outline_and_figure_plan.md](10_paper_outline_and_figure_plan.md)
-11. [logs/](logs/)
+11. [11_final_claim_inventory.md](11_final_claim_inventory.md)
+12. [logs/](logs/)
 
 ## Research Package Map
 
@@ -74,6 +76,7 @@ Current project phase:
 | [`08_evidence_registry.md`](08_evidence_registry.md) | Evidence ledger | What evidence exists today and how strong is it? | Living Registry |
 | [`09_opportunity_log.md`](09_opportunity_log.md) | Opportunity tracker | What selector or measurement opportunities have been identified from evidence? | Living Registry |
 | [`10_paper_outline_and_figure_plan.md`](10_paper_outline_and_figure_plan.md) | Paper assembly plan | Which artifacts and studies feed each paper section, figure, and table? | Backbone |
+| [`11_final_claim_inventory.md`](11_final_claim_inventory.md) | Final claim ledger | Which exact claims are promotable into the paper and what wording constraints apply? | Backbone |
 | [`logs/`](logs/) | Chronology | What changed, what was run, and what was observed in time order? | Log |
 
 ## Research Documentation Contracts
