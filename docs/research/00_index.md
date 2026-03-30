@@ -50,23 +50,25 @@ Current project phase:
 ## Reading Order
 
 1. [01_research_program.md](01_research_program.md)
-2. [02_tuning_theory_and_knob_space.md](02_tuning_theory_and_knob_space.md)
-3. [03_bottleneck_taxonomy.md](03_bottleneck_taxonomy.md)
-4. [04_signal_and_profiling_plan.md](04_signal_and_profiling_plan.md)
-5. [05_workload_matrix_and_case_studies.md](05_workload_matrix_and_case_studies.md)
-6. [06_hypotheses_and_ablation_plan.md](06_hypotheses_and_ablation_plan.md)
-7. [07_experiment_campaign_plan.md](07_experiment_campaign_plan.md)
-8. [08_evidence_registry.md](08_evidence_registry.md)
-9. [09_opportunity_log.md](09_opportunity_log.md)
-10. [10_paper_outline_and_figure_plan.md](10_paper_outline_and_figure_plan.md)
-11. [11_final_claim_inventory.md](11_final_claim_inventory.md)
-12. [logs/](logs/)
+2. [12_related_work_and_positioning.md](12_related_work_and_positioning.md)
+3. [02_tuning_theory_and_knob_space.md](02_tuning_theory_and_knob_space.md)
+4. [03_bottleneck_taxonomy.md](03_bottleneck_taxonomy.md)
+5. [04_signal_and_profiling_plan.md](04_signal_and_profiling_plan.md)
+6. [05_workload_matrix_and_case_studies.md](05_workload_matrix_and_case_studies.md)
+7. [06_hypotheses_and_ablation_plan.md](06_hypotheses_and_ablation_plan.md)
+8. [07_experiment_campaign_plan.md](07_experiment_campaign_plan.md)
+9. [08_evidence_registry.md](08_evidence_registry.md)
+10. [09_opportunity_log.md](09_opportunity_log.md)
+11. [10_paper_outline_and_figure_plan.md](10_paper_outline_and_figure_plan.md)
+12. [11_final_claim_inventory.md](11_final_claim_inventory.md)
+13. [logs/](logs/)
 
 ## Research Package Map
 
 | Path | Role | What It Must Answer | Status |
 | --- | --- | --- | --- |
 | [`01_research_program.md`](01_research_program.md) | Research charter | What is the actual scientific question and what counts as success? | Backbone |
+| [`12_related_work_and_positioning.md`](12_related_work_and_positioning.md) | Literature positioning | Which prior systems are adjacent, and what exactly is this project claiming relative to them? | Backbone |
 | [`02_tuning_theory_and_knob_space.md`](02_tuning_theory_and_knob_space.md) | Tuning model | What knobs are worth tuning and why? | Backbone |
 | [`03_bottleneck_taxonomy.md`](03_bottleneck_taxonomy.md) | Interpretation vocabulary | What bottlenecks are we trying to detect and how will we recognize them? | Backbone |
 | [`04_signal_and_profiling_plan.md`](04_signal_and_profiling_plan.md) | Signal plan | Which signals justify which tuning actions? | Backbone |

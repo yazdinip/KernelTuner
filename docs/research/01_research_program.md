@@ -23,6 +23,24 @@ The paper should be framed as an empirical systems study:
 
 The intended claim is not that `KernelTuner` is a universal autotuner. The intended claim is that a bottleneck-aware, schedule-first tuner can sometimes beat default and naive baselines under constrained budget, and that the same experimental machinery can explain negative results where it cannot.
 
+## Positioning Against Prior Work
+
+This research story depends on being explicit about what category of work `KernelTuner` belongs to.
+
+- It is **not** a compiler-scale autoscheduler in the Halide or TVM sense.
+- It is **not** a full-kernel CUDA generator or an agentic kernel-synthesis system.
+- It is **not** merely a thin wrapper around Triton's built-in autotuning.
+
+Instead, it is a schedule-first Triton tuning study that sits between those categories:
+
+- like Halide and TVM-style autoscheduling, it treats schedule choice as a serious optimization problem,
+- like Triton's built-in autotuning, it works over a compact meta-parameter space that practitioners already care about,
+- and like external kernel autotuners, it emphasizes candidate generation, correctness validation, bounded benchmarking, and fair strategy comparison.
+
+That middle-ground positioning is important for the paper. It explains why the project is narrow enough to remain interpretable, but still substantial enough to matter scientifically.
+
+For the literature-facing version of this argument, see [12_related_work_and_positioning.md](12_related_work_and_positioning.md).
+
 Final project-level implication:
 
 - cheap compile-adjacent signals are strong enough to prune but not strong enough to carry representative GEMM ranking by themselves,
@@ -113,6 +131,12 @@ The working thesis for the project is:
 > Many poor Triton schedule choices can be filtered or deprioritized with cheap signals, but strong final selection requires conservative frontier construction plus a small amount of bounded profiling whose value depends strongly on kernel family and workload class.
 
 This thesis is what the rest of the research package is designed to test, refine, or reject.
+
+Literature-facing refinement:
+
+- the project borrows the schedule-search viewpoint from autoscheduling research,
+- narrows it to a fixed Triton kernel setting that is closer to practical autotuning workflows,
+- and treats explanation quality, matched-budget fairness, and negative-result discipline as first-class contributions rather than afterthoughts.
 
 Final posture after `R6`:
 

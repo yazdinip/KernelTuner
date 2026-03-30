@@ -16,6 +16,16 @@ This project does not start by tuning arbitrary kernel code. It starts by tuning
 
 Algorithmic or kernel-variant tuning is allowed later only if the schedule-first study reaches a clear limit that justifies broader scope.
 
+Why this is still paper-worthy in the literature:
+
+- compiler autoschedulers such as Halide and TVM study much richer schedule spaces,
+- Triton's own autotuning APIs assume that bounded configuration search is already a practical workflow,
+- and recent agentic CUDA work goes even broader by generating whole kernels.
+
+The point of this repo is not to outgrow those systems. It is to show that even this narrower Triton knob surface contains enough structure to support strong matched-budget evidence about pruning, ranking, transfer failure, and keep/drop decisions.
+
+For the broader literature positioning behind that choice, see [12_related_work_and_positioning.md](12_related_work_and_positioning.md).
+
 ## Knob Families
 
 | Knob Family | What It Changes Physically | Likely Upside | Likely Failure Mode | Applies To | Scope |
@@ -129,3 +139,8 @@ Paper-facing rule:
 
 - `split_k` and `rows_per_program` stay implemented for archival or diagnostic reproducibility
 - they are not part of the final mainline surface used for headline claims
+
+Literature-facing implication:
+
+- the final paper does not need to claim that larger schedule spaces are unimportant;
+- it claims that, for a fixed Triton-kernel setting, the non-`split_k` mainline surface is the most credible place to make the project's strongest positive representative-GEMM claim.

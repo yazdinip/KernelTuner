@@ -1,16 +1,24 @@
-@misc{triton2021,
-  title        = {Triton: A Language and Compiler for Custom Deep Learning Operations},
-  author       = {Tillet, Philippe and others},
-  year         = {2021},
-  howpublished = {Project documentation and open-source release},
-  note         = {Accessed for background framing in the first draft}
-}
-
 @inproceedings{ansel2014opentuner,
   title     = {OpenTuner: An Extensible Framework for Program Autotuning},
   author    = {Ansel, Jason and Kamil, Shoaib and Veeramachaneni, Kalyan and Ragan-Kelley, Jonathan and Bosboom, Jeffrey and O'Reilly, Una-May and Amarasinghe, Saman},
   booktitle = {Proceedings of the International Conference on Parallel Architectures and Compilation Techniques},
   year      = {2014}
+}
+
+@article{ragankelley2012halide,
+  title   = {Decoupling Algorithms from Schedules for Easy Optimization of Image Processing Pipelines},
+  author  = {Ragan-Kelley, Jonathan and Barnes, Connelly and Adams, Andrew and Paris, Sylvain and Durand, Fr{\'e}do and Amarasinghe, Saman},
+  journal = {ACM Transactions on Graphics},
+  volume  = {31},
+  number  = {4},
+  year    = {2012}
+}
+
+@inproceedings{mullapudi2016halide,
+  title     = {Automatically Scheduling Halide Image Processing Pipelines},
+  author    = {Mullapudi, Ravi Teja and Adams, Andrew and Sharlet, Dillon and Ragan-Kelley, Jonathan and Fatahalian, Kayvon},
+  booktitle = {ACM SIGGRAPH 2016 Conference Papers},
+  year      = {2016}
 }
 
 @inproceedings{chen2018tvm,
@@ -34,16 +42,110 @@
   year      = {2019}
 }
 
-@article{nugteren2018cltune,
-  title   = {{CLTune}: A Generic Auto-Tuner for OpenCL Kernels},
-  author  = {Nugteren, Cedric and van den Braak, Gert-Jan},
-  journal = {2018 IEEE 26th International Symposium on Modeling, Analysis, and Simulation of Computer and Telecommunication Systems Workshops},
-  year    = {2018}
-}
-
 @inproceedings{chen2018learningtensor,
   title     = {Learning to Optimize Tensor Programs},
   author    = {Chen, Tianqi and Zheng, Lianmin and Yan, Eddie and Jiang, Ziheng and Wang, Yuwei and Shen, Haichen and others},
   booktitle = {Advances in Neural Information Processing Systems},
   year      = {2018}
+}
+
+@article{shao2022metaschedule,
+  title   = {Tensor Program Optimization with Probabilistic Programs},
+  author  = {Shao, Yidi and Sun, Minmin and others},
+  journal = {Advances in Neural Information Processing Systems},
+  year    = {2022}
+}
+
+@article{zheng2022tensorir,
+  title   = {TensorIR: An Abstraction for Automatic Tensorized Program Optimization},
+  author  = {Zheng, Lianmin and Jia, Chengfan and Sun, Minmin and Wu, Zhao and Yu, Cody Hao and Haj-Ali, Ameer and Wang, Yida and others},
+  journal = {arXiv preprint arXiv:2207.04296},
+  year    = {2022}
+}
+
+@inproceedings{tillet2019triton,
+  title     = {Triton: An Intermediate Language and Compiler for Tiled Neural Network Computations},
+  author    = {Tillet, Philippe and Kung, H. T. and Cox, David},
+  booktitle = {Proceedings of the ACM SIGPLAN International Workshop on Machine Learning and Programming Languages},
+  year      = {2019}
+}
+
+@misc{openai2021triton,
+  title        = {Introducing Triton},
+  author       = {{OpenAI}},
+  year         = {2021},
+  howpublished = {\url{https://openai.com/index/triton/}},
+  note         = {Accessed March 2026}
+}
+
+@misc{tritondocsautotune,
+  title        = {Triton \texttt{triton.autotune} Documentation},
+  author       = {{Triton Contributors}},
+  year         = {2026},
+  howpublished = {\url{https://triton-lang.org/main/python-api/generated/triton.autotune.html}},
+  note         = {Accessed March 2026}
+}
+
+@misc{tritondocsheuristics,
+  title        = {Triton \texttt{triton.heuristics} Documentation},
+  author       = {{Triton Contributors}},
+  year         = {2026},
+  howpublished = {\url{https://triton-lang.org/main/python-api/generated/triton.heuristics.html}},
+  note         = {Accessed March 2026}
+}
+
+@article{vanwerkhoven2019kerneltuner,
+  title   = {Kernel Tuner: A Search-Optimizing GPU Code Auto-Tuner},
+  author  = {van Werkhoven, Ben},
+  journal = {Future Generation Computer Systems},
+  volume  = {90},
+  pages   = {347--358},
+  year    = {2019}
+}
+
+@inproceedings{nugteren2015cltune,
+  title     = {{CLTune}: A Generic Auto-Tuner for {OpenCL} Kernels},
+  author    = {Nugteren, Cedric and Corporaal, Henk},
+  booktitle = {2015 8th International Workshop on Many-Core Computing Systems},
+  year      = {2015}
+}
+
+@article{petrov2023ktt,
+  title   = {Kernel Tuning Toolkit},
+  author  = {Petrov, Tom{\'a}{\v s} and others},
+  journal = {SoftwareX},
+  volume  = {22},
+  pages   = {101391},
+  year    = {2023}
+}
+
+@misc{ibm2025dejavu,
+  title        = {triton-dejavu},
+  author       = {{IBM}},
+  year         = {2025},
+  howpublished = {\url{https://github.com/IBM/triton-dejavu}},
+  note         = {Accessed March 2026}
+}
+
+@misc{pytorchcompile2026,
+  title        = {\texttt{torch.compile} Documentation},
+  author       = {{PyTorch Contributors}},
+  year         = {2026},
+  howpublished = {\url{https://docs.pytorch.org/docs/stable/generated/torch.compile.html}},
+  note         = {Accessed March 2026}
+}
+
+@misc{pytorchtriton2026,
+  title        = {Using User-Defined Triton Kernels with \texttt{torch.compile}},
+  author       = {{PyTorch Contributors}},
+  year         = {2026},
+  howpublished = {\url{https://docs.pytorch.org/tutorials/recipes/torch_compile_user_defined_triton_kernel_tutorial.html}},
+  note         = {Accessed March 2026}
+}
+
+@article{dai2026cudaagent,
+  title   = {{CUDA} Agent: Large-Scale Agentic {RL} for High-Performance {CUDA} Kernel Generation},
+  author  = {Dai, Weinan and Wu, Hanlin and Yu, Qiying and Gao, Huan-ang and Li, Jiahao and Jiang, Chengquan and Lou, Weiqiang and Song, Yufan and Yu, Hongli and Chen, Jiaze and Ma, Wei-Ying and Liu, Jingjing and Wang, Mingxuan and Liu, Xin and Zhou, Hao},
+  journal = {arXiv preprint arXiv:2602.24286},
+  year    = {2026}
 }
