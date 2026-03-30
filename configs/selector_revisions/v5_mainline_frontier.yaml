@@ -1,0 +1,38 @@
+revision_id: v5_mainline_frontier
+parent_selector_mode: prune_rank
+linked_opportunity_tags:
+  - selector_revision_candidate
+  - final_mainline_push
+  - representative_gemm_only
+  - guarded_union_frontier
+frontier_union_policy:
+  parent_top_k: 4
+  recovery_top_k: 4
+  recovery_split_k_value: 1
+  recovery_group_size_m_values: [1, 4]
+  recovery_block_m_values: [128, 256]
+  recovery_block_n_values: [128, 256]
+  recovery_max_block_diff: 64
+  allow_256_square_without_parent: false
+  restrict_selection_to_union: true
+  recovery_ranking_features:
+    - feature_name: block_k
+      source: config
+      direction: desc
+    - feature_name: tile_area
+      source: config
+      direction: asc
+    - feature_name: num_stages
+      source: config
+      direction: desc
+    - feature_name: num_warps
+      source: config
+      direction: asc
+frontier_ranking_features: []
+ranking_features: []
+tie_break_relative_tolerance: 0.02
+notes: >
+  Final conservative frontier-only revision for the paper mainline surface.
+  It preserves the parent shortlist, adds a bounded balanced-recovery shortlist,
+  and prevents the recovery path from elevating 256x256 families unless the
+  parent already considers them viable.

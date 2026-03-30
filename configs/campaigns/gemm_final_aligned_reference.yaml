@@ -1,0 +1,32 @@
+campaign_id: gemm_final_aligned_reference
+round_id: round_phase6_gemm_final_aligned
+templates:
+  - template_id: gemm_final_aligned_frontier_repeatability
+    experiment_ids: [gemm_final_aligned_reportable]
+    seeds: [7]
+    repeats: 3
+    selector_revision_ids: [v5_mainline_frontier]
+  - template_id: gemm_final_aligned_frontier_robustness
+    experiment_ids: [gemm_final_aligned_reportable]
+    seeds: [7, 19, 43]
+    repeats: 1
+    selector_revision_ids: [v5_mainline_frontier]
+  - template_id: gemm_final_aligned_profiled_repeatability
+    experiment_ids: [gemm_final_aligned_reportable]
+    seeds: [7]
+    repeats: 3
+    selector_revision_ids: [v5_mainline_profiled]
+  - template_id: gemm_final_aligned_profiled_robustness
+    experiment_ids: [gemm_final_aligned_reportable]
+    seeds: [7, 19, 43]
+    repeats: 1
+    selector_revision_ids: [v5_mainline_profiled]
+studies:
+  - study_id: gemm_final_aligned_reference
+    requires_templates:
+      - gemm_final_aligned_frontier_repeatability
+      - gemm_final_aligned_frontier_robustness
+      - gemm_final_aligned_profiled_repeatability
+      - gemm_final_aligned_profiled_robustness
+notes: >
+  Final aligned GEMM context refresh for the paper-facing mainline surface.

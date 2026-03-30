@@ -22,6 +22,7 @@ from kernel_tuner.common.schema import (
     ComparisonClass,
     CompileSignalRecord,
     ExperimentSpec,
+    FrontierUnionPolicy,
     MeasurementPhase,
     ProfileMeasurement,
     ProfileStatus,
@@ -49,6 +50,16 @@ def _group_candidates(candidates: Iterable[CandidateConfig]) -> dict[str, list[C
     for candidate in candidates:
         grouped[candidate.config_id].append(candidate)
     return dict(grouped)
+
+
+def _config_map_for_id(
+    config_id: str,
+    candidate_groups: dict[str, list[CandidateConfig]],
+) -> dict[str, int]:
+    candidates = candidate_groups.get(config_id)
+    if not candidates:
+        return {}
+    return candidates[0].config
 
 
 def _aggregate_compile_signals(
@@ -437,6 +448,85 @@ def _feature_snapshot(
     return snapshot
 
 
+def _matches_frontier_union_recovery(
+    config_id: str,
+    policy: FrontierUnionPolicy,
+    candidate_groups: dict[str, list[CandidateConfig]],
+    *,
+    parent_has_256_square: bool,
+) -> bool:
+    config = _config_map_for_id(config_id, candidate_groups)
+    if not config:
+        return False
+    if policy.recovery_split_k_value is not None and config.get("split_k", 1) != policy.recovery_split_k_value:
+        return False
+    if policy.recovery_group_size_m_values and config.get("group_size_m") not in policy.recovery_group_size_m_values:
+        return False
+    if policy.recovery_block_m_values and config.get("block_m") not in policy.recovery_block_m_values:
+        return False
+    if policy.recovery_block_n_values and config.get("block_n") not in policy.recovery_block_n_values:
+        return False
+    block_m = config.get("block_m")
+    block_n = config.get("block_n")
+    if (
+        policy.recovery_max_block_diff is not None
+        and block_m is not None
+        and block_n is not None
+        and abs(block_m - block_n) > policy.recovery_max_block_diff
+    ):
+        return False
+    if (
+        not policy.allow_256_square_without_parent
+        and not parent_has_256_square
+        and block_m == 256
+        and block_n == 256
+    ):
+        return False
+    return True
+
+
+def _apply_frontier_union_policy(
+    ranked_ids: list[str],
+    policy: FrontierUnionPolicy,
+    compile_summary: dict[str, dict[str, float | int | bool | None]],
+    candidate_groups: dict[str, list[CandidateConfig]],
+) -> tuple[list[str], list[str], list[str]]:
+    parent_top = list(ranked_ids[: policy.parent_top_k])
+    parent_has_256_square = any(
+        _config_map_for_id(config_id, candidate_groups).get("block_m") == 256
+        and _config_map_for_id(config_id, candidate_groups).get("block_n") == 256
+        for config_id in parent_top
+    )
+    recovery_pool = [
+        config_id
+        for config_id in ranked_ids
+        if config_id not in parent_top
+        and _matches_frontier_union_recovery(
+            config_id,
+            policy,
+            candidate_groups,
+            parent_has_256_square=parent_has_256_square,
+        )
+    ]
+    recovery_ranked = sorted(
+        recovery_pool,
+        key=lambda config_id: _feature_rank_key(
+            config_id,
+            policy.recovery_ranking_features,
+            compile_summary,
+            {},
+            candidate_groups,
+        ),
+    )
+    recovery_top = recovery_ranked[: policy.recovery_top_k]
+    union_ids = list(parent_top)
+    for config_id in recovery_top:
+        if config_id not in union_ids:
+            union_ids.append(config_id)
+    reordered = union_ids + [config_id for config_id in ranked_ids if config_id not in union_ids]
+    return reordered, union_ids, recovery_top
+
+
 def _metric_value(
     *,
     config_id: str,
@@ -569,6 +659,9 @@ def run_selector_mode(
     ranked_ids, pruned_ids, prune_reasons = _prune_candidates(candidate_groups, compile_summary)
     compile_rank_ids = list(ranked_ids)
     frontier_rank_ids = list(ranked_ids)
+    frontier_union_ids: list[str] = []
+    frontier_recovery_ids: list[str] = []
+    restrict_selection_to_ids: set[str] | None = None
     requested_mode = _mode_name(selector_mode)
     actual_mode = requested_mode
     rationale = [f"started with {len(candidate_groups)} candidate configs", f"pruned {len(pruned_ids)} configs"]
@@ -592,6 +685,25 @@ def run_selector_mode(
             f"re-ranked compile frontier using revision '{selector_revision.revision_id}' before profiling"
         )
         frontier_rank_ids = list(ranked_ids)
+    if (
+        requested_mode == SelectorMode.PRUNE_RANK_REVISED.value
+        and selector_revision is not None
+        and selector_revision.frontier_union_policy is not None
+        and ranked_ids
+    ):
+        ranked_ids, frontier_union_ids, frontier_recovery_ids = _apply_frontier_union_policy(
+            ranked_ids,
+            selector_revision.frontier_union_policy,
+            compile_summary,
+            candidate_groups,
+        )
+        frontier_rank_ids = list(ranked_ids)
+        if selector_revision.frontier_union_policy.restrict_selection_to_union:
+            restrict_selection_to_ids = set(frontier_union_ids)
+        rationale.append(
+            f"built guarded frontier union with {len(frontier_union_ids)} configs for revision "
+            f"'{selector_revision.revision_id}'"
+        )
 
     if not ranked_ids:
         return SelectionDecision(
@@ -740,7 +852,14 @@ def run_selector_mode(
         if runtime_scores
         else None
     )
-    selected = _select_with_tolerance(runtime_scores, benchmark_order)
+    selection_scores = (
+        {
+            config_id: score
+            for config_id, score in runtime_scores.items()
+            if restrict_selection_to_ids is None or config_id in restrict_selection_to_ids
+        }
+    )
+    selected = _select_with_tolerance(selection_scores, benchmark_order)
     budget_limited = any(
         record.status == RuntimeStatus.SKIPPED_BUDGET for record in runtime_records
     ) or any(record.profile_status == ProfileStatus.SKIPPED_BUDGET for record in profiled_records)
@@ -800,6 +919,9 @@ def run_selector_mode(
             "profile_prefix_ids": profiled_ids,
             "rejected_top_compile_ids": rejected_top_compile_ids,
             "best_scored_config_id": best_scored_config_id,
+            "frontier_union_ids": frontier_union_ids,
+            "frontier_recovery_ids": frontier_recovery_ids,
+            "selection_restricted_to_union": restrict_selection_to_ids is not None,
             "feature_snapshots": feature_snapshots,
         },
     )

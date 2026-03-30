@@ -2,6 +2,7 @@ from kernel_tuner.common.schema import (
     CandidateConfig,
     CompileSignalRecord,
     ComparisonClass,
+    FrontierUnionPolicy,
     MeasurementPhase,
     ProfileMeasurement,
     ProfileStatus,
@@ -428,3 +429,204 @@ def test_transfer_safe_frontier_penalizes_oversized_masked_tiles_and_emits_diagn
     assert decision.calibration_metadata["frontier_rank_ids"][0] == "cfg_reasonable"
     assert decision.calibration_metadata["best_scored_config_id"] == "cfg_reasonable"
     assert decision.calibration_metadata["feature_snapshots"]
+
+
+def test_frontier_union_policy_preserves_parent_and_restricts_selection_to_guarded_union():
+    candidates = [
+        CandidateConfig(
+            experiment_id="exp",
+            kernel_id="gemm",
+            shape_id="shape_main",
+            config_id="cfg_parent_small",
+            config={"block_m": 64, "block_n": 64, "block_k": 32, "group_size_m": 8, "num_stages": 4, "num_warps": 4, "split_k": 1},
+            shape_dimensions={"m": 2048, "n": 2048, "k": 2048},
+            workload_class="square_compute",
+            is_valid=True,
+        ),
+        CandidateConfig(
+            experiment_id="exp",
+            kernel_id="gemm",
+            shape_id="shape_main",
+            config_id="cfg_parent_mid",
+            config={"block_m": 64, "block_n": 128, "block_k": 32, "group_size_m": 8, "num_stages": 4, "num_warps": 4, "split_k": 1},
+            shape_dimensions={"m": 2048, "n": 2048, "k": 2048},
+            workload_class="square_compute",
+            is_valid=True,
+        ),
+        CandidateConfig(
+            experiment_id="exp",
+            kernel_id="gemm",
+            shape_id="shape_main",
+            config_id="cfg_recovery_best",
+            config={"block_m": 128, "block_n": 128, "block_k": 64, "group_size_m": 4, "num_stages": 4, "num_warps": 4, "split_k": 1},
+            shape_dimensions={"m": 2048, "n": 2048, "k": 2048},
+            workload_class="square_compute",
+            is_valid=True,
+        ),
+        CandidateConfig(
+            experiment_id="exp",
+            kernel_id="gemm",
+            shape_id="shape_main",
+            config_id="cfg_recovery_256",
+            config={"block_m": 256, "block_n": 256, "block_k": 64, "group_size_m": 4, "num_stages": 4, "num_warps": 4, "split_k": 1},
+            shape_dimensions={"m": 2048, "n": 2048, "k": 2048},
+            workload_class="square_compute",
+            is_valid=True,
+        ),
+        CandidateConfig(
+            experiment_id="exp",
+            kernel_id="gemm",
+            shape_id="shape_main",
+            config_id="cfg_outside_union_fastest",
+            config={"block_m": 128, "block_n": 192, "block_k": 64, "group_size_m": 8, "num_stages": 4, "num_warps": 4, "split_k": 1},
+            shape_dimensions={"m": 2048, "n": 2048, "k": 2048},
+            workload_class="square_compute",
+            is_valid=True,
+        ),
+    ]
+    compile_signals = [
+        CompileSignalRecord(
+            run_id="run",
+            kernel_id="gemm",
+            shape_id="shape_main",
+            config_id="cfg_parent_small",
+            compile_status="success",
+            compile_success=True,
+            register_count=10,
+            shared_memory_bytes=4096,
+            occupancy_estimate=1.0,
+        ),
+        CompileSignalRecord(
+            run_id="run",
+            kernel_id="gemm",
+            shape_id="shape_main",
+            config_id="cfg_parent_mid",
+            compile_status="success",
+            compile_success=True,
+            register_count=11,
+            shared_memory_bytes=4096,
+            occupancy_estimate=1.0,
+        ),
+        CompileSignalRecord(
+            run_id="run",
+            kernel_id="gemm",
+            shape_id="shape_main",
+            config_id="cfg_outside_union_fastest",
+            compile_status="success",
+            compile_success=True,
+            register_count=12,
+            shared_memory_bytes=4096,
+            occupancy_estimate=1.0,
+        ),
+        CompileSignalRecord(
+            run_id="run",
+            kernel_id="gemm",
+            shape_id="shape_main",
+            config_id="cfg_recovery_best",
+            compile_status="success",
+            compile_success=True,
+            register_count=13,
+            shared_memory_bytes=4096,
+            occupancy_estimate=1.0,
+        ),
+        CompileSignalRecord(
+            run_id="run",
+            kernel_id="gemm",
+            shape_id="shape_main",
+            config_id="cfg_recovery_256",
+            compile_status="success",
+            compile_success=True,
+            register_count=14,
+            shared_memory_bytes=4096,
+            occupancy_estimate=1.0,
+        ),
+    ]
+    revision = SelectorRevisionSpec(
+        revision_id="v5_union_test",
+        frontier_union_policy=FrontierUnionPolicy(
+            parent_top_k=2,
+            recovery_top_k=2,
+            recovery_split_k_value=1,
+            recovery_group_size_m_values=[1, 4],
+            recovery_block_m_values=[128, 256],
+            recovery_block_n_values=[128, 256],
+            recovery_max_block_diff=64,
+            allow_256_square_without_parent=False,
+            restrict_selection_to_union=True,
+            recovery_ranking_features=[
+                SelectorRankingFeature(feature_name="block_k", source="config", direction="desc"),
+                SelectorRankingFeature(feature_name="tile_area", source="config", direction="asc"),
+                SelectorRankingFeature(feature_name="num_stages", source="config", direction="desc"),
+                SelectorRankingFeature(feature_name="num_warps", source="config", direction="asc"),
+            ],
+        ),
+        ranking_features=[],
+    )
+
+    def request_profile(config_id: str) -> list[ProfileMeasurement]:
+        return [
+            ProfileMeasurement(
+                run_id="run",
+                strategy_id="prune_rank_revised",
+                kernel_id="gemm",
+                shape_id="shape_main",
+                config_id=config_id,
+                counter_set_id="compute_lite",
+                profile_status=ProfileStatus.SUCCESS,
+                counter_map={
+                    "sm__warps_active.avg.pct_of_peak_sustained_active": 80.0,
+                    "smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct": 5.0,
+                },
+            )
+        ]
+
+    def request_benchmark(config_id: str) -> list[RuntimeMeasurement]:
+        latencies = {
+            "cfg_parent_small": 80.0,
+            "cfg_parent_mid": 70.0,
+            "cfg_recovery_best": 60.0,
+            "cfg_recovery_256": 55.0,
+            "cfg_outside_union_fastest": 40.0,
+        }
+        latency = latencies[config_id]
+        return [
+            RuntimeMeasurement(
+                run_id="run",
+                strategy_id="prune_rank_revised",
+                measurement_phase=MeasurementPhase.CALIBRATION,
+                kernel_id="gemm",
+                shape_id="shape_main",
+                config_id=config_id,
+                warmup_count=1,
+                timed_run_count=1,
+                latency_median_us=latency,
+                latency_mean_us=latency,
+                latency_std_us=0.0,
+                latency_p95_us=latency,
+                throughput_value=1.0,
+                throughput_unit="arb",
+                status=RuntimeStatus.SUCCESS,
+            )
+        ]
+
+    decision = run_selector_mode(
+        run_id="run",
+        strategy_id="prune_rank_revised",
+        selector_mode="prune_rank_revised",
+        kernel_id="gemm",
+        candidate_records=candidates,
+        compile_signals=compile_signals,
+        budgets=type("Budget", (), {"max_profiles": 4, "max_benchmarks": 5})(),
+        request_benchmark=request_benchmark,
+        request_profile=request_profile,
+        selector_revision=revision,
+    )
+
+    assert decision.calibration_metadata["frontier_union_ids"] == [
+        "cfg_parent_small",
+        "cfg_parent_mid",
+        "cfg_recovery_best",
+    ]
+    assert "cfg_recovery_256" not in decision.calibration_metadata["frontier_union_ids"]
+    assert decision.selected_config_id == "cfg_recovery_best"
+    assert decision.calibration_metadata["selection_restricted_to_union"] is True

@@ -608,12 +608,40 @@ class SelectorPruneRule(KTModel):
     prune_reason: str
 
 
+class FrontierUnionPolicy(KTModel):
+    parent_top_k: int = 0
+    recovery_top_k: int = 0
+    recovery_split_k_value: int | None = None
+    recovery_group_size_m_values: list[int] = Field(default_factory=list)
+    recovery_block_m_values: list[int] = Field(default_factory=list)
+    recovery_block_n_values: list[int] = Field(default_factory=list)
+    recovery_max_block_diff: int | None = None
+    allow_256_square_without_parent: bool = True
+    restrict_selection_to_union: bool = True
+    recovery_ranking_features: list[SelectorRankingFeature] = Field(default_factory=list)
+
+    @field_validator("parent_top_k", "recovery_top_k")
+    @classmethod
+    def _non_negative_count(cls, value: int) -> int:
+        if value < 0:
+            raise ValueError("frontier union counts must be non-negative")
+        return value
+
+    @field_validator("recovery_max_block_diff")
+    @classmethod
+    def _non_negative_optional(cls, value: int | None) -> int | None:
+        if value is not None and value < 0:
+            raise ValueError("recovery_max_block_diff must be non-negative")
+        return value
+
+
 class SelectorRevisionSpec(KTModel):
     revision_id: str
     parent_selector_mode: SelectorMode = SelectorMode.PRUNE_RANK_PROFILED
     linked_opportunity_tags: list[str] = Field(default_factory=list)
     prune_rules: list[SelectorPruneRule] = Field(default_factory=list)
     frontier_ranking_features: list[SelectorRankingFeature] = Field(default_factory=list)
+    frontier_union_policy: FrontierUnionPolicy | None = None
     ranking_features: list[SelectorRankingFeature] = Field(default_factory=list)
     tie_break_relative_tolerance: float = 0.02
     notes: str | None = None

@@ -172,3 +172,37 @@ def test_load_phase3_experiment_study_and_campaign_specs():
     assert {hypothesis.hypothesis_id for hypothesis in study.hypotheses} == {"H1_phase3_gemm", "H5_phase3_gemm"}
     assert campaign.campaign_id == "gemm_v3_selector_ablation"
     assert len(campaign.templates) == 6
+
+
+def test_load_final_mainline_kernel_and_revision_specs():
+    gemm_kernel = load_kernel_spec(Path("configs/kernels/gemm_final.yaml"))
+    layernorm_kernel = load_kernel_spec(Path("configs/kernels/layernorm_final.yaml"))
+    frontier = load_selector_revision_spec(Path("configs/selector_revisions/v5_mainline_frontier.yaml"))
+    profiled = load_selector_revision_spec(Path("configs/selector_revisions/v5_mainline_profiled.yaml"))
+
+    assert gemm_kernel.kernel_id == "gemm_final"
+    assert "split_k" not in gemm_kernel.config_parameters
+    assert layernorm_kernel.kernel_id == "layernorm_final"
+    assert "rows_per_program" not in layernorm_kernel.config_parameters
+    assert frontier.revision_id == "v5_mainline_frontier"
+    assert frontier.frontier_union_policy is not None
+    assert frontier.frontier_union_policy.parent_top_k == 4
+    assert profiled.revision_id == "v5_mainline_profiled"
+    assert profiled.frontier_union_policy is not None
+    assert profiled.ranking_features[0].feature_name == "warps_active"
+
+
+def test_load_final_mainline_experiment_study_and_campaign_specs():
+    experiment = load_experiment_spec(Path("configs/experiments/gemm_final_reportable.yaml"))
+    study = load_study_spec(Path("configs/studies/gemm_final_baseline_mapping.yaml"))
+    campaign = load_campaign_spec(Path("configs/campaigns/gemm_final_selector_ablation.yaml"))
+
+    assert experiment.experiment_id == "gemm_final_reportable"
+    assert experiment.kernels == ["gemm_final"]
+    assert experiment.budgets.max_candidates == 216
+    assert {hypothesis.hypothesis_id for hypothesis in study.hypotheses} == {
+        "R6_profiled_headline",
+        "R6_frontier_headline",
+    }
+    assert campaign.campaign_id == "gemm_final_selector_ablation"
+    assert len(campaign.templates) == 6
