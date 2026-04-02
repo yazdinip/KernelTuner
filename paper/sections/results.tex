@@ -3,9 +3,13 @@
 
 \subsection{Cheap Signals and Workload Realism}
 
-The first durable result in the project is that cheap compile-adjacent signals are useful for pruning but not sufficient for reliable ranking on representative GEMM. The clearest expanded-space evidence comes from the Phase 2 representative study. On that non-\texttt{split\_k} surface, naive random search reaches a geometric-mean speedup of 1.0331 versus default, while the compile-ranked parent \texttt{prune\_rank} reaches only 0.8265. Even bounded profiling helps only modestly at 0.8444, and the early revised selector collapses catastrophically to 0.1458. This is not a story about cheap signals being worthless. It is a story about coarse signals being good at excluding obvious losers but weak at choosing among plausible survivors.
+Unless stated otherwise, the numeric values in this section are geometric-mean speedup relative to the Triton default schedule. A value above 1.0 is an improvement, while a value below 1.0 is a regression.
 
-Workload realism matters at the same time. Figure~\ref{fig:aligned-context} compares the Phase 2 representative and aligned contexts. The aligned workload is consistently more flattering: \texttt{prune\_rank} improves from 0.8265 on representative GEMM to 0.8795 on aligned GEMM, and \texttt{prune\_rank\_profiled} improves from 0.8444 to 0.8873. This supports the paper's decision to treat aligned GEMM as context only. If the study had stopped on aligned workloads, the selector would have looked materially better than it is on realistic shapes.
+The first stable result in the project is simple: cheap compile-adjacent signals help most when they rule out bad candidates early. They do much less well at deciding which of the remaining candidates is actually best on representative GEMM.
+
+The clearest evidence comes from the Phase 2 representative GEMM study on the final non-\texttt{split\_k} surface. Under the same budget, naive random search reaches a geometric-mean speedup of 1.0331 versus default, while the compile-ranked parent \texttt{prune\_rank} reaches only 0.8265. Adding bounded profiling raises the result only modestly to 0.8444. The early revised selector falls much further, to 0.1458. The main point is not that cheap signals are useless. The point is that they are better at pruning obviously weak candidates than at ranking several plausible survivors.
+
+That result is easier to see once the workload is chosen carefully. In this paper, representative GEMM is the truth source because it includes the irregular shapes that expose ranking mistakes. Figure~\ref{fig:aligned-context} shows why the aligned workload is kept only as context. On aligned GEMM, the same strategies look better: \texttt{prune\_rank} rises from 0.8265 to 0.8795, and \texttt{prune\_rank\_profiled} rises from 0.8444 to 0.8873. If the evaluation had stopped there, the selector would have looked stronger than it really is on the more realistic workload matrix.
 
 \begin{figure}[t]
 \centering
@@ -15,7 +19,7 @@ Workload realism matters at the same time. Figure~\ref{fig:aligned-context} comp
 \centering
 \begin{tabular}{lcc}
 \toprule
-Strategy & Representative & Aligned \\
+Strategy & Rep. GEMM & Aligned GEMM \\
 \midrule
 \texttt{prune\_rank} & 0.8265 & 0.8795 \\
 \texttt{prune\_rank\_profiled} & 0.8444 & 0.8873 \\
@@ -27,13 +31,15 @@ Strategy & Representative & Aligned \\
 \raggedright
 \textbf{Source.} Phase 2 canonical aligned-context comparison from \artifact{gemm\_v2\_baseline\_mapping} and \artifact{gemm\_v2\_aligned\_reference}.
 \end{minipage}}
-\caption{Aligned GEMM remains useful as context, but it is not the truth source. Compile-ranked strategies look better on aligned workloads than on the representative GEMM matrix.}
+\caption{Aligned GEMM remains useful as context, but it is not the truth source. All values are geometric-mean speedup versus the Triton default schedule. Compile-ranked strategies look better on aligned workloads than on the representative GEMM matrix.}
 \label{fig:aligned-context}
 \end{figure}
 
 \subsection{LayerNorm as a Bounded Regime-Split Result}
 
-LayerNorm never becomes a second main optimization story. Instead, it becomes a useful bounded result about when profiling does not help enough. The regime split is the key. In the Phase 2 reportable regime studies, \texttt{small\_batch} shows only a marginal gain from profiling: \texttt{prune\_rank}=1.0100 versus \texttt{prune\_rank\_profiled}=1.0113. In \texttt{large\_batch}, the direction reverses: \texttt{prune\_rank}=1.0029 while \texttt{prune\_rank\_profiled}=0.9856. The later Phase 3 microstudy does not overturn that conclusion. It only reinforces that \texttt{rows\_per\_program} is too weak and noisy to justify staying on the mainline surface.
+LayerNorm answers a different question. It does not become a second headline optimization win. Instead, it shows that bounded profiling has a mixed effect that depends on workload regime.
+
+The regime split matters immediately. In the Phase 2 reportable studies, \texttt{small\_batch} shows only a very small gain from profiling: \texttt{prune\_rank}=1.0100 and \texttt{prune\_rank\_profiled}=1.0113. In \texttt{large\_batch}, profiling moves in the wrong direction: \texttt{prune\_rank}=1.0029 while \texttt{prune\_rank\_profiled}=0.9856. The later Phase 3 microstudy does not change that reading. It only strengthens the decision to remove \texttt{rows\_per\_program} from the paper-facing LayerNorm surface.
 
 \begin{figure}[t]
 \centering
@@ -55,17 +61,19 @@ Strategy & Small batch & Large batch \\
 \raggedright
 \textbf{Source.} Phase 2 regime-split LayerNorm studies. Phase 3 microstudies support the same bounded interpretation and retire \texttt{rows\_per\_program}.
 \end{minipage}}
-\caption{LayerNorm is a regime-split secondary result, not a major positive profiling story. Small-batch profiling is weak and noisy, while large-batch profiling regresses relative to compile-only ranking.}
+\caption{LayerNorm is a regime-split secondary result, not a major positive profiling story. All values are geometric-mean speedup versus the Triton default schedule. Small-batch profiling is weak and noisy, while large-batch profiling regresses relative to compile-only ranking.}
 \label{fig:layernorm-regimes}
 \end{figure}
 
-This outcome still matters scientifically. It shows that a matched-budget profiling recipe can be directionally informative without becoming a strong paper-grade win, and it shows why the paper needs to keep LayerNorm as an explanatory thread rather than forcing it into the headline.
+This is still a useful result. It shows that even when profiling provides extra information, that information does not automatically translate into a robust matched-budget win. It also shows why LayerNorm belongs in the paper as a bounded secondary story rather than as a second main result.
 
 \subsection{Transfer, Failure Analysis, and Keep/Drop Decisions}
 
-The revised-selector story becomes stronger when written as a transfer story rather than a binary success or failure. The narrow-space \texttt{h4\_retry\_g3} result showed that a frontier-aware revision could work. But once the search surface expanded, the same family stopped generalizing. In Phase 3, the transfer-safe corrective pass on the \texttt{split\_k} space remained unsupported: the canonical representative GEMM mapping gives \texttt{prune\_rank}=1.0324, \texttt{naive\_random\_search}=1.0427, and \texttt{v4\_transfer\_safe\_profiled}=0.1609. The ablation is even clearer: frontier-only and profiled v4 are almost identical at 0.1622 and 0.1623, far below the parent at 0.9692.
+The revised-selector part of the project is easiest to understand as a transfer story. On a narrower search space, the frontier-aware revision looked promising. Once the search space expanded, that same idea stopped carrying over cleanly.
 
-These failures are useful because they close two design questions. First, \texttt{split\_k} does not stay in the mainline GEMM surface. Second, \texttt{rows\_per\_program} does not stay in the mainline LayerNorm surface. The schedule diagnostic supports the first decision directly: in the canonical diagnostic run, the selected and best-scored families both converge to a balanced \texttt{128x128x32}, \texttt{group\_size\_m}=4, \texttt{split\_k}=1 configuration, while non-unit \texttt{split\_k} values appear only as dominated alternatives.
+The Phase 3 \texttt{split\_k} studies are the clearest limit case. On the expanded representative GEMM surface, \texttt{prune\_rank} reaches 1.0324 and naive random search reaches 1.0427, but \texttt{v4\_transfer\_safe\_profiled} falls to 0.1609. The matching ablation makes the problem even clearer: frontier-only and profiled v4 are nearly identical at 0.1622 and 0.1623, both far below the parent at 0.9692. This is why the project does not present revised selectors as a simple success story.
+
+That failure is useful because it closes two design decisions cleanly. First, \texttt{split\_k} does not stay on the mainline GEMM surface. Second, \texttt{rows\_per\_program} does not stay on the mainline LayerNorm surface. The schedule diagnostic supports the GEMM decision directly: in the canonical diagnostic run, both the selected and the best-scored family converge to a balanced \texttt{128x128x32}, \texttt{group\_size\_m}=4, \texttt{split\_k}=1 schedule, while non-unit \texttt{split\_k} values remain dominated alternatives.
 
 \begin{figure*}[t]
 \centering
@@ -79,7 +87,7 @@ These failures are useful because they close two design questions. First, \textt
 
 \begin{tabular}{lc}
 \toprule
-Selector & Geomean speedup \\
+Selector & Geomean speedup vs default \\
 \midrule
 Parent \texttt{prune\_rank} & 0.8103 \\
 \texttt{v5\_mainline\_frontier} & 1.0272 \\
@@ -116,7 +124,9 @@ Score regret & 0.0 \\
 
 \subsection{Final Mainline Consolidation}
 
-The payoff of the project is the final non-\texttt{split\_k} mainline result. Figure~\ref{fig:r6-headline} shows the bounded positive headline recorded by the final bundle. On representative GEMM, the guarded \texttt{v5\_mainline\_profiled} selector reaches 1.0286 geometric-mean speedup versus default. This beats the compile-ranked parent at 0.8101 by 0.2185 speedup points and also exceeds naive random search at 1.0011 under the same budget. The paired ablation in Figure~\ref{fig:ablation} shows that most of the recovery comes from conservative frontier construction, while profiling adds only a very small extra increment once the frontier is already correct.
+The paper's positive headline comes from the final non-\texttt{split\_k} mainline pass. This step does not reopen the search program. It narrows the paper-facing surface and asks whether one conservative selector family can recover a credible final result under the same matched budget.
+
+Figure~\ref{fig:r6-headline} shows that it can. On representative GEMM, the guarded \texttt{v5\_mainline\_profiled} selector reaches 1.0286 geometric-mean speedup versus default. That is 0.2185 speedup points above the compile-ranked parent at 0.8101, and it also exceeds naive random search at 1.0011 under the same budget. The paired ablation in Figure~\ref{fig:ablation} shows where that recovery comes from. Most of it comes from conservative frontier construction, while profiling adds only a very small extra increment once the frontier is already in better shape.
 
 \begin{figure}[t]
 \centering
@@ -143,4 +153,4 @@ Strategy & Geomean speedup vs default \\
 \label{fig:r6-headline}
 \end{figure}
 
-This final result should be read carefully. It is not evidence that the project solved Triton autotuning. It is evidence that the strongest remaining mainline lever was worth pursuing, that the project's evidence discipline prevented an overly broad claim, and that a conservative selector can still recover a useful headline after several rounds of negative and mixed results.
+This final result should be read narrowly. It does not show that Triton autotuning is solved, and it does not erase the earlier transfer failure. What it does show is that a conservative selector on the final paper-facing surface can recover a real, bounded representative GEMM improvement after several mixed and negative rounds. That combination of recovery and restraint is the main result of the paper.

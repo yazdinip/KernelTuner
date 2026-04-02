@@ -1,15 +1,26 @@
 \begin{table}[t]
 \centering
 \small
-\begin{tabular}{p{0.20\columnwidth}p{0.25\columnwidth}p{0.43\columnwidth}}
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\columnwidth}{
+  >{\raggedright\arraybackslash}p{0.21\columnwidth}
+  >{\raggedright\arraybackslash}X
+  >{\raggedright\arraybackslash}p{0.31\columnwidth}}
 \toprule
 Kernel & Workload classes & Role \\
 \midrule
-Representative GEMM & \texttt{square\_compute}, \texttt{m\_dominant}, \texttt{n\_dominant}, \texttt{edge\_nondivisible} & Primary truth source for ranking quality and final headline \\
-Aligned GEMM & \texttt{aligned\_square}, \texttt{aligned\_rectangular} & Context workload used to test whether regular shapes flatter the selector \\
-LayerNorm & \texttt{small\_batch}, \texttt{large\_batch} & Secondary regime-split explanation of profiling value \\
+Representative GEMM &
+\texttt{square\_compute}, \texttt{m\_dominant}, \newline
+\texttt{n\_dominant}, \texttt{edge\_nondivisible} &
+Primary truth source for ranking quality and the final headline \\
+Aligned GEMM &
+\texttt{aligned\_square}, \texttt{aligned\_rectangular} &
+Context workload used to check whether regular shapes flatter the selector \\
+LayerNorm &
+\texttt{small\_batch}, \texttt{large\_batch} &
+Secondary regime-split case for interpreting profiling value \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \caption{Final workload matrix used by the draft.}
 \label{tab:workloads}
 \end{table}

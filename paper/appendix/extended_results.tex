@@ -1,23 +1,24 @@
 \section{Extended Results and Exact Artifact Mapping}
 
-The final manuscript uses a narrow figure set, but the underlying evidence is broader. Table~\ref{tab:artifactmap} records the canonical artifact map used by the first draft.
+The final manuscript uses a narrow figure set, but the underlying evidence is broader. Table~\ref{tab:artifactmap} records the research-backed source map used by the first draft. In this repo snapshot, the paper backbone is tracked through the research docs, the ADRs, and the dated analysis logs.
 
 \begin{table*}[t]
 \centering
-\small
-\begin{tabular}{p{0.19\textwidth}p{0.61\textwidth}p{0.14\textwidth}}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.18\textwidth} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{0.14\textwidth}}
 \toprule
 Artifact role & Canonical source & Used by \\
 \midrule
-Final representative headline & \artifact{artifacts/studies/gemm\_final\_baseline\_mapping/run\_20260330T014317Z\_359c1904} & Figure 2, Table 4 \\
-Final mainline ablation & \artifact{artifacts/studies/gemm\_final\_selector\_ablation/run\_20260330T023529Z\_7c800187} & Figure 5, Table 4 \\
-Aligned context & \artifact{artifacts/studies/gemm\_v2\_aligned\_reference/run\_20260327T190124Z\_3a34cdc7} plus \artifact{gemm\_v2\_baseline\_mapping} & Figure 3 \\
-LayerNorm regime split & \artifact{artifacts/studies/layernorm\_v2\_small\_regime/run\_20260327T183157Z\_53565cba} plus \artifact{layernorm\_v2\_large\_regime/run\_20260327T183158Z\_37695a2d} & Figure 4 \\
-Phase 3 transfer failure & \artifact{artifacts/studies/gemm\_v3\_baseline\_mapping/run\_20260329T010211Z\_dfb53abb} and \artifact{gemm\_v3\_selector\_ablation/run\_20260329T034953Z\_e8b8ac98} & \texttt{H5} text, Table 4 \\
-Chosen-vs-best diagnostic & \artifact{artifacts/studies/gemm\_v3\_schedule\_diag/run\_20260328T212649Z\_7755304a} & Figure 5B \\
-Final claim bundle & \artifact{artifacts/analysis/final\_paper\_20260330/} & Whole draft \\
+Final representative headline & \texttt{gemm\_final\_baseline\_mapping} with supporting interpretation in \texttt{docs/research/08\_evidence\_registry.md}, \texttt{docs/research/11\_final\_claim\_inventory.md}, and \texttt{docs/research/logs/2026-03-30\_r6\_final\_synthesis\_and\_evidence\_lock.md} & Figure 2, Table 4 \\
+Final mainline ablation & \texttt{gemm\_final\_selector\_ablation} plus the same R6 synthesis sources above & Figure 5, Table 4 \\
+Aligned context & \texttt{gemm\_v2\_aligned\_reference} plus \texttt{gemm\_v2\_baseline\_mapping}, interpreted through \texttt{docs/research/08\_evidence\_registry.md} & Figure 3 \\
+LayerNorm regime split & \texttt{layernorm\_v2\_small\_regime} plus \texttt{layernorm\_v2\_large\_regime}, with bounded follow-up from the Phase 3 microstudy rows in \texttt{docs/research/08\_evidence\_registry.md} & Figure 4 \\
+Phase 3 transfer failure & \texttt{gemm\_v3\_baseline\_mapping} and \texttt{gemm\_v3\_selector\_ablation}, anchored by \texttt{docs/research/08\_evidence\_registry.md} and \texttt{docs/research/11\_final\_claim\_inventory.md} & \texttt{H5} text, Table 4 \\
+Chosen-vs-best diagnostic & \texttt{gemm\_v3\_schedule\_diag} with the keep/drop decision documented in \texttt{docs/research/08\_evidence\_registry.md} & Figure 5B \\
+Paper backbone & \texttt{docs/research/}, \texttt{docs/adr/}, and dated analysis logs under \texttt{docs/research/logs/} & Whole draft \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \caption{Canonical artifact map for the first draft.}
 \label{tab:artifactmap}
 \end{table*}

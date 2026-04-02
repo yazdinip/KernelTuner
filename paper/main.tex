@@ -22,6 +22,8 @@
   urlcolor=blue
 }
 
+\raggedbottom
+\urlstyle{same}
 \setlist[itemize]{leftmargin=1.2em, itemsep=2pt, topsep=3pt}
 \setlist[enumerate]{leftmargin=1.4em, itemsep=2pt, topsep=3pt}
 \setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
@@ -33,8 +35,8 @@
 \newcommand{\claimid}[1]{\texttt{#1}}
 
 \title{Bottleneck-Aware Schedule-First Tuning for Triton Kernels Under Matched Budget}
-\author{Project Draft}
-\date{March 2026}
+\author{Pedram \and Giovanni Galea Curmi}
+\date{April 2026}
 
 \begin{document}
 \maketitle
@@ -45,19 +47,25 @@
 
 \input{sections/introduction}
 \input{sections/background}
+\input{sections/related_work}
 \input{sections/design}
 \input{sections/methodology}
 \input{sections/results}
 \input{sections/discussion}
-\input{sections/related_work}
 \input{sections/conclusion}
 
+\clearpage
 \appendix
 \input{appendix/extended_methods}
 \input{appendix/extended_results}
 \input{appendix/provenance}
 
+\clearpage
+\begingroup
+\small
+\sloppy
 \bibliographystyle{plainnat}
 \bibliography{refs}
+\endgroup
 
 \end{document}
