@@ -1,22 +1,25 @@
 \section{Discussion and Limitations}
 \label{sec:discussion}
 
-The project ends with a stronger and narrower story than it began with. The strongest support is for a limited but meaningful claim: lightweight signals are useful, but mostly for pruning and controlled frontier construction rather than for fully solving final ranking. The final mainline result is therefore positive in exactly the way the evidence allows and no stronger.
+The project ends with a narrower story than it started with, but it also ends with a stronger one. The main lesson is that lightweight signals help most when they are used carefully. They are useful for pruning and for building a better frontier of candidates, but they are not enough to solve final ranking on their own.
 
 \paragraph{Why compile signals prune better than they rank.}
-Compile-adjacent resource signals expose obvious failures such as excessive footprint or poor occupancy potential, but they do not directly encode the fine-grained runtime tradeoffs that separate several already-valid GEMM families. The repeated gap between compile-ranked selection and the best reachable representative GEMM family supports this reading across multiple rounds.
+Compile-adjacent signals can expose obvious problems such as excessive resource use or poor occupancy potential. What they do not capture well is the finer runtime tradeoff between several candidates that are all already valid. That is why the project repeatedly sees a gap between compile-ranked selection and the best representative GEMM family reachable under the same budget.
 
 \paragraph{Why aligned workloads mislead.}
-Aligned GEMM is useful because it shows what a selector looks like on regular shapes. It becomes misleading when treated as the main truth source. The project preserves aligned GEMM in the paper precisely because it demonstrates how an apparently better result can emerge from an easier workload rather than from a better selector.
+Aligned GEMM is still useful, but only in the right role. It shows how the selector behaves on regular shapes. It becomes misleading when treated as the main truth source, because regular workloads make the selector look better than it does on the irregular representative matrix. Keeping aligned GEMM in the paper is therefore useful precisely because it warns against overreading an easier evaluation setting.
 
 \paragraph{Why LayerNorm stayed secondary.}
-LayerNorm did not fail because it was uninteresting. It stayed secondary because the evidence never justified a strong matched-budget success claim. The regime split was still valuable: it explained why a pooled interpretation was too coarse and why the extra LayerNorm knob did not belong in the final mainline surface.
+LayerNorm stayed secondary not because it was unimportant, but because the evidence never supported a strong matched-budget win. The regime split still taught something important. It showed that a pooled interpretation was too coarse, and it supported the decision to remove the extra LayerNorm knob from the final paper-facing surface.
 
 \paragraph{Why transfer failed on the expanded \texttt{split\_k} space.}
-The negative Phase 3 result is not an embarrassment to hide. It is a central part of the paper's credibility. The selector family that looked promising on a narrower space did not survive the expanded space, and the diagnostic evidence shows that the admitted orthogonal schedule family did not become a useful mainline choice. That bounded failure is what justifies the keep/drop decisions and the return to a conservative final surface.
+The negative Phase 3 result is part of the paper's credibility, not a detour to hide. A selector family that looked promising on a narrower space did not survive the expanded \texttt{split\_k} surface, and the diagnostic evidence shows that the added schedule family did not become a useful mainline choice. That bounded failure is exactly what justifies the keep/drop decisions and the later return to a conservative final surface.
 
 \paragraph{Why the final result is intentionally conservative.}
-The final mainline selector is not a heroic last-minute heuristic sweep. It is a carefully bounded corrective pass on the paper-facing non-\texttt{split\_k} surface. The paper should make that explicit. The value of the result comes from the combination of positive evidence and disciplined scope control, not from pretending that the final selector is universally robust.
+The final mainline selector is not a last-minute attempt to rescue every earlier result. It is a bounded corrective pass on the final non-\texttt{split\_k} surface. That should stay explicit in the paper. The strength of the result comes from the combination of a real positive outcome and disciplined scope control, not from implying that the selector is broadly robust.
+
+\paragraph{What this could mean for open-source tooling.}
+The work is narrow, but parts of it could still transfer into open-source Triton tooling. The clearest candidates are the cheap-signal pruning rules, the matched-budget evaluation protocol, and the evidence split between reportable and diagnostic profiling. These are easier to adopt than the full selector story because they do not require claiming that one learned or revised policy generalizes broadly. In other words, the paper supports extending existing tuning libraries with better pruning and better evaluation discipline more strongly than it supports shipping a universal Triton selector.
 
 The paper also has clear non-claims:
 \begin{itemize}
@@ -26,4 +29,4 @@ The paper also has clear non-claims:
 \item It does not show that revised selectors always transfer across search spaces.
 \end{itemize}
 
-Those limits are not a weakness of presentation. They are part of the project's final contribution: a matched-budget tuning study can still be useful and paper-worthy when it states exactly where the method works, where it fails, and why.
+These limits are part of the contribution, not a weakness in how the paper is framed. The project is useful because it says clearly where the method helps, where it does not, and why the final paper-facing system keeps only the parts that survived the evidence lock.

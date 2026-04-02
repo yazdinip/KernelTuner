@@ -42,9 +42,9 @@ Current project phase:
 - the completed Phase 3 execution analysis is [logs/2026-03-29_phase3_execution_analysis.md](logs/2026-03-29_phase3_execution_analysis.md)
 - the completed R6 final synthesis and evidence lock is [logs/2026-03-30_r6_final_synthesis_and_evidence_lock.md](logs/2026-03-30_r6_final_synthesis_and_evidence_lock.md)
 - the earlier documentation freeze point remains recorded in [logs/2026-03-28_phase3_documentation_boundary.md](logs/2026-03-28_phase3_documentation_boundary.md) as historical context only
-- the canonical reusable Phase 2 artifact summary lives under `artifacts/analysis/phase2_20260327/`
-- the canonical reusable Phase 3 artifact summary lives under `artifacts/analysis/phase3_20260329/`
-- the canonical final paper-evidence bundle lives under `artifacts/analysis/final_paper_20260330/`
+- for paper writing and verification in this repo snapshot, treat `docs/research/`, `docs/adr/`, and `logs/` as the canonical documentation backbone
+- use the evidence registry, final claim inventory, and dated analysis logs as the primary source of truth for promoted claims
+- treat older references to `artifacts/analysis/...` as historical pointers rather than required local dependencies for reading the paper backbone
 - the completed bounded R6 batch is now promoted; no further selector-family expansion is justified inside the current paper backbone
 
 ## Reading Order
