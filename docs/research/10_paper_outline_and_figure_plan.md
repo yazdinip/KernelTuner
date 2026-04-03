@@ -20,58 +20,41 @@ Depends On: [01_research_program.md](01_research_program.md), [06_hypotheses_and
 | Limitations | state what the study does not claim | `01_research_program.md`, `08_evidence_registry.md` | hypothesis status table, unresolved-confounds summary |
 | Conclusion | summarize what was learned about lightweight bottleneck-aware tuning | final evidence registry and paper draft | final hypothesis summary |
 
-## Required Tables
+## Main-Text Tables
 
 | Table ID | Table | Source |
 | --- | --- | --- |
-| `T1` | Research question, scope, and success criteria | `01_research_program.md` |
-| `T2` | Knob families and expected physical effects | `02_tuning_theory_and_knob_space.md` |
-| `T3` | Bottleneck taxonomy | `03_bottleneck_taxonomy.md` |
-| `T4` | Signal tiers and counter sets | `04_signal_and_profiling_plan.md` |
-| `T5` | Workload matrix by kernel family and class | `05_workload_matrix_and_case_studies.md` |
-| `T6` | Selector ladder and hypothesis mapping | `06_hypotheses_and_ablation_plan.md` |
-| `T7` | Final hypothesis status summary | `08_evidence_registry.md` and final cross-run summary |
-| `T8` | Related-work positioning table | `12_related_work_and_positioning.md` |
+| `T1` | Research question, scope, and success criteria | `paper/tables/table_scope.tex`; `01_research_program.md` |
+| `T2` | Final knob families and signal tiers | `paper/tables/table_knobs_signals.tex`; `02_tuning_theory_and_knob_space.md`; `04_signal_and_profiling_plan.md` |
+| `T3` | Workload matrix by kernel family and class | `paper/tables/table_workloads.tex`; `05_workload_matrix_and_case_studies.md` |
+| `T4` | Final hypothesis and claim summary | `paper/tables/table_claims.tex`; `11_final_claim_inventory.md`; `artifacts/analysis/final_paper_20260403/final_claim_table.csv` |
+| `T5` | Related-work positioning table | `paper/tables/table_related_positioning.tex`; `12_related_work_and_positioning.md` |
 
-## Required Figures
+## Main-Text Figures
 
 | Figure ID | Figure | Claim It Supports | Source Study / Artifact |
 | --- | --- | --- | --- |
-| `F1` | strategy speedup by workload class on the final representative GEMM mainline | the final non-`split_k` mainline selector yields the strongest representative GEMM result in the project | `gemm_final_baseline_mapping` |
-| `F2` | aligned vs representative GEMM context comparison | aligned workloads can overstate selector quality relative to the representative GEMM truth source | `gemm_v2_aligned_reference` vs `gemm_v2_baseline_mapping` |
-| `F3` | LayerNorm regime split: `small_batch` vs `large_batch` profiling outcomes | profiling helps differently by LayerNorm regime and not uniformly by kernel family | `layernorm_v2_small_regime` and `layernorm_v2_large_regime` |
-| `F4` | repeated-run stability by strategy | results are or are not stable enough for strong claims | stability reports from repeatability mode |
-| `F5` | counter availability by counter set | reportable vs diagnostic profiling evidence is clearly separated | counter-availability reports |
-| `F6` | signal-to-runtime correlation overview | some cheap signals are informative and others are weak | correlation artifacts from GEMM and LayerNorm runs |
-| `F7` | revised-selector transfer and final-mainline ablation | measured failure analysis can motivate a better heuristic, but the final headline must survive the conservative non-`split_k` mainline lock | `gemm_final_selector_ablation` |
-| `F8` | bottleneck or opportunity distribution across workload classes | failure modes are structured rather than random | bottleneck signatures and opportunity catalog |
-| `F9` | retired | absorbed into the final narrative rather than promoted as a standalone figure | use `H5` text plus `F11` if needed |
-| `F10` | retired | absorbed into `F7` and the failure-analysis text | no standalone promotion |
-| `F11` | chosen-family vs best-family frontier diagnostic | the selector either learns the right schedule family or systematically misses it for interpretable reasons | `gemm_v3_schedule_diag` plus study-level frontier diagnostics |
-| `F12` | retired | the `rows_per_program` keep/drop decision now lives in text and the final claim inventory rather than as a standalone figure | no standalone promotion |
+| `F1` | conceptual pipeline schematic | the paper is about matched-budget evidence flow, not just final speedups | `artifacts/analysis/final_paper_20260403/figure1_pipeline_schematic.csv` |
+| `F2` | representative GEMM budget-efficiency curve on the final non-`split_k` mainline | the final mainline result is bounded, positive, and should be read in a budgeted setting | `artifacts/analysis/final_paper_20260403/figure2_budget_curve.csv` |
+| `F3` | aligned vs representative GEMM context comparison | aligned workloads can overstate selector quality relative to the representative GEMM truth source | `artifacts/analysis/final_paper_20260403/figure3_aligned_vs_representative.csv` |
+| `F4` | LayerNorm regime split | profiling helps differently by LayerNorm regime and does not become a uniform cross-kernel win | `artifacts/analysis/final_paper_20260403/figure4_layernorm_regimes.csv` |
+| `F5` | transfer/mainline two-panel figure | Phase 3 transfer failure is scientifically useful, and the final non-`split_k` mainline still admits a bounded recovery | `artifacts/analysis/final_paper_20260403/figure5_transfer_failure.csv`; `artifacts/analysis/final_paper_20260403/figure5_transfer_diagnostic.csv`; `artifacts/analysis/final_paper_20260403/figure5_mainline_ablation.csv` |
 
 ## Current Figure Readiness
 
 | Figure ID | Current Readiness | Notes |
 | --- | --- | --- |
-| `F1` | Final | the completed `gemm_final_baseline_mapping` study is now the canonical representative GEMM headline source |
-| `F2` | Final | the Phase 2 aligned-context comparison is the canonical aligned-versus-representative figure because the optional R6 aligned refresh was skipped by gate |
-| `F3` | Final | the completed `layernorm_v2_small_regime` and `layernorm_v2_large_regime` studies remain the strongest LayerNorm regime-split figure source |
-| `F4` | Provisionally backed | repeatability and robustness evidence now exists in both the original validation block and the completed v2 studies; final paper usage should rely on archived artifact paths |
-| `F5` | Provisionally backed | Tier 1 counter-set acceptance has live evidence on the current A6000 stack, including `memory_activity_lite` |
-| `F6` | Provisionally backed | correlation artifacts still need interpretation and pruning, but the v2 studies now give a cleaner set of candidate figure sources |
-| `F7` | Final | the completed `gemm_final_selector_ablation` study is the canonical revised-selector mechanism figure |
-| `F8` | Strongly provisionally backed | bottleneck-signature, opportunity, and diagnostic artifacts now include the completed v2 studies and the reusable Phase 2 analysis bundle |
-| `F9` | Retired | the split-`k` negative result stays in text and the evidence registry rather than the narrow final figure set |
-| `F10` | Retired | the Phase 3 transfer-ablation is now supporting text for `H5`, not a standalone final figure |
-| `F11` | Strongly backed as a diagnostic failure-analysis figure | the completed schedule-diagnostic batch plus the analysis bundle now expose chosen-family vs best-family mismatch and dominated non-unit `split_k` frontier rows |
-| `F12` | Retired | the completed Phase 3 LayerNorm microstudy now feeds the final claim inventory directly instead of staying as a standalone final figure |
+| `F1` | Final | generated from the hardened final bundle and no longer hand-drawn in LaTeX |
+| `F2` | Final but expandable | currently uses the R6 canonical point from `gemm_final_baseline_mapping`; the prepared R7 budget sweep would widen this curve once the A6000 pool is available again |
+| `F3` | Final | the Phase 2 aligned-context comparison remains the canonical aligned-versus-representative source |
+| `F4` | Final | the Phase 2 regime studies remain the strongest LayerNorm regime-split figure source |
+| `F5` | Final | the hardened draft combines Phase 3 transfer failure plus chosen-family note with the final mainline ablation into one two-panel figure |
 
-R6 note:
+R7 note:
 
-- `F1` and `F7` are now promoted from the completed bounded final-mainline studies.
-- `F2` intentionally remains on the stronger Phase 2 aligned-context source because the optional R6 aligned refresh was skipped by gate.
-- the final figure set is intentionally narrow: `F1`, `F2`, `F3`, `F7`, and `F11`.
+- the hardened paper now uses a narrow five-figure set backed by generated PDFs under `paper/figures/generated/`
+- the prepared R7 budget-sweep and stability studies were not executed on April 3, 2026 because both A6000 nodes were administratively drained (`moving to DCA`)
+- until that execution package runs, `F2` remains a bounded final-mainline budget plot anchored by the canonical R6 point rather than a full multi-budget curve
 
 ## Current Strongest Artifact Sources
 
@@ -95,7 +78,7 @@ R6 note:
 - Canonical Phase 3 summary bundle:
   - `artifacts/analysis/phase3_20260329/`
 - Final paper-evidence bundle:
-  - `artifacts/analysis/final_paper_20260330/`
+  - `artifacts/analysis/final_paper_20260403/`
 - Representative GEMM Phase 3 canonical mapping:
   - `gemm_v3_baseline_mapping` `run_20260329T010211Z_dfb53abb`
 - Representative GEMM Phase 3 canonical selector ablation:
@@ -126,19 +109,19 @@ R6 note:
 - The completed Phase 3 transfer-safe corrective pass is a bounded negative result: it does not recover near-random-search representative GEMM performance on the split-`k` space, and the additional schedule family should not stay in the mainline surface.
   - strongest sources: `gemm_v3_baseline_mapping`, `gemm_v3_selector_ablation`, `gemm_v3_schedule_diag`, `artifacts/analysis/phase3_20260329/`
 - The completed `R6` final-mainline lock provides the strongest final headline: a guarded non-`split_k` mainline selector materially improves representative GEMM under the same budget and approaches random search.
-  - strongest sources: `gemm_final_baseline_mapping`, `gemm_final_selector_ablation`, `artifacts/analysis/final_paper_20260330/`
+  - strongest sources: `gemm_final_baseline_mapping`, `gemm_final_selector_ablation`, `artifacts/analysis/final_paper_20260403/`
 - The completed Phase 3 LayerNorm microstudy is strong enough to retire `rows_per_program` from the main reportable LayerNorm surface.
   - strongest sources: `layernorm_v2_small_microstudy`, `layernorm_v2_large_microstudy`, `artifacts/analysis/phase3_20260329/`
 
 ## Current Analysis Goal
 
-The current synthesis phase should no longer decide whether to run more experiments. It should:
+The current synthesis phase should no longer decide whether to run broad new experiments. It should:
 
 - lock the final paper bundle to the completed Phase 2, Phase 3, and R6 evidence together,
 - write the representative GEMM story around the bounded positive R6 mainline result,
 - keep `H5` as a bounded negative result specific to the split-`k` Phase 3 surface,
 - write the revised-selector result as a transfer-and-consolidation story rather than a universal success story,
-- and keep LayerNorm as a regime-aware secondary story with the `rows_per_program` keep/drop decision already resolved.
+- and keep LayerNorm as a regime-aware secondary story with the `rows_per_program` retirement decision already resolved.
 
 ## Figure Readiness Rules
 

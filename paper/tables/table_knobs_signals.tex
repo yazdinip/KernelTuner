@@ -7,9 +7,9 @@ Surface & Active knobs & Signals \\
 \midrule
 GEMM final & \texttt{block\_m}, \texttt{block\_n}, \texttt{block\_k}, \texttt{group\_size\_m}, \texttt{num\_warps}, \texttt{num\_stages} & Tier 0 compile signals + reportable \texttt{compute\_lite} \\
 LayerNorm final & \texttt{block\_size}, \texttt{num\_warps}, \texttt{num\_stages} & Tier 0 compile signals + bounded LayerNorm profiling \\
-Retired diagnostic knobs & \texttt{split\_k}, \texttt{rows\_per\_program} & Diagnostic-only keep/drop evidence \\
+Retired diagnostic knobs & \texttt{split\_k}, \texttt{rows\_per\_program} & Diagnostic-only retirement evidence \\
 \bottomrule
 \end{tabular}
-\caption{Final paper-facing knob surfaces and signal tiers.}
+\caption{Final mainline knob surfaces and signal tiers.}
 \label{tab:knobs}
 \end{table}

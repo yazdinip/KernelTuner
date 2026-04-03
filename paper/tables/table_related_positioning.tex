@@ -1,0 +1,18 @@
+\begin{table*}[t]
+\centering
+\small
+\begin{tabular}{p{0.18\textwidth}p{0.20\textwidth}p{0.22\textwidth}p{0.30\textwidth}}
+\toprule
+System family & Search surface & Typical evidence target & Relation to this paper \\
+\midrule
+Halide autoscheduling & rich schedule language over algorithm/schedule separation & schedule quality across compiler-generated schedules & broader abstraction and richer search language than the bounded Triton knob spaces studied here \\
+TVM / Ansor / TensorIR / MetaSchedule & IR-level tensor-program transformations and learned cost models & general compiler optimization quality & scientifically adjacent, but aimed at broader compiler optimization rather than fixed-kernel matched-budget selection \\
+Triton-native autotuning & kernel-local meta-parameter search around a fixed Triton implementation & best configuration under local benchmark loops & immediate ecosystem context; this paper asks what lightweight evidence buys before broad autotuning \\
+External kernel autotuners & parameterized kernel families with benchmark-driven search & search-strategy comparisons and best-found performance & closest practical architecture; this paper adds stricter matched-budget and evidence-discipline rules \\
+Agentic GPU optimization & full-kernel synthesis or broader implementation search & end-to-end kernel generation quality & substantially broader scope than this study; useful positioning contrast rather than a direct baseline \\
+This paper & bounded Triton schedule spaces with explicit workload realism and reportable/diagnostic evidence separation & general lessons about matched-budget pruning, ranking, profiling, transfer, and bounded recovery & narrower than compiler-scale autotuning, but more interpretable as a controlled empirical systems study \\
+\bottomrule
+\end{tabular}
+\caption{Related-work positioning. The paper's contribution is not a larger search space or stronger general-purpose optimizer, but a narrower matched-budget study of what lightweight evidence can and cannot buy on Triton schedule surfaces.}
+\label{tab:related-positioning}
+\end{table*}

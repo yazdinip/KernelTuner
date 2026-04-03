@@ -30,6 +30,10 @@ Current promotion boundary:
 - the canonical `R6` studies are:
   - `gemm_final_baseline_mapping` `run_20260330T014317Z_359c1904`
   - `gemm_final_selector_ablation` `run_20260330T023529Z_7c800187`
+- the hardened paper bundle is:
+  - `artifacts/analysis/final_paper_20260403/`
+- the prepared `R7` budget-sweep and stability configs are not promoted evidence yet:
+  - no new `R7` GPU evidence was added on April 3, 2026 because the qualified A6000 pool was administratively drained
 - the optional `R6` aligned refresh and confirmation reruns were skipped by gate and are therefore not missing evidence
 - the earlier main Phase 3 studies are retained as replication evidence
 - no incomplete Phase 3 or `R6` campaign roots are part of the promoted evidence set
@@ -68,10 +72,10 @@ Current promotion boundary:
 | `E-H2-P3-SMALL` | `H2` LayerNorm small-batch microstudy | `layernorm_v2_small_microstudy` canonical study `run_20260329T053448Z_7c6e5dc1`, supported by replication study `run_20260328T231251Z_29646063` | qualified homogeneous `RTX A6000` pool | the small-batch microstudy remains weak and noisy: canonical `prune_rank_profiled` improves only slightly over default (`1.0013x`) and only modestly over `prune_rank` (`0.9721x`), while `naive_random_search` is much higher but unstable; this is not a strong profiling success story | Medium | replication variability is large enough that the correct paper framing is bounded and cautious, not promotive | No |
 | `E-H2-P3-LARGE` | `H2` LayerNorm large-batch microstudy | `layernorm_v2_large_microstudy` canonical study `run_20260329T053455Z_c4118a25`, supported by replication study `run_20260328T231256Z_847b98a5` | qualified homogeneous `RTX A6000` pool | the large-batch microstudy continues to favor compile-only ranking: canonical `prune_rank=1.0149x` vs default while `prune_rank_profiled=0.9971x` and `prune_rank_revised=0.9777x`; this keeps LayerNorm as a bounded explanatory thread rather than a major positive result | High | the evidence is strong enough to bound the claim, but still not rich enough to motivate a major new LayerNorm selector program | No |
 | `E-P3-ROWS` | `R5` LayerNorm keep/drop decision | Phase 3 analysis bundle `rows_per_program_decision_table.csv`, grounded in canonical `layernorm_v2_small_microstudy` and `layernorm_v2_large_microstudy` | qualified homogeneous `RTX A6000` pool | `rows_per_program` should be retired from the main reportable LayerNorm surface: non-unit selections occur only in weak or regressing profiled/revised paths and do not produce a stable selector-level gain | High | the knob can remain as archived diagnostic surface, but it no longer belongs in the mainline paper-facing tuning surface | No |
-| `E-R6-INTEGRITY` | `R6` final artifact integrity | `gemm_final_baseline_mapping` campaign `run_20260330T003313Z_9e0cdfce`; `gemm_final_selector_ablation` campaign `run_20260330T014321Z_c4e9fa9d`; final bundle `artifacts/analysis/final_paper_20260330/` | qualified homogeneous `RTX A6000` pool | the bounded final-mainline program completed cleanly: both required campaigns finished with `0` failures, the optional aligned refresh and confirmation reruns were skipped by explicit gate, and the final paper bundle pins all promoted sources to stable repo-local artifacts | High | this row proves completeness and promotion discipline rather than scientific direction by itself | No |
+| `E-R6-INTEGRITY` | `R6` final artifact integrity | `gemm_final_baseline_mapping` campaign `run_20260330T003313Z_9e0cdfce`; `gemm_final_selector_ablation` campaign `run_20260330T014321Z_c4e9fa9d`; final bundle `artifacts/analysis/final_paper_20260403/` | qualified homogeneous `RTX A6000` pool | the bounded final-mainline program completed cleanly: both required campaigns finished with `0` failures, the optional aligned refresh and confirmation reruns were skipped by explicit gate, and the hardened final paper bundle pins all promoted sources to stable repo-local artifacts | High | this row proves completeness and promotion discipline rather than scientific direction by itself | No |
 | `E-R6-HEADLINE` | `R6` final representative GEMM mainline | `gemm_final_baseline_mapping` canonical study `run_20260330T014317Z_359c1904`, with mechanism support from `gemm_final_selector_ablation` `run_20260330T023529Z_7c800187` | qualified homogeneous `RTX A6000` pool | the guarded `v5_mainline_profiled` selector is the final positive mainline result: it reaches `1.0286x` vs default on representative GEMM, beating parent `prune_rank=0.8101x` by `0.2185` while also surpassing `naive_random_search=1.0011x`; the final bundle treats this as a bounded improvement rather than the strongest promotion tier because the stricter positive-seed gate did not clear | High | this is the final non-`split_k` mainline result and must not be merged conceptually with the unsupported `H5` split-`k` result | Yes |
 | `E-R6-ABLATION` | `R6` final revised-selector mechanism | `gemm_final_selector_ablation` canonical study `run_20260330T023529Z_7c800187` | qualified homogeneous `RTX A6000` pool | the final guarded mainline ablation shows that both `v5_mainline_frontier` (`1.0272x`) and `v5_mainline_profiled` (`1.0283x`) recover the parent baseline (`0.8103x`) on the non-`split_k` surface, with profiling adding only a very small increment once the conservative frontier union is in place | High | the ablation is final-mainline evidence only; it does not overturn the earlier bounded negative result for the Phase 3 `split_k` space | Yes |
-| `E-R6-BUNDLE` | final paper-evidence lock | `artifacts/analysis/final_paper_20260330/` and [11_final_claim_inventory.md](11_final_claim_inventory.md) | repository-local promoted artifact set | the final paper-evidence package is now reproducible from repo-local artifacts: the canonical artifact map, figure source map, final claim table, and final claim inventory all agree on one narrow figure set and one final wording discipline | High | if a future paper draft needs a figure not covered by this bundle, that request should be treated as a provenance gap rather than as justification for a new exploratory run | No |
+| `E-R6-BUNDLE` | final paper-evidence lock | `artifacts/analysis/final_paper_20260403/` and [11_final_claim_inventory.md](11_final_claim_inventory.md) | repository-local promoted artifact set | the final paper-evidence package is reproducible from repo-local artifacts: the canonical artifact map, figure source map, final claim table, generated figure CSVs, and final claim inventory all agree on one narrow figure set and one final wording discipline | High | if a future paper draft needs a figure not covered by this bundle, that request should be treated as a provenance gap rather than as justification for a new exploratory run | No |
 
 ## Hypothesis Status Snapshot
 
@@ -97,7 +101,7 @@ The final mainline headline is intentionally tracked separately from `H5`.
 ## Current Next Evidence Targets
 
 - preserve the reusable Phase 2, Phase 3, and final-paper bundles as the canonical parent references for writing and handoff
-- use the final paper bundle as the paper-facing promotion boundary
+- use the hardened final paper bundle as the current promotion boundary
 - do not schedule a new rerun by default:
   - the Phase 3 rerun gates did not trigger
   - the bounded R6 program completed and the optional aligned refresh / confirmation reruns were skipped by gate rather than dropped accidentally
@@ -137,7 +141,7 @@ The final mainline headline is intentionally tracked separately from `H5`.
 - The reusable Phase 3 analysis bundle is:
   - `artifacts/analysis/phase3_20260329/`
 - The final paper-evidence bundle is:
-  - `artifacts/analysis/final_paper_20260330/`
+  - `artifacts/analysis/final_paper_20260403/`
 - The detailed chronological record for the completed Phase 2 analysis is:
   - `docs/research/logs/2026-03-27_phase2_execution_analysis.md`
 - The detailed chronological record for the completed Phase 3 analysis is:

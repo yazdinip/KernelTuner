@@ -44,7 +44,8 @@ Current project phase:
 - the earlier documentation freeze point remains recorded in [logs/2026-03-28_phase3_documentation_boundary.md](logs/2026-03-28_phase3_documentation_boundary.md) as historical context only
 - the canonical reusable Phase 2 artifact summary lives under `artifacts/analysis/phase2_20260327/`
 - the canonical reusable Phase 3 artifact summary lives under `artifacts/analysis/phase3_20260329/`
-- the canonical final paper-evidence bundle lives under `artifacts/analysis/final_paper_20260330/`
+- the canonical hardened paper-evidence bundle lives under `artifacts/analysis/final_paper_20260403/`
+- the latest paper-hardening implementation record is [logs/2026-04-03_r7_paper_hardening_and_execution_block.md](logs/2026-04-03_r7_paper_hardening_and_execution_block.md)
 - the completed bounded R6 batch is now promoted; no further selector-family expansion is justified inside the current paper backbone
 
 ## Reading Order

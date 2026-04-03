@@ -1,31 +1,32 @@
-\section{Extended Methods and Round Structure}
+\section{Extended Methods and Study Progression}
 
-This appendix records the round structure that led to the final narrative. The main paper intentionally avoids narrating every round chronologically, but the development path matters for provenance and handoff.
+This appendix records the study progression that led to the final narrative. The main paper intentionally avoids narrating every phase chronologically, but the development path matters for provenance and handoff.
 
 \begin{table*}[t]
 \centering
 \small
 \begin{tabular}{p{0.08\textwidth}p{0.18\textwidth}p{0.54\textwidth}p{0.12\textwidth}}
 \toprule
-Round & Theme & Outcome & Role in paper \\
+Phase & Theme & Outcome & Role in paper \\
 \midrule
 \texttt{R0} & measurement validity & Established profiler availability, execution integrity, and basic reportability on the homogeneous A6000 pool. & Method / setup support \\
 \texttt{R1} & cheap-signal baseline mapping & Showed that cheap signals help prune but do not reliably rank representative GEMM. & Core support for \texttt{H1} \\
 \texttt{R2} & limited profiling & Showed that profiling does not yield the intended cross-kernel LayerNorm advantage. & Core support for bounded \texttt{H2} \\
 \texttt{R3} & opportunity-guided refinement & Produced a narrow frontier-aware positive result that later became the positive side of the transfer story. & Context for \texttt{H4} \\
 \texttt{R4} & transfer and limits & Consolidated the strongest and weakest cases into a stable evidence layer. & Background to later rounds \\
-\texttt{R5} & bounded corrective transfer pass & Showed that the transfer-safe \texttt{split\_k} revision family remained unsupported and justified keep/drop decisions. & Core support for \texttt{H5} and diagnostic sections \\
+\texttt{R5} & bounded corrective transfer pass & Showed that the transfer-safe \texttt{split\_k} revision family remained unsupported and justified mainline retirement decisions. & Core support for \texttt{H5} and diagnostic sections \\
 \texttt{R6} & final mainline lock & Recovered the final non-\texttt{split\_k} representative GEMM headline under a conservative guarded frontier. & Final main text headline \\
+\texttt{R7} & paper hardening and evidence generalization & Added plot-backed figure generation, refreshed the final bundle, and prepared a bounded budget-sweep and stability package; on April 3, 2026, the A6000 pool was administratively drained before that execution package could be launched. & Provenance only \\
 \bottomrule
 \end{tabular}
-\caption{Round-by-round research structure. The main paper is organized by story rather than by round, but the rounds explain why the final claim set is narrower and stronger than the initial exploration.}
+\caption{Study progression. The main paper is organized by story rather than chronology, but the phases explain why the final claim set is narrower and stronger than the initial exploration.}
 \label{tab:rounds}
 \end{table*}
 
-The implementation changed along the way, but the paper-facing method remained disciplined:
+The implementation changed along the way, but the reporting method remained disciplined:
 \begin{itemize}
 \item selector revisions were admitted only when motivated by observed failure modes;
 \item reportable and diagnostic profiling were kept separate;
-\item canonical artifact bundles were regenerated after major rounds;
+\item canonical artifact bundles were regenerated after major phases;
 \item and final claims were locked only after the paper bundle and final claim inventory agreed on their sources.
 \end{itemize}

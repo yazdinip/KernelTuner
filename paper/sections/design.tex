@@ -5,18 +5,8 @@
 
 \begin{figure}[t]
 \centering
-\fbox{%
-\begin{minipage}{0.96\columnwidth}
-\small
-\textbf{Candidate generation} $\rightarrow$ enumerate declared schedule space, validate configs, and keep only admissible kernels.\\[2pt]
-\textbf{Tier 0 signals} $\rightarrow$ correctness, compile success, register count, shared memory, occupancy estimate.\\[2pt]
-\textbf{Frontier construction} $\rightarrow$ cheap-signal pruning plus compile ranking or guarded revised frontier.\\[2pt]
-\textbf{Optional Tier 1 profiling} $\rightarrow$ bounded calibration-only profiling with reportable counter sets.\\[2pt]
-\textbf{Selection} $\rightarrow$ choose one configuration under matched budget.\\[2pt]
-\textbf{Held-out evaluation} $\rightarrow$ benchmark on workload classes, compare against default and naive baselines, and write study artifacts.\\[2pt]
-\textbf{Evidence lock} $\rightarrow$ promote only stable repo-local campaign, study, and bundle outputs into claims.
-\end{minipage}}
-\caption{Conceptual overview of the \system pipeline used throughout the project. The implementation is intentionally structured around evidence discipline: every selector decision and every promoted claim must trace back to a stable artifact.}
+\includegraphics[width=0.98\columnwidth]{figures/generated/figure1_pipeline.pdf}
+\caption{Conceptual overview of the \system pipeline. Every selector decision and every reported claim traces back to a stable completed artifact.}
 \label{fig:pipeline}
 \end{figure}
 
@@ -29,15 +19,15 @@ The implementation uses a fixed selector ladder: \texttt{default\_config}, naive
 \paragraph{Signal tiers.}
 Tier 0 signals are broad and cheap. Tier 1 signals are bounded and reportable only when availability and attribution are defensible. Diagnostic sets are allowed for explanation but not for superiority claims. This is why the paper can use schedule diagnostics to explain the failure of \texttt{split\_k} without treating those counters as part of the main tuning contract.
 
-\paragraph{Final paper-facing surfaces.}
-The final mainline surfaces are intentionally narrower than the exploratory surfaces used along the way.
+\paragraph{Final mainline surfaces.}
+The final mainline surfaces are intentionally narrower than the exploratory surfaces used earlier in the study.
 
 \begin{itemize}
-\item \textbf{GEMM final surface.} The paper-facing GEMM surface retains \texttt{block\_m}, \texttt{block\_n}, \texttt{block\_k}, \texttt{group\_size\_m}, \texttt{num\_warps}, and \texttt{num\_stages}. It excludes \texttt{split\_k}.
-\item \textbf{LayerNorm final surface.} The paper-facing LayerNorm surface retains \texttt{block\_size}, \texttt{num\_warps}, and \texttt{num\_stages}. It fixes \texttt{rows\_per\_program=1}.
+\item \textbf{GEMM final surface.} The final GEMM surface retains \texttt{block\_m}, \texttt{block\_n}, \texttt{block\_k}, \texttt{group\_size\_m}, \texttt{num\_warps}, and \texttt{num\_stages}. It excludes \texttt{split\_k}.
+\item \textbf{LayerNorm final surface.} The final LayerNorm surface retains \texttt{block\_size}, \texttt{num\_warps}, and \texttt{num\_stages}. It fixes \texttt{rows\_per\_program=1}.
 \end{itemize}
 
-Retired knobs remain implemented, but only as archived diagnostic surfaces. This keeps the paper faithful to the implementation while still drawing a firm boundary around what counts as the final mainline result.
+Retired knobs remain implemented, but only as archived diagnostic surfaces. This keeps the paper faithful to the implementation while drawing a firm boundary around the final reported result.
 
 \paragraph{Final guarded selector family.}
 The last code-level change in the project was deliberately conservative. Instead of adding another broad revision family, the final pass introduced a guarded non-\texttt{split\_k} frontier union that preserved the strongest compile-ranked families while recovering balanced candidates that earlier revisions had missed or overcorrected past. The final ablation shows that once this conservative frontier is in place, most of the gain is already present before profiling, and profiling adds only a small extra increment.

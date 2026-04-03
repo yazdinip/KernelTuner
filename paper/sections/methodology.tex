@@ -17,16 +17,16 @@ The project uses two complementary modes:
 \end{itemize}
 This separation matters in the final headline. The guarded \texttt{v5\_mainline\_profiled} result is clearly positive on mean performance, but it is still described as a bounded improvement because it does not clear the stricter positive-seed gate required for the strongest promotion tier.
 
-\paragraph{Promotion rules.}
+\paragraph{Reporting rules.}
 The paper only promotes evidence that survives three filters:
 \begin{enumerate}
 \item the relevant campaign and study completed successfully;
 \item the source artifact is repo-local and canonical;
-\item the claim wording is admitted by the final claim inventory.
+\item the wording in the paper is no stronger than the recorded evidence summary.
 \end{enumerate}
-This is why the final figure set reuses Phase 2 aligned-context evidence and Phase 3 schedule diagnostics even after the R6 run. The optional aligned refresh was skipped by gate, so the stronger earlier aligned comparison remains the paper-safe source.
+This is why the final figure set reuses Phase 2 aligned-context evidence and Phase 3 schedule diagnostics even after the R6 run. The optional aligned refresh was intentionally skipped, so the stronger earlier aligned comparison remains the safer source.
 
 \paragraph{Evidence discipline.}
-The final promotion boundary is the bundle under \artifact{artifacts/analysis/final\_paper\_20260330/}. Paragraph-level results in the paper must trace to both a claim row in \artifact{docs/research/11\_final\_claim\_inventory.md} and a canonical artifact path in the final bundle. Incomplete or superseded campaign roots, scratch-only experiment trees, and archived raw Phase 3 roots moved under \artifact{/tmp/.../phase3\_raw} are intentionally excluded from promotion.
+The canonical evidence boundary for this draft is the repo-local final bundle generated from completed studies. Paragraph-level results must trace to canonical study roots and that bundle. Incomplete or superseded campaign roots, scratch-only experiment trees, and archived raw Phase 3 directories are intentionally excluded.
 
 \input{tables/table_claims}

@@ -211,10 +211,11 @@ The immediate queue is now documentation, figure extraction, and handoff rather 
 
 ### Step 1: keep the final promoted evidence set stable
 
-- use `artifacts/analysis/final_paper_20260330/` as the final bundle boundary
+- use `artifacts/analysis/final_paper_20260403/` as the current final bundle boundary
 - keep the canonical R6 studies pinned to:
   - `gemm_final_baseline_mapping` `run_20260330T014317Z_359c1904`
   - `gemm_final_selector_ablation` `run_20260330T023529Z_7c800187`
+- keep the prepared R7 configs and launcher unpromoted until the A6000 pool becomes available again
 
 ### Step 2: write only from promoted sources
 
@@ -242,6 +243,7 @@ The immediate queue is now documentation, figure extraction, and handoff rather 
 
 - no bounded rerun is currently required
 - any future rerun must be justified by a concrete contradiction, near-threshold instability, or unresolved keep/drop ambiguity
+- as of April 3, 2026, the prepared R7 budget-sweep and stability package is blocked by an administrative A6000 drain (`gpunode2` / `gpunode3` moving to DCA), not by a scientific gate failure
 
 ## Long-Run Execution Discipline
 

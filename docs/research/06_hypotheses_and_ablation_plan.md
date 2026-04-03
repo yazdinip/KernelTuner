@@ -126,7 +126,9 @@ Latest evaluated batches:
   - `gemm_final_baseline_mapping` study `run_20260330T014317Z_359c1904`
   - `gemm_final_selector_ablation` study `run_20260330T023529Z_7c800187`
 - the final paper-evidence bundle is:
-  - `artifacts/analysis/final_paper_20260330/`
+  - `artifacts/analysis/final_paper_20260403/`
+- the latest paper-hardening record is:
+  - [logs/2026-04-03_r7_paper_hardening_and_execution_block.md](logs/2026-04-03_r7_paper_hardening_and_execution_block.md)
 - the final synthesis record is [logs/2026-03-30_r6_final_synthesis_and_evidence_lock.md](logs/2026-03-30_r6_final_synthesis_and_evidence_lock.md)
 
 Current post-`R6` rule:
