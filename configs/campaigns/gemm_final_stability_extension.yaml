@@ -1,0 +1,33 @@
+campaign_id: gemm_final_stability_extension
+round_id: round_phase7_gemm_final_stability_extension
+templates:
+  - template_id: gemm_final_stability_frontier_repeatability
+    experiment_ids: [gemm_final_stability_reportable]
+    seeds: [7]
+    repeats: 5
+    selector_revision_ids: [v5_mainline_frontier]
+  - template_id: gemm_final_stability_frontier_robustness
+    experiment_ids: [gemm_final_stability_reportable]
+    seeds: [7, 19, 43, 61, 97]
+    repeats: 1
+    selector_revision_ids: [v5_mainline_frontier]
+  - template_id: gemm_final_stability_profiled_repeatability
+    experiment_ids: [gemm_final_stability_reportable]
+    seeds: [7]
+    repeats: 5
+    selector_revision_ids: [v5_mainline_profiled]
+  - template_id: gemm_final_stability_profiled_robustness
+    experiment_ids: [gemm_final_stability_reportable]
+    seeds: [7, 19, 43, 61, 97]
+    repeats: 1
+    selector_revision_ids: [v5_mainline_profiled]
+studies:
+  - study_id: gemm_final_stability_extension
+    requires_templates:
+      - gemm_final_stability_frontier_repeatability
+      - gemm_final_stability_frontier_robustness
+      - gemm_final_stability_profiled_repeatability
+      - gemm_final_stability_profiled_robustness
+notes: >
+  R7 representative GEMM stability-extension campaign at the canonical 12/4
+  mainline matched budget.

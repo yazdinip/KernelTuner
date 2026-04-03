@@ -1,0 +1,37 @@
+study_id: gemm_final_budget_sweep
+hypotheses: []
+run_groups:
+  - group_id: gemm_final_budget_curve
+    experiment_ids:
+      - gemm_final_budget_sweep_b6p2
+      - gemm_final_budget_sweep_b9p3
+      - gemm_final_budget_sweep_b12p4
+      - gemm_final_budget_sweep_b18p6
+    include_latest_runs: 6
+    kernel_family: gemm
+    selector_version: phase7_gemm_final_budget_sweep
+    counter_set_id: compute_lite
+group_by:
+  - kernel_family
+  - workload_class
+  - selector_version
+  - selector_revision_id
+  - counter_set_id
+  - budget_id
+  - seed
+primary_metric: geomean_speedup_vs_default_config
+secondary_metrics:
+  - speedup_vs_naive_random_search
+  - winner_rate
+  - regret_vs_best_measured_calibration
+  - selection_agreement
+  - stability_band
+  - signal_runtime_correlation
+  - counter_availability
+reportability_filter: true
+environment_filter:
+  gpu_name: NVIDIA RTX A6000
+comparison_rules:
+  repeatability_runs: 3
+  robustness_seeds: []
+output_root: artifacts/studies

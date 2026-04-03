@@ -1,0 +1,57 @@
+campaign_id: gemm_final_budget_sweep
+round_id: round_phase7_gemm_final_budget_sweep
+templates:
+  - template_id: gemm_final_b6p2_frontier_repeatability
+    experiment_ids: [gemm_final_budget_sweep_b6p2]
+    seeds: [7]
+    repeats: 3
+    selector_revision_ids: [v5_mainline_frontier]
+  - template_id: gemm_final_b6p2_profiled_repeatability
+    experiment_ids: [gemm_final_budget_sweep_b6p2]
+    seeds: [7]
+    repeats: 3
+    selector_revision_ids: [v5_mainline_profiled]
+  - template_id: gemm_final_b9p3_frontier_repeatability
+    experiment_ids: [gemm_final_budget_sweep_b9p3]
+    seeds: [7]
+    repeats: 3
+    selector_revision_ids: [v5_mainline_frontier]
+  - template_id: gemm_final_b9p3_profiled_repeatability
+    experiment_ids: [gemm_final_budget_sweep_b9p3]
+    seeds: [7]
+    repeats: 3
+    selector_revision_ids: [v5_mainline_profiled]
+  - template_id: gemm_final_b12p4_frontier_repeatability
+    experiment_ids: [gemm_final_budget_sweep_b12p4]
+    seeds: [7]
+    repeats: 3
+    selector_revision_ids: [v5_mainline_frontier]
+  - template_id: gemm_final_b12p4_profiled_repeatability
+    experiment_ids: [gemm_final_budget_sweep_b12p4]
+    seeds: [7]
+    repeats: 3
+    selector_revision_ids: [v5_mainline_profiled]
+  - template_id: gemm_final_b18p6_frontier_repeatability
+    experiment_ids: [gemm_final_budget_sweep_b18p6]
+    seeds: [7]
+    repeats: 3
+    selector_revision_ids: [v5_mainline_frontier]
+  - template_id: gemm_final_b18p6_profiled_repeatability
+    experiment_ids: [gemm_final_budget_sweep_b18p6]
+    seeds: [7]
+    repeats: 3
+    selector_revision_ids: [v5_mainline_profiled]
+studies:
+  - study_id: gemm_final_budget_sweep
+    requires_templates:
+      - gemm_final_b6p2_frontier_repeatability
+      - gemm_final_b6p2_profiled_repeatability
+      - gemm_final_b9p3_frontier_repeatability
+      - gemm_final_b9p3_profiled_repeatability
+      - gemm_final_b12p4_frontier_repeatability
+      - gemm_final_b12p4_profiled_repeatability
+      - gemm_final_b18p6_frontier_repeatability
+      - gemm_final_b18p6_profiled_repeatability
+notes: >
+  R7 representative GEMM budget-sweep campaign over the final non-split_k
+  mainline surface.
