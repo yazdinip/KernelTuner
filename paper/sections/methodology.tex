@@ -1,32 +1,18 @@
 \section{Experimental Methodology}
 \label{sec:methodology}
 
-The methodology is designed to answer one narrow question fairly: under the same measurement budget, does a bottleneck-aware selector choose better configurations than default settings or naive search baselines?
+The experimental protocol is designed to answer one narrow question fairly: under the same measurement budget, does a bottleneck-aware selector choose better Triton schedules than default settings or naive matched-budget baselines?
 
-\paragraph{Environment.}
-All promoted primary studies use a homogeneous RTX A6000 pool across \texttt{gpunode2} and \texttt{gpunode3}. The research documentation treats these nodes as one qualified environment, not as separate experimental conditions. This matters because the final paper uses repeated and cross-run evidence gathered across both nodes while still making only single-architecture claims.
+\paragraph{Environment and workload roles.}
+All promoted primary studies use a homogeneous RTX A6000 pool across \texttt{gpunode2} and \texttt{gpunode3}. Representative GEMM is the truth source for ranking quality and the final headline. Aligned GEMM is context only. LayerNorm is a secondary regime-split validation kernel rather than a co-equal optimization target.
 
-\paragraph{Matched-budget protocol.}
-Every comparative result in the paper is budget matched. Default, naive random search, compile-ranked selection, profiled selection, and revised selectors all operate under explicit run limits. Diagnostic studies are allowed to collect extra explanation, but those results are never promoted as if they were part of the main matched-budget comparison.
+\paragraph{Matched-budget comparisons.}
+Every comparative result is budget matched. Default settings, naive random search, compile-ranked selection, profiled selection, and revised selectors all operate under explicit benchmark and profile limits. Diagnostic studies may collect additional evidence, but they are used to explain outcomes rather than to claim superiority.
 
 \paragraph{Repeatability and robustness.}
-The project uses two complementary modes:
-\begin{itemize}
-\item \textbf{Repeatability:} three repeated runs with the same seed.
-\item \textbf{Robustness:} one run each at seeds 7, 19, and 43.
-\end{itemize}
-This separation matters in the final headline. The guarded \texttt{v5\_mainline\_profiled} result is clearly positive on mean performance, but it is still described as a bounded improvement because it does not clear the stricter positive-seed gate required for the strongest promotion tier.
+The study separates repeatability from robustness. Repeatability uses repeated runs with a fixed seed. Robustness uses one run per seed across a small seed set. This matters for interpretation: the guarded \texttt{v5\_mainline\_profiled} result is clearly positive on mean performance, but it is still written as a bounded improvement because it does not clear the stricter seed-stability gate required for a stronger claim.
 
-\paragraph{Reporting rules.}
-The paper only promotes evidence that survives three filters:
-\begin{enumerate}
-\item the relevant campaign and study completed successfully;
-\item the source artifact is repo-local and canonical;
-\item the wording in the paper is no stronger than the recorded evidence summary.
-\end{enumerate}
-This is why the final figure set reuses Phase 2 aligned-context evidence and Phase 3 schedule diagnostics even after the R6 run. The optional aligned refresh was intentionally skipped, so the stronger earlier aligned comparison remains the safer source.
-
-\paragraph{Evidence discipline.}
-The canonical evidence boundary for this draft is the repo-local final bundle generated from completed studies. Paragraph-level results must trace to canonical study roots and that bundle. Incomplete or superseded campaign roots, scratch-only experiment trees, and archived raw Phase 3 directories are intentionally excluded.
+\paragraph{Reporting discipline.}
+The paper promotes only held-out results from completed canonical studies, and it writes claims no stronger than the corresponding evidence summary. Diagnostic evidence is still valuable, but only as failure analysis. This is why the paper can use schedule diagnostics to justify retiring \texttt{split\_k} while keeping the main headline tied to reportable representative-GEMM studies.
 
 \input{tables/table_claims}
