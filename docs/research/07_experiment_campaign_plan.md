@@ -211,7 +211,7 @@ The immediate queue is now documentation, figure extraction, and handoff rather 
 
 ### Step 1: keep the final promoted evidence set stable
 
-- use `artifacts/analysis/final_paper_20260403/` as the current final bundle boundary
+- use `docs/research/evidence/final_paper_20260403/` as the current tracked final bundle boundary
 - keep the canonical R6 studies pinned to:
   - `gemm_final_baseline_mapping` `run_20260330T014317Z_359c1904`
   - `gemm_final_selector_ablation` `run_20260330T023529Z_7c800187`

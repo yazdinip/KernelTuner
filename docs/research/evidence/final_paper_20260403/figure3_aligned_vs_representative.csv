@@ -1,0 +1,7 @@
+workload_context,strategy_id,selector_revision_id,mean_speedup_vs_default
+representative,prune_rank,,0.8265374489416918
+representative,prune_rank_profiled,,0.8444301656441077
+representative,naive_random_search,,1.0331167596356334
+aligned,prune_rank,,0.879490744477852
+aligned,prune_rank_profiled,,0.8873001900789679
+aligned,naive_random_search,,0.9951375101513592

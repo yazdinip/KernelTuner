@@ -1,0 +1,7 @@
+figure_id,figure_name,source_study,path,notes
+F1,pipeline_schematic,design and methodology docs,docs/research/evidence/final_paper_20260403/figure1_pipeline_schematic.csv,Plot-ready schematic metadata for the conceptual pipeline figure.
+F2,representative_gemm_budget_curve,gemm_final_baseline_mapping,docs/research/evidence/final_paper_20260403/figure2_budget_curve.csv,Budget-efficiency figure data on the final representative GEMM mainline surface.
+F3,aligned_vs_representative_context,gemm_v2_aligned_reference + gemm_v2_baseline_mapping,docs/research/evidence/final_paper_20260403/figure3_aligned_vs_representative.csv,Aligned-versus-representative context comparison.
+F4,layernorm_regime_split,layernorm_v2_small_regime + layernorm_v2_large_regime,docs/research/evidence/final_paper_20260403/figure4_layernorm_regimes.csv,LayerNorm regime-split comparison.
+F5A,phase3_transfer_failure,gemm_v3_selector_ablation + gemm_v3_schedule_diag,docs/research/evidence/final_paper_20260403/figure5_transfer_failure.csv,Phase 3 transfer-failure bars for the left panel of Figure 5.
+F5B,final_mainline_ablation,gemm_final_selector_ablation,docs/research/evidence/final_paper_20260403/figure5_mainline_ablation.csv,Final mainline ablation bars for the right panel of Figure 5.

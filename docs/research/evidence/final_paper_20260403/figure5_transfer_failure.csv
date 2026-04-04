@@ -1,0 +1,4 @@
+series,label,strategy_id,selector_revision_id,mean_speedup_vs_default
+transfer_failure,parent,prune_rank,,0.9691635371839723
+transfer_failure,v4_frontier,prune_rank_revised,v4_transfer_safe_frontier,0.16218900009499615
+transfer_failure,v4_profiled,prune_rank_revised,v4_transfer_safe_profiled,0.16229995238434555

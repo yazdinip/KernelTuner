@@ -1,0 +1,5 @@
+budget_id,max_benchmarks,max_profiles,budget_order,strategy_id,selector_revision_id,workload_class,mean_speedup_vs_default,mean_speedup_vs_random,mean_regret,run_rows,source_note
+gemm_final_budget_b12p4,12,4,12,default_config,,overall,1.0,1.0105202880058348,0.04197134440483565,48,fallback_single_point_r6
+gemm_final_budget_b12p4,12,4,12,naive_random_search,,overall,1.001082737018381,1.0,0.05452991508028857,48,fallback_single_point_r6
+gemm_final_budget_b12p4,12,4,12,prune_rank,,overall,0.8101261145953625,0.8159049039554439,0.33646834954328037,48,fallback_single_point_r6
+gemm_final_budget_b12p4,12,4,12,prune_rank_revised,v5_mainline_profiled,overall,1.028641009392089,1.0358978546233275,0.020684707392015594,48,fallback_single_point_r6

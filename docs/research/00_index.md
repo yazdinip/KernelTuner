@@ -42,9 +42,9 @@ Current project phase:
 - the completed Phase 3 execution analysis is [logs/2026-03-29_phase3_execution_analysis.md](logs/2026-03-29_phase3_execution_analysis.md)
 - the completed R6 final synthesis and evidence lock is [logs/2026-03-30_r6_final_synthesis_and_evidence_lock.md](logs/2026-03-30_r6_final_synthesis_and_evidence_lock.md)
 - the earlier documentation freeze point remains recorded in [logs/2026-03-28_phase3_documentation_boundary.md](logs/2026-03-28_phase3_documentation_boundary.md) as historical context only
-- the canonical reusable Phase 2 artifact summary lives under `artifacts/analysis/phase2_20260327/`
-- the canonical reusable Phase 3 artifact summary lives under `artifacts/analysis/phase3_20260329/`
-- the canonical hardened paper-evidence bundle lives under `artifacts/analysis/final_paper_20260403/`
+- the tracked compact Phase 2 evidence snapshot lives under [evidence/phase2_20260327_summary.md](evidence/phase2_20260327_summary.md)
+- the tracked compact Phase 3 evidence snapshot lives under [evidence/phase3_20260329_summary.md](evidence/phase3_20260329_summary.md) and [evidence/phase3_20260329/](evidence/phase3_20260329/)
+- the tracked hardened paper-evidence snapshot lives under [evidence/final_paper_20260403/](evidence/final_paper_20260403/)
 - the latest paper-hardening implementation record is [logs/2026-04-03_r7_paper_hardening_and_execution_block.md](logs/2026-04-03_r7_paper_hardening_and_execution_block.md)
 - the completed bounded R6 batch is now promoted; no further selector-family expansion is justified inside the current paper backbone
 

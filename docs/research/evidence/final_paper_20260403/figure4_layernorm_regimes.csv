@@ -1,0 +1,7 @@
+regime,strategy_id,selector_revision_id,mean_speedup_vs_default
+small_batch,prune_rank,,1.0099857065867763
+small_batch,prune_rank_profiled,,1.0113394260413797
+small_batch,prune_rank_revised,v2_validation,1.0080163985687995
+large_batch,prune_rank,,1.0028999497023363
+large_batch,prune_rank_profiled,,0.9855593129694563
+large_batch,prune_rank_revised,v2_validation,0.9964265403905578

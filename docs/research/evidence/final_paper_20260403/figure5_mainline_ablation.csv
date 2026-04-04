@@ -1,0 +1,4 @@
+series,label,strategy_id,selector_revision_id,mean_speedup_vs_default
+mainline_ablation,parent,prune_rank,,0.8103178272637317
+mainline_ablation,v5_frontier,prune_rank_revised,v5_mainline_frontier,1.0271842074054252
+mainline_ablation,v5_profiled,prune_rank_revised,v5_mainline_profiled,1.028299951916008

@@ -1,0 +1,12 @@
+study_id,strategy_id,selected_rows_per_program_counts,best_rows_per_program_counts,selected_match_rate,mean_selected_score_regret,decision
+layernorm_v2_large_microstudy,default_config,,,0.000000,,
+layernorm_v2_large_microstudy,naive_random_search,,,0.000000,,
+layernorm_v2_large_microstudy,prune_rank,1:6,1:6,0.833333,0.000077,
+layernorm_v2_large_microstudy,prune_rank_profiled,1:2; 4:3; 8:1,1:2; 4:3; 8:1,0.666667,0.001287,
+layernorm_v2_large_microstudy,prune_rank_revised,1:2; 4:2; 8:2,1:2; 4:2; 8:2,1.000000,0.000000,
+layernorm_v2_small_microstudy,default_config,,,0.000000,,
+layernorm_v2_small_microstudy,naive_random_search,,,0.000000,,
+layernorm_v2_small_microstudy,prune_rank,1:4; 4:1; 8:1,1:3; 4:2; 8:1,0.833333,0.000543,
+layernorm_v2_small_microstudy,prune_rank_profiled,1:6,1:5; 4:1,0.500000,0.001810,
+layernorm_v2_small_microstudy,prune_rank_revised,1:6,1:6,0.500000,0.003399,
+overall,final_decision,small_batch mixes 1/4/8 only in weak or noisy paths; large_batch uses 4/8 mostly in regressing profiled/revised paths,compile-only large_batch remains rows_per_program=1 throughout,,,retire_from_main_layernorm_surface

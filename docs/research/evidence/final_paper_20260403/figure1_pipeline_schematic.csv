@@ -1,0 +1,7 @@
+step_order,stage,description
+1,Candidate generation,Enumerate declared schedule space and keep only admissible configs.
+2,Cheap signals,Collect compile-adjacent resource and admissibility signals.
+3,Frontier construction,Prune and rank with cheap signals under matched budget.
+4,Bounded profiling,Optionally profile a small frontier subset on calibration shapes.
+5,Held-out evaluation,Benchmark the selected config on representative held-out shapes.
+6,Evidence promotion,Promote only stable repo-local studies and bundles into claims.

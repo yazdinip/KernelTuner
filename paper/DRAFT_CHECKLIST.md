@@ -8,7 +8,7 @@
 - [ ] LayerNorm is framed as secondary and regime-split.
 - [ ] The main text uses only the final narrow figure set: Figures 1-5.
 - [ ] All main-text figures are generated PDFs from `paper/figures/generated/`, not boxed numeric placeholders.
-- [ ] The current bundle and figure manifests point to `artifacts/analysis/final_paper_20260403/`.
+- [ ] The current bundle and figure manifests point to `docs/research/evidence/final_paper_20260403/`.
 - [ ] The contribution bullets match the promoted evidence.
 - [ ] Main-text language avoids internal process terms such as `promotion`, `final lock`, or `paper-facing surface`.
 - [ ] Introduction, abstract, and conclusion state the same final thesis.

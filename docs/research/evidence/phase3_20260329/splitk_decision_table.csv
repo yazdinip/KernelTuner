@@ -1,0 +1,13 @@
+evidence_scope,strategy_id,selected_split_k_counts,best_split_k_counts,interpretation,decision
+gemm_v3_aligned_reference,default_config,,,only split_k=1 survived to chosen and best-scored families,
+gemm_v3_aligned_reference,naive_random_search,,,only split_k=1 survived to chosen and best-scored families,
+gemm_v3_aligned_reference,prune_rank,1:6,1:6,only split_k=1 survived to chosen and best-scored families,
+gemm_v3_aligned_reference,prune_rank_profiled,1:6,1:6,only split_k=1 survived to chosen and best-scored families,
+gemm_v3_aligned_reference,prune_rank_revised,1:6,1:6,only split_k=1 survived to chosen and best-scored families,
+gemm_v3_baseline_mapping,default_config,,,only split_k=1 survived to chosen and best-scored families,
+gemm_v3_baseline_mapping,naive_random_search,,,only split_k=1 survived to chosen and best-scored families,
+gemm_v3_baseline_mapping,prune_rank,1:6,1:6,only split_k=1 survived to chosen and best-scored families,
+gemm_v3_baseline_mapping,prune_rank_profiled,1:6,1:6,only split_k=1 survived to chosen and best-scored families,
+gemm_v3_baseline_mapping,prune_rank_revised,1:6,1:6,only split_k=1 survived to chosen and best-scored families,
+gemm_v3_schedule_diag,frontier_summary,non_unit:10; total:25,,"split_k>1 appears in the diagnostic frontier, but not in the chosen or best-scored canonical families",
+overall,final_decision,selected_non_unit:0; best_scored_non_unit:0,,"Across the canonical representative and aligned GEMM confirmation runs, split_k never became a chosen or best-scored family, and the diagnostic frontier only shows it as a reachable but dominated alternative.",retire_from_main_gemm_surface

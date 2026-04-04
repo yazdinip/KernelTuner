@@ -27,18 +27,18 @@ Depends On: [01_research_program.md](01_research_program.md), [06_hypotheses_and
 | `T1` | Research question, scope, and success criteria | `paper/tables/table_scope.tex`; `01_research_program.md` |
 | `T2` | Final knob families and signal tiers | `paper/tables/table_knobs_signals.tex`; `02_tuning_theory_and_knob_space.md`; `04_signal_and_profiling_plan.md` |
 | `T3` | Workload matrix by kernel family and class | `paper/tables/table_workloads.tex`; `05_workload_matrix_and_case_studies.md` |
-| `T4` | Final hypothesis and claim summary | `paper/tables/table_claims.tex`; `11_final_claim_inventory.md`; `artifacts/analysis/final_paper_20260403/final_claim_table.csv` |
+| `T4` | Final hypothesis and claim summary | `paper/tables/table_claims.tex`; `11_final_claim_inventory.md`; `docs/research/evidence/final_paper_20260403/final_claim_table.csv` |
 | `T5` | Related-work positioning table | `paper/tables/table_related_positioning.tex`; `12_related_work_and_positioning.md` |
 
 ## Main-Text Figures
 
 | Figure ID | Figure | Claim It Supports | Source Study / Artifact |
 | --- | --- | --- | --- |
-| `F1` | conceptual pipeline schematic | the paper is about matched-budget evidence flow, not just final speedups | `artifacts/analysis/final_paper_20260403/figure1_pipeline_schematic.csv` |
-| `F2` | representative GEMM budget-efficiency curve on the final non-`split_k` mainline | the final mainline result is bounded, positive, and should be read in a budgeted setting | `artifacts/analysis/final_paper_20260403/figure2_budget_curve.csv` |
-| `F3` | aligned vs representative GEMM context comparison | aligned workloads can overstate selector quality relative to the representative GEMM truth source | `artifacts/analysis/final_paper_20260403/figure3_aligned_vs_representative.csv` |
-| `F4` | LayerNorm regime split | profiling helps differently by LayerNorm regime and does not become a uniform cross-kernel win | `artifacts/analysis/final_paper_20260403/figure4_layernorm_regimes.csv` |
-| `F5` | transfer/mainline two-panel figure | Phase 3 transfer failure is scientifically useful, and the final non-`split_k` mainline still admits a bounded recovery | `artifacts/analysis/final_paper_20260403/figure5_transfer_failure.csv`; `artifacts/analysis/final_paper_20260403/figure5_transfer_diagnostic.csv`; `artifacts/analysis/final_paper_20260403/figure5_mainline_ablation.csv` |
+| `F1` | conceptual pipeline schematic | the paper is about matched-budget evidence flow, not just final speedups | `docs/research/evidence/final_paper_20260403/figure1_pipeline_schematic.csv` |
+| `F2` | representative GEMM budget-efficiency curve on the final non-`split_k` mainline | the final mainline result is bounded, positive, and should be read in a budgeted setting | `docs/research/evidence/final_paper_20260403/figure2_budget_curve.csv` |
+| `F3` | aligned vs representative GEMM context comparison | aligned workloads can overstate selector quality relative to the representative GEMM truth source | `docs/research/evidence/final_paper_20260403/figure3_aligned_vs_representative.csv` |
+| `F4` | LayerNorm regime split | profiling helps differently by LayerNorm regime and does not become a uniform cross-kernel win | `docs/research/evidence/final_paper_20260403/figure4_layernorm_regimes.csv` |
+| `F5` | transfer/mainline two-panel figure | Phase 3 transfer failure is scientifically useful, and the final non-`split_k` mainline still admits a bounded recovery | `docs/research/evidence/final_paper_20260403/figure5_transfer_failure.csv`; `docs/research/evidence/final_paper_20260403/figure5_transfer_diagnostic.csv`; `docs/research/evidence/final_paper_20260403/figure5_mainline_ablation.csv` |
 
 ## Current Figure Readiness
 
@@ -74,11 +74,12 @@ R7 note:
 - Narrow-space revised-selector success context:
   - `h4_retry_g3` `run_20260327T035659Z_10f9baec`
 - Canonical summary bundle:
-  - `artifacts/analysis/phase2_20260327/`
+  - `docs/research/evidence/phase2_20260327_summary.md`
 - Canonical Phase 3 summary bundle:
-  - `artifacts/analysis/phase3_20260329/`
+  - `docs/research/evidence/phase3_20260329_summary.md`
+  - `docs/research/evidence/phase3_20260329/`
 - Final paper-evidence bundle:
-  - `artifacts/analysis/final_paper_20260403/`
+  - `docs/research/evidence/final_paper_20260403/`
 - Representative GEMM Phase 3 canonical mapping:
   - `gemm_v3_baseline_mapping` `run_20260329T010211Z_dfb53abb`
 - Representative GEMM Phase 3 canonical selector ablation:
@@ -107,11 +108,11 @@ R7 note:
 - A frontier-aware revised selector can work on a narrower space, but the current rule does not transfer to the expanded v2 and v3 GEMM spaces cleanly.
   - strongest sources: `h4_retry_g3`, `gemm_v2_selector_ablation`, `gemm_v3_selector_ablation`
 - The completed Phase 3 transfer-safe corrective pass is a bounded negative result: it does not recover near-random-search representative GEMM performance on the split-`k` space, and the additional schedule family should not stay in the mainline surface.
-  - strongest sources: `gemm_v3_baseline_mapping`, `gemm_v3_selector_ablation`, `gemm_v3_schedule_diag`, `artifacts/analysis/phase3_20260329/`
+  - strongest sources: `gemm_v3_baseline_mapping`, `gemm_v3_selector_ablation`, `gemm_v3_schedule_diag`, `docs/research/evidence/phase3_20260329_summary.md`, `docs/research/evidence/phase3_20260329/`
 - The completed `R6` final-mainline lock provides the strongest final headline: a guarded non-`split_k` mainline selector materially improves representative GEMM under the same budget and approaches random search.
-  - strongest sources: `gemm_final_baseline_mapping`, `gemm_final_selector_ablation`, `artifacts/analysis/final_paper_20260403/`
+  - strongest sources: `gemm_final_baseline_mapping`, `gemm_final_selector_ablation`, `docs/research/evidence/final_paper_20260403/`
 - The completed Phase 3 LayerNorm microstudy is strong enough to retire `rows_per_program` from the main reportable LayerNorm surface.
-  - strongest sources: `layernorm_v2_small_microstudy`, `layernorm_v2_large_microstudy`, `artifacts/analysis/phase3_20260329/`
+  - strongest sources: `layernorm_v2_small_microstudy`, `layernorm_v2_large_microstudy`, `docs/research/evidence/phase3_20260329_summary.md`, `docs/research/evidence/phase3_20260329/`
 
 ## Current Analysis Goal
 
@@ -136,7 +137,7 @@ Current caution:
 - the first validation batch is useful for planning and interpretation, but some artifacts still live in expiring scratch paths
 - any figure promoted into the final paper should come from archived or rerun evidence with stable provenance
 - the promoted Phase 3 figures should come from the canonical confirmation studies and the reusable Phase 3 analysis bundle, not from superseded partial attempts
-- any promoted R6 figure must come from the final paper bundle under `artifacts/analysis/final_paper_<date>/` and must not rely on superseded campaign roots
+- any promoted R6 figure must come from the tracked paper snapshot under `docs/research/evidence/final_paper_<date>/` and must not rely on superseded campaign roots
 
 ## What Counts As Unproductive Experimentation
 
