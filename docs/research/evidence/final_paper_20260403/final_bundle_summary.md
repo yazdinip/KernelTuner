@@ -9,9 +9,11 @@
 - random mean speedup vs default: `1.0011`
 - winner delta vs parent: `0.2185`
 - winner gap to random: `-0.0276`
-- R7 positive budget points: `None`
-- R7 loss budget points: `None`
-- R7 positive stability seeds: `None`
+- additional budget-sweep points in this bundle: `None`
+- additional loss-budget points in this bundle: `None`
+- additional stability seeds in this bundle: `None`
+
+This bundle is complete for the current paper claim set. A prepared extension package was not executed after the qualified A6000 pool was administratively drained, so it remains outside the present final bundle rather than a missing dependency inside it.
 
 ## Final Claim Set
 

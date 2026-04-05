@@ -12,7 +12,7 @@ What is settled now is intentionally narrower than what the broader autotuning l
 \subsection{Threats to Validity}
 
 \begin{itemize}
-\item \textbf{Single architecture.} All promoted primary studies use one homogeneous RTX A6000 pool. The paper makes no multi-architecture claim.
+\item \textbf{Single architecture.} All primary studies used by the final paper use one homogeneous RTX A6000 pool. The paper makes no multi-architecture claim.
 \item \textbf{Fixed kernels.} The study keeps the Triton kernels fixed. It does not compare against broader algorithmic alternatives or full-kernel synthesis.
 \item \textbf{Bounded configuration spaces.} Every reported result comes from explicitly bounded schedule spaces. This improves fairness and interpretability, but it limits generality.
 \item \textbf{Limited kernel coverage.} Representative GEMM is the truth source and LayerNorm is secondary. The paper does not claim that the same lessons hold for all Triton kernels.

@@ -18,12 +18,14 @@ The repository is no longer docs-only. It contains a working v1 experimentation 
 - run-level summaries and study-level cross-run comparison
 - a research documentation layer under `docs/research/` for paper-facing planning and evidence tracking
 
-Current emphasis has shifted from foundational implementation to research validation:
+The repository now includes the complete paper-facing package for the current study:
 
-- stabilizing repeated reportable runs on the homogeneous `RTX A6000` pool (`gpunode2`, `gpunode3`)
-- comparing runs across workload classes and kernel families
-- expanding the code-backed tuning surface where evidence justifies it
-- using evidence to justify any selector revision
+- the implementation used to run the experiments
+- the bounded final claim set and canonical evidence bundle under `docs/research/evidence/final_paper_20260403/`
+- generated paper figures under `paper/figures/generated/`
+- the main and condensed paper drafts under `paper/`
+
+Some prepared follow-up execution packages were not run after the qualified `RTX A6000` pool was administratively drained. Those packages are outside the current paper bundle and are not required to interpret the present claim set.
 
 ## Research Posture
 

@@ -92,11 +92,11 @@ Agentic GPU optimization & Useful contrast, but much broader than bounded Triton
 
 \section{Methodology}
 
-All promoted primary studies use a homogeneous RTX A6000 pool across \texttt{gpunode2} and \texttt{gpunode3}. Representative GEMM is the truth source, aligned GEMM is supporting context, and LayerNorm is a secondary regime-split validation kernel. The kernels themselves stay fixed; only bounded schedule knobs change.
+All primary studies used by the final paper use a homogeneous RTX A6000 pool across \texttt{gpunode2} and \texttt{gpunode3}. Representative GEMM is the truth source, aligned GEMM is supporting context, and LayerNorm is a secondary regime-split validation kernel. The kernels themselves stay fixed; only bounded schedule knobs change.
 
 Every comparison is budget matched. The main selector ladder is \texttt{default\_config}, \texttt{naive\_random\_search}, compile-ranked \texttt{prune\_rank}, bounded profiling variants, and revised selectors under the same benchmark/profile caps. The canonical reportable representative-GEMM program uses a bounded non-\texttt{split\_k} surface with 216 valid configurations and a matched budget of 12 benchmarks and 4 profiles. Repeatability uses repeated runs with a fixed seed, while robustness uses one run each at seeds 7, 19, and 43. Diagnostic runs may explain a failure, but they are never treated as superiority evidence by themselves.
 
-The evaluation also separates calibration from held-out testing. Strategies may spend their limited budget on calibration shapes, but the promoted comparison is always taken from held-out workloads. That distinction matters because the paper is not asking who can overfit a tiny calibration set; it is asking whether the evidence ladder generalizes to representative workloads under the same spend.
+The evaluation also separates calibration from held-out testing. Strategies may spend their limited budget on calibration shapes, but the headline comparison is always taken from held-out workloads. That distinction matters because the paper is not asking who can overfit a tiny calibration set; it is asking whether the evidence ladder generalizes to representative workloads under the same spend.
 
 \begin{table}[t]
 \centering

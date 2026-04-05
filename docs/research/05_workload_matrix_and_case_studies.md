@@ -54,7 +54,7 @@ The Phase 3 GEMM study keeps the same representative workload classes but enlarg
 Config: `configs/experiments/gemm_final_reportable.yaml`
 
 - The final headline uses the same representative workload classes as the earlier GEMM reportable programs.
-- The final paper-facing surface is the non-`split_k` mainline only.
+- The final reportable surface is the non-`split_k` mainline only.
 - This is the truth source for the final project headline.
 
 ### Phase 3 aligned GEMM context study
@@ -64,9 +64,9 @@ Config: `configs/experiments/gemm_v3_aligned_reportable.yaml`
 This is still a supporting context workload, not the primary optimization target.
 
 - It exists to refresh the `H3` interpretation under the Phase 3 search space.
-- It should not replace the representative GEMM study as the main paper-facing truth source.
+- It should not replace the representative GEMM study as the main truth source for the paper.
 - The completed Phase 3 aligned run did not strengthen the earlier `H3` story; it remains context rather than a new primary source of support.
-- The optional R6 aligned refresh was gate-skipped, so the final paper-facing aligned-context source remains the stronger Phase 2 aligned comparison.
+- The optional R6 aligned refresh was gate-skipped, so the final aligned-context source remains the stronger Phase 2 aligned comparison.
 
 ### Development and smoke GEMM studies
 
@@ -138,7 +138,7 @@ Current interpretation:
 - `gemm_smoke`
 - `layernorm_smoke`
 
-Smoke and development runs may be useful for debugging or iteration, but they do not count as final comparative evidence unless explicitly promoted with full protocol compliance.
+Smoke and development runs may be useful for debugging or iteration, but they do not count as final comparative evidence unless they satisfy the full reportable protocol.
 
 ## Why This Workload Matrix Can Falsify The Method
 
@@ -162,4 +162,4 @@ Final workload rule:
 - representative GEMM is the paper truth source
 - aligned GEMM is supporting evaluation context
 - LayerNorm remains regime-split and secondary
-- final promoted figures should prefer stable Phase 2 or R6 sources over optional or skipped refresh runs
+- final figures should prefer stable Phase 2 or R6 sources over optional or skipped refresh runs

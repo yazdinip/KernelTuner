@@ -1,8 +1,8 @@
 # Final Claim Inventory
 
-Purpose: lock the final paper-facing claim set to stable artifact sources and constrain wording so the final paper story stays consistent with the evidence.
+Purpose: define the final paper-facing claim set against stable artifact sources and constrain wording so the final paper story stays consistent with the evidence.
 Status: Backbone
-Update Rule: update only when the final paper bundle or promoted claim set changes.
+Update Rule: update only when the final paper bundle or final claim set changes.
 Feeds Paper Sections: Introduction, Results, Failure Analysis, Limitations, Conclusion
 Depends On: [08_evidence_registry.md](08_evidence_registry.md), [10_paper_outline_and_figure_plan.md](10_paper_outline_and_figure_plan.md), `docs/research/evidence/final_paper_20260403/`
 
@@ -16,8 +16,9 @@ This document is the final claim ledger for the paper-facing repo state.
 
 Current note:
 
-- the `R7` budget-sweep and stability-extension configs exist, but on April 3, 2026 the A6000 pool (`gpunode2` / `gpunode3`) was administratively drained (`moving to DCA`), so no new promoted GPU evidence was added in this pass
+- the `R7` budget-sweep and stability-extension configs exist, but on April 3, 2026 the A6000 pool (`gpunode2` / `gpunode3`) was administratively drained (`moving to DCA`), so no new GPU evidence was added in that hardening pass
 - the canonical tracked snapshot for the hardened draft is therefore `docs/research/evidence/final_paper_20260403/`, which preserves the paper package and figure sources without requiring the large local artifact tree
+- this does not leave the paper waiting on an unfinished result; it only means the prepared extension package sits outside the current final bundle
 
 ## Final Claim Set
 
@@ -33,16 +34,16 @@ Current note:
 | `C-FINAL-ROWS` | Supporting | `rows_per_program` is retired from the main LayerNorm surface. | `docs/research/evidence/phase3_20260329/rows_per_program_decision_table.csv` | High | This retires `rows_per_program` from the final mainline surface only. It remains available as archived diagnostic code. | `Figure 4` |
 | `C-FINAL-CLOSEOUT` | Supporting | No further selector-family growth is justified for the paper backbone. | `docs/research/evidence/final_paper_20260403/final_claim_table.csv`; `docs/research/evidence/final_paper_20260403/headline_result_summary.csv` | High | This closes the current paper-facing research program. It does not claim that some future project could never justify a different selector family. | `Figure 2`, `Figure 5`, `Table 4` |
 
-## Promotion Rule
+## Evidence Boundary
 
-Claims above are promotable because:
+Claims above are included because:
 
 - the relevant campaigns and studies completed successfully
 - the source artifacts are stable and repo-local
 - the tracked final paper snapshot under `docs/research/evidence/final_paper_20260403/` is present and self-contained
-- the figure source map and evidence registry now agree on the promoted source set
+- the figure source map and evidence registry now agree on the final source set
 
-Do not promote any claim that depends on:
+Do not treat as part of the current claim set any claim that depends on:
 
 - incomplete or superseded campaign roots
 - `/tmp/.../phase3_raw`

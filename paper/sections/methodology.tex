@@ -4,7 +4,7 @@
 The experimental protocol is designed to answer one narrow question fairly: under the same measurement budget, does a bottleneck-aware selector choose better Triton schedules than default settings or naive matched-budget baselines?
 
 \paragraph{Environment and workload roles.}
-All promoted primary studies use a homogeneous RTX A6000 pool across \texttt{gpunode2} and \texttt{gpunode3}. Representative GEMM is the truth source for ranking quality and the final headline. Aligned GEMM is context only. LayerNorm is a secondary regime-split validation kernel rather than a co-equal optimization target.
+All primary studies used by the final paper use a homogeneous RTX A6000 pool across \texttt{gpunode2} and \texttt{gpunode3}. Representative GEMM is the truth source for ranking quality and the final headline. Aligned GEMM is context only. LayerNorm is a secondary regime-split validation kernel rather than a co-equal optimization target.
 
 \paragraph{Matched-budget comparisons.}
 Every comparative result is budget matched. Default settings, naive random search, compile-ranked selection, profiled selection, and revised selectors all operate under explicit benchmark and profile limits. Diagnostic studies may collect additional evidence, but they are used to explain outcomes rather than to claim superiority.
@@ -13,6 +13,6 @@ Every comparative result is budget matched. Default settings, naive random searc
 The study separates repeatability from robustness. Repeatability uses repeated runs with a fixed seed. Robustness uses one run per seed across a small seed set. This matters for interpretation: the guarded \texttt{v5\_mainline\_profiled} result is clearly positive on mean performance, but it is still written as a bounded improvement because it does not clear the stricter seed-stability gate required for a stronger claim.
 
 \paragraph{Reporting discipline.}
-The paper promotes only held-out results from completed canonical studies, and it writes claims no stronger than the corresponding evidence summary. Diagnostic evidence is still valuable, but only as failure analysis. This is why the paper can use schedule diagnostics to justify retiring \texttt{split\_k} while keeping the main headline tied to reportable representative-GEMM studies.
+The paper uses only held-out results from completed canonical studies, and it writes claims no stronger than the corresponding evidence summary. Diagnostic evidence is still valuable, but only as failure analysis. This is why the paper can use schedule diagnostics to justify retiring \texttt{split\_k} while keeping the main headline tied to reportable representative-GEMM studies.
 
 \input{tables/table_claims}

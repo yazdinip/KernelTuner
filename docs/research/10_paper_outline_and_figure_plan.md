@@ -45,16 +45,16 @@ Depends On: [01_research_program.md](01_research_program.md), [06_hypotheses_and
 | Figure ID | Current Readiness | Notes |
 | --- | --- | --- |
 | `F1` | Final | generated from the hardened final bundle and no longer hand-drawn in LaTeX |
-| `F2` | Final but expandable | currently uses the R6 canonical point from `gemm_final_baseline_mapping`; the prepared R7 budget sweep would widen this curve once the A6000 pool is available again |
+| `F2` | Final | uses the canonical R6 point from `gemm_final_baseline_mapping` and is the final budget-efficiency figure for the current paper bundle |
 | `F3` | Final | the Phase 2 aligned-context comparison remains the canonical aligned-versus-representative source |
 | `F4` | Final | the Phase 2 regime studies remain the strongest LayerNorm regime-split figure source |
 | `F5` | Final | the hardened draft combines Phase 3 transfer failure plus chosen-family note with the final mainline ablation into one two-panel figure |
 
-R7 note:
+Historical note:
 
 - the hardened paper now uses a narrow five-figure set backed by generated PDFs under `paper/figures/generated/`
 - the prepared R7 budget-sweep and stability studies were not executed on April 3, 2026 because both A6000 nodes were administratively drained (`moving to DCA`)
-- until that execution package runs, `F2` remains a bounded final-mainline budget plot anchored by the canonical R6 point rather than a full multi-budget curve
+- those unexecuted studies are outside the current paper bundle and do not change the final figure set used by the paper
 
 ## Current Strongest Artifact Sources
 
@@ -114,9 +114,9 @@ R7 note:
 - The completed Phase 3 LayerNorm microstudy is strong enough to retire `rows_per_program` from the main reportable LayerNorm surface.
   - strongest sources: `layernorm_v2_small_microstudy`, `layernorm_v2_large_microstudy`, `docs/research/evidence/phase3_20260329_summary.md`, `docs/research/evidence/phase3_20260329/`
 
-## Current Analysis Goal
+## Final Analysis Position
 
-The current synthesis phase should no longer decide whether to run broad new experiments. It should:
+The current synthesis phase is closed around the completed paper bundle. The remaining writing task is to keep the final paper aligned with the evidence already recorded. In practice that means:
 
 - lock the final paper bundle to the completed Phase 2, Phase 3, and R6 evidence together,
 - write the representative GEMM story around the bounded positive R6 mainline result,
@@ -135,9 +135,9 @@ A figure is ready for the paper only when:
 Current caution:
 
 - the first validation batch is useful for planning and interpretation, but some artifacts still live in expiring scratch paths
-- any figure promoted into the final paper should come from archived or rerun evidence with stable provenance
-- the promoted Phase 3 figures should come from the canonical confirmation studies and the reusable Phase 3 analysis bundle, not from superseded partial attempts
-- any promoted R6 figure must come from the tracked paper snapshot under `docs/research/evidence/final_paper_<date>/` and must not rely on superseded campaign roots
+- any figure included in the final paper should come from archived or rerun evidence with stable provenance
+- the final Phase 3 figures should come from the canonical confirmation studies and the reusable Phase 3 analysis bundle, not from superseded partial attempts
+- any final R6 figure must come from the tracked paper snapshot under `docs/research/evidence/final_paper_<date>/` and must not rely on superseded campaign roots
 
 ## What Counts As Unproductive Experimentation
 
