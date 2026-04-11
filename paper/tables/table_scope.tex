@@ -1,18 +1,18 @@
 \begin{table}[t]
 \centering
 \small
-\begin{tabular}{p{0.21\columnwidth}p{0.69\columnwidth}}
+\begin{tabular}{p{0.23\columnwidth}p{0.67\columnwidth}}
 \toprule
 Item & Final choice \\
 \midrule
-Research question & Can cheap compile-adjacent signals and bounded profiling guide Triton schedule selection better than default or naive matched-budget baselines? \\
-Primary kernel & Representative GEMM \\
-Secondary kernel & LayerNorm, split into \texttt{small\_batch} and \texttt{large\_batch} regimes \\
-Environment & Homogeneous RTX A6000 pool across \texttt{gpunode2}/\texttt{gpunode3} \\
-Headline result & Bounded positive non-\texttt{split\_k} mainline result via \texttt{v5\_mainline\_profiled} \\
-Closeout rule & No further selector-family expansion is justified in the paper backbone \\
+Research question & Can cheap compile-adjacent signals and a small amount of runtime profiling guide Triton schedule selection better than default settings or equally budgeted naive baselines? \\
+Primary kernel & Matrix multiplication, evaluated on representative irregular shapes \\
+Secondary kernel & Layer normalization, reported separately for small-batch and large-batch regimes \\
+Hardware & Homogeneous pool of NVIDIA RTX A6000 GPUs across two hosts in the same cluster \\
+Headline result & A deliberately bounded positive result on representative matrix multiplication, from the final conservative selector on the evaluation surface that excludes the reduction-splitting parameter \\
+Closeout rule & No further expansion of the selector family is justified within the paper's evidence budget \\
 \bottomrule
 \end{tabular}
-\caption{Study scope and final research framing.}
+\caption{Scope and framing of the study. Kernels, hardware, and the research question are fixed up front; the search surface is deliberately narrow so that matched-budget comparisons remain interpretable.}
 \label{tab:scope}
 \end{table}

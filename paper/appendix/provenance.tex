@@ -1,23 +1,9 @@
 \section{Provenance and Canonical Sources}
 
-The hardened draft relies on the final claim inventory and the final paper bundle as its reporting boundary.
+The final manuscript is tied to a frozen evidence snapshot. This appendix records the reporting boundary explicitly, so that a reader or reviewer can tell, without guessing, which study outputs contributed to the paper and which ones did not.
 
-\paragraph{Canonical sources.}
-All claim and figure sources used by the final draft are repo-local, completed, and canonical. In practice this means:
-\begin{itemize}
-\item final claim wording comes from \artifact{docs/research/11\_final\_claim\_inventory.md};
-\item figure and table sources come from \artifact{docs/research/evidence/final\_paper\_20260403/};
-\item historical interpretation comes from the backbone research docs and dated synthesis logs.
-\end{itemize}
+\paragraph{Canonical sources.} All claims and figures in the main text are drawn from repository-local, completed, and canonical evidence. The final claim wording comes from the project's final claim inventory, the figure and table sources come from the frozen final-paper evidence bundle, and any historical interpretation we use in the narrative is cross-referenced against dated synthesis logs preserved in the project repository.
 
-\paragraph{Explicit exclusions.}
-The draft does not rely on evidence from:
-\begin{itemize}
-\item incomplete or superseded campaign roots,
-\item scratch-only experiment directories,
-\item raw Phase 3 roots moved under \artifact{/tmp/.../phase3\_raw},
-\item optional aligned-refresh or confirmation reruns that were intentionally skipped by gate.
-\end{itemize}
+\paragraph{Explicit exclusions.} The draft deliberately does \emph{not} draw on evidence from incomplete or superseded study campaigns, scratch-only experiment directories, raw runs that were moved outside the tracked evidence bundle, or optional aligned-refresh and confirmation reruns that were intentionally skipped for budget reasons. These exclusions are part of the paper's reporting discipline.
 
-\paragraph{Why the final claim set is narrower than the project history.}
-The project explored more configurations, revisions, and diagnostic paths than appear in the final main text. That narrowing is intentional. The final paper is not meant to re-narrate every operational step. It is meant to present the strongest bounded story supported by the canonical repo-local evidence. The dated logs remain the right place to preserve the full chronology and iteration history for handoff and future follow-up work.
+\paragraph{Why the final claim set is narrower than the project history.} The project explored substantially more configurations, selector revisions, and diagnostic paths than appear in the final main text. That narrowing is intentional: the paper is not meant to re-narrate every operational step, but to present the strongest bounded story supported by the canonical repository-local evidence. The dated logs remain the right place to preserve the full chronology and iteration history for handoff and for future follow-up work.

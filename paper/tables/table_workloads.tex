@@ -1,15 +1,15 @@
 \begin{table}[t]
 \centering
 \small
-\begin{tabular}{p{0.20\columnwidth}p{0.25\columnwidth}p{0.43\columnwidth}}
+\begin{tabular}{p{0.22\columnwidth}p{0.30\columnwidth}p{0.38\columnwidth}}
 \toprule
-Kernel & Workload classes & Role \\
+Kernel & Shape classes & Role in the study \\
 \midrule
-Representative GEMM & \texttt{square\_compute}, \texttt{m\_dominant}, \texttt{n\_dominant}, \texttt{edge\_nondivisible} & Primary truth source for ranking quality and final headline \\
-Aligned GEMM & \texttt{aligned\_square}, \texttt{aligned\_rectangular} & Context workload used to test whether regular shapes flatter the selector \\
-LayerNorm & \texttt{small\_batch}, \texttt{large\_batch} & Secondary regime-split explanation of profiling value \\
+Matrix multiplication (representative) & Square compute-bound, M-dominant, N-dominant, and non-divisible edge shapes & Primary truth source: supports all headline claims about selector quality and ranking \\
+Matrix multiplication (aligned) & Conveniently aligned square and rectangular shapes whose dimensions are powers of two & Context workload: used only to show that a selector can look stronger on aligned shapes than on representative ones \\
+Layer normalization & Small-batch and large-batch input regimes, reported separately & Secondary workload used to check whether the same tuning strategies generalize across a kernel with a different compute-to-memory profile \\
 \bottomrule
 \end{tabular}
-\caption{Final workload matrix used by the draft.}
+\caption{Workloads used in the paper and their intended role. The representative matrix multiplication shapes mirror the irregular aspect ratios and masked edges that appear in real transformer workloads; the aligned set is deliberately kept alongside them so that the gap between the two can be measured.}
 \label{tab:workloads}
 \end{table}

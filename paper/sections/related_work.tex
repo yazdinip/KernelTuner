@@ -1,7 +1,7 @@
 \section{Related Work}
 \label{sec:related}
 
-Our work sits between broad autoscheduling systems and purely local benchmark-first autotuning. The closest family depends on which level of abstraction one emphasizes, so the important distinction is not whether prior work studies schedule search at all, but which search surface and which evidence contract it assumes.
+Our work sits between broad autoscheduling systems and purely local benchmark-first autotuning. The closest neighbor depends on which level of abstraction one emphasizes, so the important distinction is not whether prior work studies schedule search at all, but which search surface and which evidence contract it assumes.
 
 \input{tables/table_related_positioning}
 
@@ -18,7 +18,7 @@ Triton is the immediate ecosystem context for this paper. Its language and compi
 Methodologically, \system is closest to external autotuning frameworks such as OpenTuner, Kernel Tuner, CLTune, and KTT \citep{ansel2014opentuner,vanwerkhoven2019kerneltuner,nugteren2015cltune,petrov2023ktt}. These systems treat kernels as parameterized programs, generate candidate configurations, validate correctness, benchmark performance, and compare search strategies. Our work follows that practical lineage more closely than it follows compiler-level autoscheduling. The main difference is the evidence contract: \system specializes to Triton, enforces matched-budget comparisons, separates reportable profiling from diagnostic profiling, and treats failure analysis as part of the contribution rather than as leftover benchmark commentary.
 
 \paragraph{Recent agentic GPU optimization.}
-Recent systems such as CUDA Agent treat GPU optimization as a broader synthesis problem over full CUDA kernels \citep{dai2026cudaagent}. This is important context because it shows how quickly the automation frontier has moved. It also clarifies our niche. We are not competing on full-kernel generation. We keep the Triton implementation fixed and ask a stricter question: given a bounded schedule space and a fixed evidence budget, when do cheap signals help, when does profiling help, and when should a knob family be retired? That narrower scope is what makes the negative results in this paper interpretable.
+Recent systems such as CUDA Agent treat GPU optimization as a broader synthesis problem over full CUDA kernels \citep{dai2026cudaagent}. This is important context because it shows how quickly the automation frontier has moved. It also clarifies our niche: we are not competing on full-kernel generation. We keep the Triton implementation fixed and ask a stricter question: given a bounded schedule space and a fixed evidence budget, when do cheap signals help, when does profiling help, and when should a knob family be retired entirely? That narrower scope is what makes the negative results in this paper interpretable rather than merely disappointing.
 
 \paragraph{Practical ecosystem motivation.}
 The wider Triton ecosystem suggests that tuning overhead remains a real engineering problem even when native autotuning support exists. Official tutorials present tuning as standard practice for performance-critical kernels, and tools such as \texttt{triton-dejavu} target the reuse and overhead problems around repeated autotuning \citep{ibm2025dejavu}. We use that ecosystem as motivation rather than as a source of superiority claims. It helps explain why a lightweight, reproducible, matched-budget tuning study is still worth doing.

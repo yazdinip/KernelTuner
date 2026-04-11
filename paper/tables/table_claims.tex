@@ -1,18 +1,18 @@
 \begin{table*}[t]
 \centering
 \small
-\begin{tabular}{p{0.07\textwidth}p{0.12\textwidth}p{0.53\textwidth}p{0.14\textwidth}}
+\begin{tabular}{p{0.22\textwidth}p{0.14\textwidth}p{0.46\textwidth}p{0.12\textwidth}}
 \toprule
-ID & Status & Paper-safe reading & Main evidence \\
+Claim & Status in the final paper & Reading & Supporting evidence \\
 \midrule
-\texttt{H1} & Strong & Cheap compile-adjacent signals prune effectively but do not reliably rank representative GEMM on realistic schedule surfaces. & Phase 2 representative GEMM \\
-\texttt{H2} & Mixed / bounded & LayerNorm is regime-split and secondary: \texttt{small\_batch} is weak/noisy, \texttt{large\_batch} favors compile-only ranking. & Phase 2 regime split + Phase 3 microstudy \\
-\texttt{H3} & Contextual & Aligned GEMM is useful context, but it is not the truth source and overstates selector quality. & Phase 2 aligned vs representative comparison \\
-\texttt{H4} & Mixed transfer story & Narrow-space frontier-aware revision worked, but later expanded-space evidence did not transfer cleanly. & \texttt{h4\_retry\_g3}, Phase 3 ablation, R6 ablation \\
-\texttt{H5} & Unsupported & The transfer-safe v4 corrective pass remained unsupported on the expanded \texttt{split\_k} surface. & Phase 3 representative GEMM + schedule diagnostic \\
-\texttt{R6} & Bounded improvement & The guarded non-\texttt{split\_k} mainline selector yields the strongest representative GEMM result in the project. & Final representative GEMM + final ablation \\
+Cheap compile-adjacent signals prune better than they rank. & Strongly supported & On the representative matrix multiplication workload, compile-adjacent signals reject obviously poor schedules effectively, but cannot reliably order the plausible ones that remain. & Cheap-signal baseline mapping on the representative workload \\
+Matched-budget runtime profiling is not uniformly beneficial on layer normalization. & Mixed / bounded & Profiling helps only marginally in a small-batch regime and slightly hurts in a large-batch regime, so layer normalization is reported as regime-split rather than as a second headline. & Layer normalization regime split plus a later row-grouping micro-study \\
+Conveniently aligned matrix multiplication shapes overstate selector quality. & Contextual & The same selector reaches meaningfully higher geometric-mean speedup on aligned shapes than on representative shapes, so aligned results are kept only as evaluation context. & Aligned versus representative comparison at matched budget \\
+A narrow-space frontier-aware selector revision worked, but did not transfer to an enlarged search space. & Mixed transfer story & An earlier revision that looked promising on a narrow matrix multiplication surface collapsed when the search space was enlarged to include the reduction-splitting parameter. & Narrow-space retry, enlarged-space ablation, and the final mainline ablation \\
+A corrective pass built around the reduction-splitting parameter remained unsupported. & Unsupported & On the enlarged matrix multiplication surface the transfer-safe corrective revision failed against both the parent selector and random search, and the schedule-family diagnostic showed that non-trivial reduction splits were never preferred. & Enlarged-space representative matrix multiplication run plus the schedule-family diagnostic \\
+A conservative final selector recovers a bounded improvement on representative matrix multiplication. & Bounded improvement & On the evaluation surface that excludes the reduction-splitting parameter, the conservative selector yields the strongest representative matrix multiplication result in the project, with a small but credible advantage over both the compile-signal-ranked parent and naive random search under matched budget. & Final representative matrix multiplication study plus the final frontier-correction ablation \\
 \bottomrule
 \end{tabular}
-\caption{Final hypothesis and claim summary used by the manuscript.}
+\caption{Summary of the main empirical claims made by the paper, together with their reading, supporting evidence, and the degree of confidence we assign them. Claims are ordered in the sequence in which they emerged during the study.}
 \label{tab:claims}
 \end{table*}

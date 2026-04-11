@@ -1,26 +1,31 @@
-\section{\system Design}
+\section{The \system Framework}
 \label{sec:design}
 
-\system is built around an evidence hierarchy rather than around an open-ended search heuristic. The selector sees only evidence types that the paper is willing to defend: admissibility checks, cheap compile-adjacent signals, bounded reportable profiling, and held-out runtime evaluation.
+\system is a tuning harness built around the evidence hierarchy described in the previous section. Rather than introducing a new search algorithm, it fixes the rules of the experiment so that every comparison in this paper operates under the same measurement budget and consults the same ladder of increasingly informative evidence. The framework has five ingredients, shown in Figure~\ref{fig:pipeline}: candidate generation with explicit admissibility bounds, a ladder of selectors that differ only in the evidence they consult, a distinction between reportable and diagnostic evidence, a narrow final evaluation surface, and a deliberately conservative final selector.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.98\columnwidth]{figures/generated/figure1_pipeline.pdf}
-\caption{Matched-budget tuning is treated as an evidence pipeline: enumerate admissible candidates, spend cheap signals first, use profiling only in a bounded tier, and evaluate claims on held-out runtimes.}
+\caption{The tuning pipeline used throughout the paper, drawn as a left-to-right flow of six stages. \emph{(1) Candidate generation} enumerates the declared schedule space for the kernel and keeps only configurations that pass admissibility checks (for example, that fit within the device's shared memory). \emph{(2) Cheap signals} reads compile-adjacent information — register count, shared-memory footprint, occupancy estimate — from each admissible configuration without running it. \emph{(3) Frontier construction} uses those cheap signals to prune and order candidates under the matched measurement budget. \emph{(4) Bounded profiling} optionally runs a small subset of the frontier on calibration shapes and consults a small, well-attributed set of runtime profiling counters. \emph{(5) Held-out evaluation} benchmarks the selected configuration on representative held-out shapes, which is what every reported speedup in the paper comes from. \emph{(6) Evidence promotion} admits the resulting measurement into the reportable-claim ledger. The distinction between stages 3 and 4 is the key evidence-allocation decision that the paper studies.}
 \label{fig:pipeline}
 \end{figure}
 
-\paragraph{Candidate generation and admissibility.}
-The generator enumerates the declared schedule space, validates kernel-specific configurations, and enforces admissibility limits explicitly rather than silently truncating the raw Cartesian product. This matters because hidden truncation would turn a selector study into a config-ordering artifact.
+\subsection{Candidate generation and admissibility}
 
-\paragraph{Selector ladder.}
-The framework uses a fixed ladder of comparators: \texttt{default\_config}, naive random and grid baselines, compile-ranked selection, bounded profiling, and revised selectors under the same budget. This ladder is part of the scientific design. Every claimed improvement must beat a matched-budget parent rather than a weaker or cheaper baseline.
+For each kernel, we enumerate the Cartesian product of the tuning knobs that are exposed to the developer. Every candidate is then checked against explicit admissibility limits: configurations that would exceed the available shared memory, or that would launch with invalid tile shapes for a given input, are rejected up front. These bounds are made explicit in the framework rather than being silently applied inside the generator, because hidden truncation would turn a selector study into an artifact of candidate ordering rather than a real comparison.
 
-\paragraph{Signal tiers.}
-Tier 0 signals are broad and cheap. Tier 1 signals are bounded and reportable only when their attribution is stable enough to defend. Diagnostic counters are allowed to explain failures, but they are not used as direct superiority evidence. That rule is what allows the paper to use schedule diagnostics to explain the failure of \texttt{split\_k} without quietly folding those diagnostics into the main tuning contract.
+\subsection{A ladder of selectors}
 
-\paragraph{Final mainline surfaces.}
-The final reportable surfaces are narrower than the exploratory ones. GEMM keeps \texttt{block\_m}, \texttt{block\_n}, \texttt{block\_k}, \texttt{group\_size\_m}, \texttt{num\_warps}, and \texttt{num\_stages}; \texttt{split\_k} is retired to diagnostic status. LayerNorm keeps \texttt{block\_size}, \texttt{num\_warps}, and \texttt{num\_stages}; \texttt{rows\_per\_program} is likewise retired to diagnostic status. These boundaries are not bookkeeping. They are the practical outcome of the transfer and microstudy evidence.
+We compare a fixed ladder of increasingly informed selectors, each operating under the same matched budget. The ladder includes the kernel's default configuration, a naive random search, a grid baseline, a selector that ranks candidates using compile-adjacent signals only, a variant that additionally consults a small amount of runtime profiling, and a handful of revised selectors that adjust how the compile-adjacent frontier is constructed in response to the empirical findings of the study. The ladder is part of the scientific design: every claimed improvement in the paper has to beat a comparable matched-budget baseline, not merely the kernel default.
 
-\paragraph{Final guarded selector family.}
-The last selector change is deliberately conservative. Instead of opening another broad revision family, the final pass corrects frontier construction on the non-\texttt{split\_k} GEMM surface by preserving strong compile-ranked families while recovering balanced candidates that earlier revisions had missed. The final ablation shows that once the frontier is corrected, most of the gain is already present before profiling, and profiling adds only a small extra increment.
+\subsection{Reportable and diagnostic evidence}
+
+Not all evidence we collect is treated as equally load-bearing. We distinguish \emph{reportable} evidence, which supports the main claims of the paper, from \emph{diagnostic} evidence, which is used to explain outcomes without being counted as superiority evidence. Compile-adjacent signals, and a small, stably-attributed set of profiling counters, fall into the reportable tier. Additional counters may be collected when we need to understand why a particular selector failed, but they are used only for failure analysis. This separation is what allows us to present a negative result — such as the failure of one reduction-splitting knob family to generalize across search spaces — without quietly reusing the diagnostic counters to argue for the main result.
+
+\subsection{The final evaluation surface}
+
+The schedule space evaluated by the final paper is narrower than the space we began with. For matrix multiplication, the final tuning knobs are the three tile dimensions of the output block, a grouping factor that controls thread-block launch order, the number of warps per block, and the number of pipeline stages. We explicitly remove a reduction-splitting parameter that was evaluated in an earlier expanded space; the reasons for this removal are the subject of Section~\ref{sec:results}. For layer normalization, the final knobs are the block size, the number of warps, and the number of pipeline stages; a row-grouping parameter is likewise removed from the final surface after failing to improve matched-budget comparisons. These exclusions are not bookkeeping decisions. They are direct consequences of the transfer and micro-study evidence discussed in the next two sections.
+
+\subsection{A deliberately conservative final selector}
+
+The last revision of our selector is intentionally narrow. Rather than introducing another broad heuristic, it corrects how the compile-adjacent frontier is constructed on the remaining matrix multiplication surface, so that strong compile-ranked families are preserved and balanced candidates that earlier revisions had missed are re-admitted into the evaluation set. As we show in Section~\ref{sec:results}, most of the final improvement is already present before runtime profiling is applied; profiling contributes only a small additional increment on top of the already-corrected frontier.

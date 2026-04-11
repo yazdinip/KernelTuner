@@ -1,18 +1,22 @@
 \section{Experimental Methodology}
 \label{sec:methodology}
 
-The experimental protocol is designed to answer one narrow question fairly: under the same measurement budget, does a bottleneck-aware selector choose better Triton schedules than default settings or naive matched-budget baselines?
+The experimental protocol is designed to answer one narrow question fairly: under the same measurement budget, does a selector that uses compile-adjacent signals, and optionally a small amount of runtime profiling, choose better Triton schedules than default settings or an equally budgeted random search?
 
-\paragraph{Environment and workload roles.}
-All primary studies used by the final paper use a homogeneous RTX A6000 pool across \texttt{gpunode2} and \texttt{gpunode3}. Representative GEMM is the truth source for ranking quality and the final headline. Aligned GEMM is context only. LayerNorm is a secondary regime-split validation kernel rather than a co-equal optimization target.
+\subsection{Hardware and workloads}
 
-\paragraph{Matched-budget comparisons.}
-Every comparative result is budget matched. Default settings, naive random search, compile-ranked selection, profiled selection, and revised selectors all operate under explicit benchmark and profile limits. Diagnostic studies may collect additional evidence, but they are used to explain outcomes rather than to claim superiority.
+All primary studies in this paper run on a homogeneous pool of NVIDIA RTX A6000 GPUs spread over two host machines in the same cluster. Using a single generation of hardware simplifies interpretation: any difference we observe between selectors is attributable to the schedules they choose rather than to device-to-device variation. As described in Section~\ref{sec:background}, matrix multiplication is our primary workload; the representative shape set supports the main claims, while the conveniently aligned shape set is reported only as evaluation context. Layer normalization is a secondary workload used to test whether the same tuning strategies generalize across kernels with a different compute-to-memory profile.
 
-\paragraph{Repeatability and robustness.}
-The study separates repeatability from robustness. Repeatability uses repeated runs with a fixed seed. Robustness uses one run per seed across a small seed set. This matters for interpretation: the guarded \texttt{v5\_mainline\_profiled} result is clearly positive on mean performance, but it is still written as a bounded improvement because it does not clear the stricter seed-stability gate required for a stronger claim.
+\subsection{Matched-budget comparisons}
 
-\paragraph{Reporting discipline.}
-The paper uses only held-out results from completed canonical studies, and it writes claims no stronger than the corresponding evidence summary. Diagnostic evidence is still valuable, but only as failure analysis. This is why the paper can use schedule diagnostics to justify retiring \texttt{split\_k} while keeping the main headline tied to reportable representative-GEMM studies.
+Every selector we compare operates under the same total number of kernel compilations, benchmark runs, and profiling events. In particular, a selector that ranks candidates using compile-adjacent signals is allowed the same number of end-to-end benchmark evaluations as a random-search baseline, so that the comparison reflects the \emph{quality} of the ranking rather than the sheer amount of runtime evidence consumed. Profiling is treated as an additional bounded tier: when a selector is allowed to consult profiling counters, the number of profiled candidates is also fixed in advance. These budgets are declared before any selector is run, and every number reported in the paper comes from a run that respects them.
+
+\subsection{Repeatability and robustness}
+
+We distinguish repeatability from robustness. For repeatability, we run each configuration multiple times with a fixed random seed and report the variation across those runs. For robustness, we sweep a small set of seeds, running once per seed, and check whether the selector's advantage is stable across seeds. These two notions are not interchangeable: a selector that is repeatable but not seed-stable can still be meaningful, but only as a bounded claim. The final conservative selector in this paper is clearly positive on mean performance but falls just short of our stricter seed-stability gate, which is why we report its improvement as bounded rather than universal.
+
+\subsection{Reporting discipline}
+
+The main text only uses held-out results from fully completed studies, and we write no claim more strongly than its evidence summary supports. Diagnostic evidence — for example, a breakdown of which schedule families a failing selector preferred — is used to explain outcomes and to justify removing unstable knob families from the final evaluation surface, but it is never used to strengthen a reported speedup. This discipline is what allows the paper to treat transfer failures as informative results rather than as awkward asides.
 
 \input{tables/table_claims}

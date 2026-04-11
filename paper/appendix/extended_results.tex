@@ -1,35 +1,35 @@
-\section{Extended Results and Exact Artifact Mapping}
+\section{Extended Results and Canonical Evidence Map}
 
-The final manuscript uses a narrow figure set, but the underlying evidence is broader. Table~\ref{tab:artifactmap} records the canonical artifact map used by the hardened draft.
+The main text uses a narrow figure set, but each claim is backed by a canonical evidence bundle in the project repository. Table~\ref{tab:artifactmap} records the mapping between paper elements and the canonical study directories used to generate them. Readers who need to inspect the underlying measurements can use this table as the entry point.
 
 \begin{table*}[t]
 \centering
 \small
-\begin{tabular}{p{0.19\textwidth}p{0.61\textwidth}p{0.14\textwidth}}
+\begin{tabular}{p{0.22\textwidth}p{0.58\textwidth}p{0.14\textwidth}}
 \toprule
-Artifact role & Canonical source & Used by \\
+Artifact role & Canonical source directory & Used by \\
 \midrule
-Final representative headline & \artifact{artifacts/studies/gemm\_final\_baseline\_mapping/run\_20260330T014317Z\_359c1904} & Figure 2, Table 4 \\
-Final mainline ablation & \artifact{artifacts/studies/gemm\_final\_selector\_ablation/run\_20260330T023529Z\_7c800187} & Figure 5, Table 4 \\
-Aligned context & \artifact{artifacts/studies/gemm\_v2\_aligned\_reference/run\_20260327T190124Z\_3a34cdc7} plus \artifact{gemm\_v2\_baseline\_mapping} & Figure 3 \\
-LayerNorm regime split & \artifact{artifacts/studies/layernorm\_v2\_small\_regime/run\_20260327T183157Z\_53565cba} plus \artifact{layernorm\_v2\_large\_regime/run\_20260327T183158Z\_37695a2d} & Figure 4 \\
-Phase 3 transfer failure & \artifact{artifacts/studies/gemm\_v3\_baseline\_mapping/run\_20260329T010211Z\_dfb53abb} and \artifact{gemm\_v3\_selector\_ablation/run\_20260329T034953Z\_e8b8ac98} & \texttt{H5} text, Table 4 \\
-Chosen-vs-best diagnostic & \artifact{artifacts/studies/gemm\_v3\_schedule\_diag/run\_20260328T212649Z\_7755304a} & Figure 5B \\
-Final claim bundle & \artifact{artifacts/analysis/final\_paper\_20260403/} & Whole draft \\
+Final representative matrix multiplication headline & Final baseline-mapping study on the evaluation surface that excludes the reduction-splitting parameter & Figure~\ref{fig:mainline-headline}, Table~\ref{tab:claims} \\
+Final mainline ablation (frontier correction vs.\ frontier + profiling) & Final selector-ablation study on the same evaluation surface & Figure~\ref{fig:transfer-mainline}, Table~\ref{tab:claims} \\
+Aligned context for matrix multiplication & Earlier aligned reference study paired with the matched baseline mapping & Figure~\ref{fig:aligned-context} \\
+Layer normalization regime split & Paired small-batch and large-batch layer normalization studies & Figure~\ref{fig:layernorm-regimes} \\
+Transfer failure on the enlarged search space & Enlarged-space baseline mapping and selector ablation & Transfer-failure discussion, Table~\ref{tab:claims} \\
+Schedule-family diagnostic for the enlarged space & Schedule diagnostic run that compared the selected family to the best-scored family & Figure~\ref{fig:transfer-mainline} diagnostic inset \\
+Final claim bundle & Canonical tracked evidence snapshot used to generate every figure in the paper & Whole manuscript \\
 \bottomrule
 \end{tabular}
-\caption{Canonical artifact map for the hardened draft.}
+\caption{Canonical evidence map for the paper. Each row names an artifact role and the canonical source used to populate it, along with where it is used in the manuscript.}
 \label{tab:artifactmap}
 \end{table*}
 
-The most important numeric comparisons used directly in the draft are:
+For readers who want to reproduce the numbers quoted in the main text, the key measurements used directly by the paper are:
 \begin{itemize}
-\item \textbf{Phase 2 representative GEMM:} random 1.0331, \texttt{prune\_rank} 0.8265, \texttt{prune\_rank\_profiled} 0.8444, revised 0.1458.
-\item \textbf{Phase 2 aligned GEMM:} random 0.9951, \texttt{prune\_rank} 0.8795, \texttt{prune\_rank\_profiled} 0.8873, revised 0.1702.
-\item \textbf{Phase 2 LayerNorm small-batch:} \texttt{prune\_rank} 1.0100, profiled 1.0113.
-\item \textbf{Phase 2 LayerNorm large-batch:} \texttt{prune\_rank} 1.0029, profiled 0.9856.
-\item \textbf{Phase 3 representative GEMM with \texttt{split\_k}:} parent 1.0324, random 1.0427, transfer-safe profiled 0.1609.
-\item \textbf{R6 final representative GEMM:} parent 0.8101, random 1.0011, guarded profiled 1.0286.
+\item \textbf{Representative matrix multiplication, expanded search space.} Naive random search: geometric-mean speedup $1.033\times$ over default; compile-signal ranking: $0.827\times$; compile-signal ranking with a small profiling tier: $0.844\times$; earlier frontier-aware revision: $0.146\times$.
+\item \textbf{Aligned matrix multiplication, expanded search space.} Naive random search: $0.995\times$; compile-signal ranking: $0.880\times$; with profiling tier: $0.887\times$; earlier frontier-aware revision: $0.170\times$.
+\item \textbf{Layer normalization, small-batch regime.} Compile-signal ranking: $1.010\times$; with profiling tier: $1.011\times$.
+\item \textbf{Layer normalization, large-batch regime.} Compile-signal ranking: $1.003\times$; with profiling tier: $0.986\times$.
+\item \textbf{Representative matrix multiplication, enlarged search space including the reduction-splitting parameter.} Compile-signal parent: $1.032\times$; naive random search: $1.043\times$; transfer-safe corrective revision with profiling: $0.161\times$; frontier-only ablation: $0.162\times$.
+\item \textbf{Representative matrix multiplication, final evaluation surface (reduction-splitting parameter removed).} Earlier compile-signal-ranked parent: $0.810\times$; naive random search: $1.001\times$; conservative frontier correction only: $1.027\times$; conservative frontier correction with profiling: $1.029\times$.
 \end{itemize}
 
-These comparisons are sufficient for the hardened draft because they support the final claim ledger directly. Additional per-class breakdowns, stability reports, and opportunity catalogs should remain appendix or supplement material unless a later revision needs them in the main paper.
+These measurements are sufficient to support every claim made by the main text. Additional per-class breakdowns, stability reports, and opportunity catalogs are preserved in the project's internal research logs and should remain as supplementary material unless a future revision of the paper needs them directly.

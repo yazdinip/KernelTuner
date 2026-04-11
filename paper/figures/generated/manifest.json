@@ -1,11 +1,11 @@
 {
-  "bundle_dir": "/h/439/yazdinip/KernelTuner/docs/research/evidence/final_paper_20260403",
-  "output_dir": "/h/439/yazdinip/KernelTuner/paper/figures/generated",
+  "bundle_dir": "/Users/ganni/Repositories/KernelTuner/docs/research/evidence/final_paper_20260403",
+  "output_dir": "/Users/ganni/Repositories/KernelTuner/paper/figures/generated",
   "generated_files": {
-    "figure1_pipeline": "/h/439/yazdinip/KernelTuner/paper/figures/generated/figure1_pipeline.pdf",
-    "figure2_budget_curve": "/h/439/yazdinip/KernelTuner/paper/figures/generated/figure2_budget_curve.pdf",
-    "figure3_aligned_context": "/h/439/yazdinip/KernelTuner/paper/figures/generated/figure3_aligned_context.pdf",
-    "figure4_layernorm_regimes": "/h/439/yazdinip/KernelTuner/paper/figures/generated/figure4_layernorm_regimes.pdf",
-    "figure5_transfer_mainline": "/h/439/yazdinip/KernelTuner/paper/figures/generated/figure5_transfer_mainline.pdf"
+    "figure1_pipeline": "/Users/ganni/Repositories/KernelTuner/paper/figures/generated/figure1_pipeline.pdf",
+    "figure2_budget_curve": "/Users/ganni/Repositories/KernelTuner/paper/figures/generated/figure2_budget_curve.pdf",
+    "figure3_aligned_context": "/Users/ganni/Repositories/KernelTuner/paper/figures/generated/figure3_aligned_context.pdf",
+    "figure4_layernorm_regimes": "/Users/ganni/Repositories/KernelTuner/paper/figures/generated/figure4_layernorm_regimes.pdf",
+    "figure5_transfer_mainline": "/Users/ganni/Repositories/KernelTuner/paper/figures/generated/figure5_transfer_mainline.pdf"
   }
 }

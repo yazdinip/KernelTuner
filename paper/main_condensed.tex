@@ -31,7 +31,6 @@
 \setlength{\belowcaptionskip}{0pt}
 
 \newcommand{\system}{KernelTuner\xspace}
-\newcommand{\artifact}[1]{\texttt{#1}}
 
 \title{Matched-Budget Triton Tuning: Cheap Signals, Realistic Workloads, and Bounded Recovery}
 \author{Project Draft}
@@ -41,37 +40,37 @@
 \maketitle
 
 \begin{abstract}
-The practical question in Triton tuning is not whether search can find good schedules, but what a small measurement budget can buy. This paper studies that question under matched budget: can cheap compile-adjacent signals and bounded profiling guide schedule selection better than default settings or equally budgeted naive baselines? We evaluate a fixed-kernel tuning framework on a homogeneous RTX A6000 pool using representative and aligned GEMM workloads plus regime-split LayerNorm. The main findings are that compile-adjacent signals prune better than they rank, aligned GEMM materially overstates selector quality, profiling is kernel- and regime-dependent rather than uniformly helpful, and transfer failures provide useful evidence for retiring unstable knob families. On the final non-\texttt{split\_k} GEMM surface, a conservative selector reaches 1.0286 geometric-mean speedup versus default, compared with 0.8101 for the compile-ranked parent and 1.0011 for naive random search under the same matched budget. The result is intentionally bounded rather than universal. The paper's contribution is therefore not a claim that Triton tuning is solved, but a clearer empirical account of what lightweight evidence can and cannot buy once the budget and workload realism are fixed.
+When tuning a GPU kernel in practice, a developer rarely has the time to benchmark every possible schedule. They must decide up front which evidence is worth collecting: cheap signals that can be read straight from the compiled binary, a small amount of runtime profiling, or a full benchmark sweep. This paper studies that trade-off for Triton kernels. We build a tuning framework that treats compile-adjacent signals and bounded profiling as distinct tiers of evidence under a fixed measurement budget, and evaluate it on matrix multiplication and layer normalization kernels on a homogeneous pool of NVIDIA RTX A6000 GPUs. Our main findings are that cheap compile-time signals prune obviously poor schedules well but cannot reliably rank the remaining candidates; that convenient aligned workloads materially overstate the quality of a selector compared to representative ones; that profiling helps only in particular kernels and regimes rather than uniformly; and that one reduction-splitting knob that looked promising on a narrow search space collapsed when the space was enlarged, which justified removing it from the main evaluation. After these retreats, a deliberately conservative selector still recovers a small but credible improvement on representative matrix multiplication: a geometric-mean speedup of $1.03\times$ over default settings, compared with $0.81\times$ for an earlier compile-signal-only ranking and $1.00\times$ for a naive random search under the same matched budget. We present this result as intentionally bounded: the contribution of the paper is not a claim that Triton tuning is solved, but a clearer empirical account of what lightweight evidence can and cannot buy once the budget and workload realism are fixed.
 \end{abstract}
 
 \section{Introduction}
 
-What counts as a win in kernel tuning changes once the search budget is fixed and the workloads are realistic. A selector that looks strong on aligned shapes or after an unstable transfer trick is not necessarily useful in practice. This paper takes that constraint seriously. Rather than asking whether Triton autotuning can ever find a fast schedule, it asks whether a small, explicit evidence budget can be spent better than default settings or equally budgeted naive baselines.
+What counts as a win in GPU kernel tuning changes once the measurement budget is fixed and the workloads are representative. A selector that looks strong on convenient aligned shapes, or on a lucky transfer trick inside a narrow search space, is not necessarily useful in practice. This paper takes that constraint seriously. Rather than asking whether Triton autotuning can ever find a fast schedule, we ask whether a small, explicit evidence budget can be spent better than default settings or an equally budgeted random search.
 
-That framing matters because the final positive result in this project is modest. The paper would be weak if it relied only on a single speedup number. Its strength comes from a broader lesson: cheap signals help, but mostly as pruning evidence; realistic workloads expose failures that convenience cases can hide; profiling is mixed rather than uniformly beneficial; and negative transfer results are useful because they justify a cleaner final mainline surface. The final representative-GEMM improvement is worth reporting because it survives those harsher tests, not because it overwhelms them.
+That framing matters because the final positive result we report is deliberately modest. The paper would be weak if its contribution were a single headline number. Its strength comes from a broader lesson: cheap compile-time signals help primarily as a way to reject obviously poor schedules; realistic workloads expose ranking failures that convenient cases hide; runtime profiling is mixed rather than uniformly beneficial; and negative transfer results are valuable because they justify removing unstable knob families from the final evaluation. The final improvement on the representative matrix multiplication benchmark is worth reporting because it survives those harsher tests, not because it overwhelms them.
 
 \section{Background and Context}
 
-Triton makes schedule-oriented GPU programming practical, but it does not remove the tuning problem. A single kernel still exposes tile sizes, grouped launch order, warp count, and pipeline depth choices whose best setting depends on workload geometry and hardware bottlenecks. Exhaustive autotuning can recover good schedules, but it is often too expensive to treat as the default workflow. That makes matched-budget tuning important: if only a small amount of benchmarking and profiling is affordable, which evidence is worth paying for?
+Triton~\citep{tillet2019triton,openai2021triton} provides a practical environment for writing schedule-oriented GPU kernels, but it does not remove the tuning problem. A single kernel still exposes tile sizes, grouping for thread-block launch, the number of warps per block, and the number of pipeline stages used to overlap memory and compute. The best setting of these knobs depends on input shape, register pressure, and the memory system of the specific GPU. Exhaustive autotuning can recover good schedules, but it is often too expensive to treat as the default workflow, which is why matched-budget tuning is important: if only a small amount of benchmarking and profiling is affordable, one has to decide which evidence is worth paying for.
 
-This is also a workload-design problem. On regular aligned shapes, a selector can look stronger than it really is. On irregular representative shapes, ranking failures appear that aligned cases smooth over. Likewise, profiling may help on one kernel or regime and add little on another. A useful paper in this setting must therefore explain not only whether a selector wins, but also what kind of evidence is responsible for the result and why the result changes across workloads.
+Tuning is also a workload-design problem. On regular, aligned shapes, a selector can look stronger than it really is; on irregular shapes that mirror real transformer workloads, ranking failures that were invisible on aligned cases appear. Runtime profiling, similarly, may be useful for one kernel or regime and add little on another. A useful paper in this setting therefore has to explain not only whether a selector wins, but also what kind of evidence is responsible for the result and why the conclusion changes across workloads.
 
-The paper is narrower than compiler-scale autoscheduling on purpose. It keeps the Triton kernel fixed, studies only bounded schedule knobs, and asks what can be justified under the same budget for every competing strategy. That narrower scope is what makes the negative results interpretable rather than incidental.
+This paper is narrower than compiler-scale autoscheduling on purpose. We keep the Triton implementation of each kernel fixed, study only a bounded schedule space, and insist that every competing strategy operates under the same measurement budget. That narrower scope is what makes the negative results interpretable rather than incidental.
 
 \section{Goal}
 
-The goal of this project is to test whether a bottleneck-aware, schedule-first selector can spend a small fixed measurement budget better than default settings or naive baselines for Triton kernels. The paper focuses on three concrete questions:
+The central question is whether an evidence-aware selector can spend a small fixed measurement budget better than default settings or an equally budgeted random search for Triton kernels. We break this into three concrete sub-questions:
 \begin{itemize}
-\item Do cheap compile-adjacent signals do enough to rank good schedules, or do they mainly prune bad ones?
-\item Do realistic workloads change the apparent quality of a selector?
-\item Can limited profiling and conservative selector refinement recover a credible positive result without hiding failures?
+\item Do cheap compile-adjacent signals — register usage, shared-memory footprint, and occupancy estimates — do enough to rank good schedules, or do they mainly prune bad ones?
+\item Do representative workloads change the apparent quality of a selector compared to conveniently aligned ones?
+\item Can limited runtime profiling, together with conservative selector refinement, recover a credible positive result without hiding the failures that motivated it?
 \end{itemize}
 
 \section{Prior Work}
 
-The broad conceptual lineage comes from schedule search and autoscheduling in systems such as Halide, TVM, Ansor, TensorIR, and MetaSchedule \citep{ragankelley2012halide,mullapudi2016halide,adams2019halide,chen2018tvm,zheng2020ansor,zheng2022tensorir,shao2022metaschedule}. Triton itself provides local autotuning interfaces, and PyTorch increasingly treats Triton as part of a larger compilation stack \citep{tillet2019triton,openai2021triton,tritondocsautotune,tritondocsheuristics,pytorchcompile2026,pytorchtriton2026}. External autotuners such as Kernel Tuner, CLTune, and KTT are even closer in spirit because they treat kernels as parameterized programs and compare search strategies directly \citep{vanwerkhoven2019kerneltuner,nugteren2015cltune,petrov2023ktt}. Recent agentic GPU optimization work is broader still, targeting full-kernel generation rather than bounded schedule selection \citep{dai2026cudaagent}.
+The broad conceptual lineage of this paper comes from schedule search and autoscheduling systems such as Halide, TVM, AutoTVM, Ansor, TensorIR, and MetaSchedule~\citep{ragankelley2012halide,mullapudi2016halide,adams2019halide,chen2018tvm,chen2018learningtensor,zheng2020ansor,zheng2022tensorir,shao2022metaschedule}. These systems established that scheduling choices can dominate end-to-end performance and that searching the space of schedules automatically is a productive direction. Triton itself provides local autotuning interfaces, and PyTorch increasingly treats Triton as part of a larger compilation and autotuning stack~\citep{tritondocsautotune,tritondocsheuristics,pytorchcompile2026,pytorchtriton2026}. External autotuners such as Kernel Tuner, CLTune, and KTT are closer in spirit because they treat kernels as parameterized programs and compare search strategies directly~\citep{vanwerkhoven2019kerneltuner,nugteren2015cltune,petrov2023ktt}. Recent agentic GPU optimization work is broader still, targeting full-kernel synthesis rather than bounded schedule selection~\citep{dai2026cudaagent}.
 
-What is less well covered by prior work is the narrow middle ground this paper targets: fixed Triton kernels, explicit matched-budget comparisons, reportable versus diagnostic profiling, and a willingness to preserve negative results. That narrower question is not larger than prior autotuning systems, but it is scientifically cleaner for understanding what lightweight evidence actually buys.
+What is less well covered by prior work is the narrow middle ground this paper targets: a fixed Triton kernel, a bounded schedule space, an explicit measurement budget for every competing strategy, a clean separation between reportable and diagnostic evidence, and a willingness to keep negative results in the main story. That question is not larger than the ones prior autotuning systems address, but it is scientifically cleaner for understanding what lightweight evidence actually buys.
 
 \begin{table}[t]
 \centering
@@ -80,121 +79,123 @@ What is less well covered by prior work is the narrow middle ground this paper t
 \toprule
 System family & Relation to this paper \\
 \midrule
-Halide / TVM-style autoscheduling & Broader schedule languages and compiler objectives than this fixed-kernel study \\
-Triton-native autotuning & Immediate ecosystem context; this paper asks what lightweight evidence buys before broad local search \\
-External kernel autotuners & Closest practical baseline family; this paper adds stricter matched-budget and evidence rules \\
-Agentic GPU optimization & Useful contrast, but much broader than bounded Triton schedule selection \\
+Halide and TVM-style autoscheduling & Search richer schedule languages and broader compiler objectives than the bounded Triton knob surface studied here. \\
+Triton-native autotuning & The immediate ecosystem context; we ask what lightweight evidence buys \emph{before} falling back on broader local search. \\
+External kernel autotuners & Closest practical baseline family; we add stricter matched-budget and evidence-separation rules. \\
+Agentic GPU optimization & Useful positioning contrast, but targets full-kernel synthesis rather than bounded schedule selection. \\
 \bottomrule
 \end{tabular}
-\caption{This paper occupies a middle ground: narrower than compiler-scale or agentic optimization, but more controlled than a simple benchmark-driven tuning script.}
+\caption{Where this paper sits in the related-work landscape. Our contribution is narrower than compiler-scale or agentic optimization, but more controlled than a plain benchmark-driven tuning script.}
 \label{tab:condensed-positioning}
 \end{table}
 
 \section{Methodology}
 
-All primary studies used by the final paper use a homogeneous RTX A6000 pool across \texttt{gpunode2} and \texttt{gpunode3}. Representative GEMM is the truth source, aligned GEMM is supporting context, and LayerNorm is a secondary regime-split validation kernel. The kernels themselves stay fixed; only bounded schedule knobs change.
+All primary studies in this paper run on a homogeneous pool of NVIDIA RTX A6000 GPUs spread over two host machines in the same cluster. Matrix multiplication is our primary workload, evaluated on a representative shape set (with irregular aspect ratios and masked edges) that acts as the truth source, and on a conveniently aligned shape set that is kept only as evaluation context. Layer normalization is a secondary workload used to test whether the same tuning strategies generalize across kernels with a different compute-to-memory profile. The Triton implementation of each kernel is held fixed throughout the study; only the bounded schedule knobs change between configurations.
 
-Every comparison is budget matched. The main selector ladder is \texttt{default\_config}, \texttt{naive\_random\_search}, compile-ranked \texttt{prune\_rank}, bounded profiling variants, and revised selectors under the same benchmark/profile caps. The canonical reportable representative-GEMM program uses a bounded non-\texttt{split\_k} surface with 216 valid configurations and a matched budget of 12 benchmarks and 4 profiles. Repeatability uses repeated runs with a fixed seed, while robustness uses one run each at seeds 7, 19, and 43. Diagnostic runs may explain a failure, but they are never treated as superiority evidence by themselves.
+Every comparison is matched-budget. The main selector ladder includes the kernel's default configuration, a naive random search, a selector that ranks candidates using compile-adjacent signals only, variants that additionally consult a small amount of runtime profiling, and a handful of revised selectors that adjust how the compile-adjacent frontier is constructed in response to observed failures. On the final matrix multiplication evaluation surface, every selector is allowed at most 12 end-to-end benchmarks and 4 profiling runs. Repeatability is measured with repeated runs at a fixed random seed; robustness is measured with one run per seed across a small seed sweep. Diagnostic runs may be collected to explain a failure, but they are never counted as superiority evidence on their own.
 
-The evaluation also separates calibration from held-out testing. Strategies may spend their limited budget on calibration shapes, but the headline comparison is always taken from held-out workloads. That distinction matters because the paper is not asking who can overfit a tiny calibration set; it is asking whether the evidence ladder generalizes to representative workloads under the same spend.
+The evaluation also separates calibration from held-out testing. Selectors may spend their limited budget on calibration shapes, but the headline comparison always uses held-out workloads. That distinction matters: the paper is not asking which strategy can overfit a small calibration set, but whether the evidence ladder generalizes to representative workloads under the same spend.
 
 \begin{table}[t]
 \centering
 \small
-\begin{tabular}{p{0.29\columnwidth}p{0.58\columnwidth}}
+\begin{tabular}{p{0.33\columnwidth}p{0.54\columnwidth}}
 \toprule
 Item & Final study choice \\
 \midrule
-Primary truth source & Representative GEMM \\
-Context workload & Aligned GEMM \\
-Secondary kernel & LayerNorm, split into \texttt{small\_batch} and \texttt{large\_batch} \\
-Canonical GEMM budget & 12 benchmarks, 4 profiles \\
-Mainline GEMM surface & non-\texttt{split\_k}, 216 valid configurations \\
-Reportable evidence & Held-out runtime plus bounded reportable profiling \\
+Primary truth source & Representative matrix multiplication (irregular shapes) \\
+Context workload & Conveniently aligned matrix multiplication \\
+Secondary kernel & Layer normalization, split by batch regime \\
+Matrix-mult budget & 12 end-to-end benchmarks, 4 profiling runs \\
+Final matrix-mult knobs & Tile dimensions, thread-block grouping, warp count, pipeline depth \\
+Reportable evidence & Held-out runtime and a small, well-attributed profiling tier \\
 \bottomrule
 \end{tabular}
-\caption{Compact study scope for the condensed paper. The work is narrow on purpose: fixed kernels, bounded schedules, explicit budgets, and one primary truth source.}
+\caption{Compact study scope. The work is deliberately narrow: fixed kernel implementations, bounded schedule spaces, explicit measurement budgets, and one primary truth source.}
 \label{tab:condensed-scope}
 \end{table}
 
 \section{Observations and Motivation}
 
-The first observation is that compile-adjacent signals are useful for pruning but not sufficient for final ranking. On the expanded Phase 2 representative GEMM surface, \texttt{naive\_random\_search} reaches 1.0331 geometric-mean speedup versus default, while the compile-ranked parent \texttt{prune\_rank} reaches only 0.8265. Even bounded profiling helps only modestly at 0.8444. The issue is therefore not whether cheap signals help at all; it is that they cannot reliably separate several already-plausible families.
+The first observation is that compile-adjacent signals are useful for pruning but not sufficient for final ranking. On an expanded representative matrix multiplication surface, naive random search reached a geometric-mean speedup of $1.033\times$ over default settings, while a compile-signal-based ranking reached only $0.827\times$; adding bounded profiling on top recovered only a modest fraction of the gap, to $0.844\times$. The issue is therefore not whether cheap signals help at all — they help decisively for pruning — but that they cannot reliably separate several already-plausible candidates.
 
-The second observation is that workload realism changes the conclusion. Figure~\ref{fig:condensed-aligned} shows that aligned GEMM is materially more flattering than representative GEMM. A selector that looks passable on aligned shapes can still be weak on the workload matrix that better reflects realistic irregular cases.
+The second observation is that workload realism changes the conclusion. Figure~\ref{fig:condensed-aligned} shows that the same selector looks noticeably stronger on conveniently aligned shapes than on representative ones. A selector that looks passable on aligned shapes can still be weak on the workload matrix that better reflects realistic irregular cases.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.98\columnwidth]{figures/generated/figure3_aligned_context.pdf}
-\caption{Realistic workloads change the answer. Aligned GEMM makes the selector look stronger than it is on representative GEMM, so aligned results stay contextual rather than headline evidence.}
+\caption{Conveniently aligned matrix multiplication shapes flatter the selector. Each cluster of bars corresponds to one selector (compile-signal-only, compile + small profiling tier, naive random search), and the two bars within each cluster compare its geometric-mean speedup on representative irregular shapes (darker bar) versus on conveniently aligned shapes (lighter bar). A dashed horizontal line marks parity with the default configuration. All three selectors look stronger on aligned shapes than on representative ones, which is why we treat aligned results as contextual rather than as primary evidence.}
 \label{fig:condensed-aligned}
 \end{figure}
 
-LayerNorm adds a third motivation. It does not become a second optimization story; instead, it shows that profiling is regime-dependent. Small-batch behavior is weak and noisy, while large-batch behavior remains negative relative to compile-only ranking. That mixed result makes the broader narrative more believable.
+Layer normalization adds a third motivation. It does not become a second optimization headline; instead, it shows that profiling is regime-dependent. In a small-batch regime, profiling helps only marginally over compile-only ranking. In a large-batch regime, the direction actually reverses, with profiling slightly hurting the selector. That mixed result is what makes the broader narrative more believable: it forces us to describe exactly when profiling pays for itself and when it does not.
 
-Together, these observations shift the paper away from a simple ``did the selector win'' framing. The more important question becomes which parts of the evidence ladder remain trustworthy once the workload program is made harder and the search surface is allowed to fail.
+Together, these observations shift the paper away from a simple ``did the selector win'' framing. The more interesting question becomes which parts of the evidence ladder remain trustworthy once the workload program is made harder and the search surface is allowed to fail.
 
 \section{Ideas and Solutions}
 
-The project responded to these observations by tightening the evidence hierarchy instead of opening a larger heuristic space. Compile-adjacent signals are used first, profiling is bounded and treated separately from diagnostic evidence, and selector revisions are compared only against matched-budget parents. When the expanded Phase 3 \texttt{split\_k} surface failed badly, the paper did not stretch the claim to keep that knob alive. It used the failure to retire \texttt{split\_k} from the mainline GEMM surface and to retire \texttt{rows\_per\_program} from the mainline LayerNorm surface.
+The project responded to these observations by tightening the evidence hierarchy, not by opening a larger heuristic space. Compile-adjacent signals are consulted first, runtime profiling is treated as a separate bounded tier, and reportable profiling is kept distinct from diagnostic profiling. When an earlier revision that explored a reduction-splitting parameter — controlling how the summation dimension of the matrix product is partitioned across thread blocks — failed badly on an enlarged search space, we did not stretch the claim to keep that knob alive. We used the failure to retire the reduction-splitting parameter from the main matrix multiplication surface, and similarly to retire a weak row-grouping parameter from the main layer normalization surface.
 
-The final positive push is therefore conservative by design. The \texttt{v5} selector does not introduce another broad revision family. It corrects frontier construction on the final non-\texttt{split\_k} GEMM surface and applies profiling only within that guarded frontier. The scientific point is not that one more heuristic solved the problem. It is that bounded corrective action can still recover a useful headline once the transfer failures are understood.
+The final positive push is therefore conservative by design. The last selector does not introduce another broad heuristic; it only corrects how candidates are added to the compile-adjacent frontier on the remaining matrix multiplication surface, so that strong compile-ranked families are preserved and balanced candidates that earlier revisions had missed are re-admitted. The scientific point is not that one more heuristic finally solved the problem, but that bounded corrective action can still recover a useful headline once the transfer failures are understood.
 
 \section{Results}
 
-The evidence ultimately resolves into four short answers. First, cheap signals prune but do not rank. That is the most stable primary lesson and the one that best survives the broader non-\texttt{split\_k} Phase 2 space.
+The evidence ultimately resolves into four short answers.
 
-Second, realistic workloads matter. Aligned GEMM remains useful because it demonstrates how much better the selector can look on easier shapes than on the representative workload program.
+\paragraph{Cheap signals prune but do not rank.} On the representative matrix multiplication workload, a compile-signal-only ranking reached $0.827\times$ over default settings while a matched-budget random search reached $1.033\times$. Adding a small profiling tier to the same selector recovered only a modest fraction of the gap, to $0.844\times$. The signal is clearly informative enough to reject obviously poor schedules but not informative enough to rank the plausible ones on its own.
 
-Third, LayerNorm stays regime-split and secondary. In Phase 2, \texttt{small\_batch} moves only from \texttt{prune\_rank}=1.0100 to \texttt{prune\_rank\_profiled}=1.0113, while \texttt{large\_batch} moves the wrong way, from 1.0029 to 0.9856. The later microstudy does not rescue that story; it only confirms that \texttt{rows\_per\_program} is too weak to keep in the final mainline.
+\paragraph{Realistic workloads matter.} The same selector reached $0.880\times$ on aligned matrix multiplication and only $0.827\times$ on representative shapes; its profiled variant reached $0.887\times$ and $0.844\times$. A study that evaluated only on aligned shapes would therefore have overstated the selector's real effectiveness. For this reason, all main claims in the paper are drawn from the representative workload, and aligned results are reported only as context.
 
-Fourth, transfer failed on \texttt{split\_k}, but bounded recovery remained possible on the final mainline. Phase 3 provides the most important negative result: on the expanded \texttt{split\_k} surface, the transfer-safe revision remains unsupported, with \texttt{prune\_rank}=1.0324, \texttt{naive\_random\_search}=1.0427, and \texttt{v4\_transfer\_safe\_profiled}=0.1609. That is why transfer failure belongs in the main story rather than in an appendix.
+\paragraph{Layer normalization stays regime-split and secondary.} In the small-batch regime, profiling gained only $0.001$ in geometric-mean speedup over the compile-only selector ($1.011\times$ vs.\ $1.010\times$); in the large-batch regime, the direction reversed ($0.986\times$ profiled vs.\ $1.003\times$ compile-only). A later micro-study of an additional row-grouping parameter did not rescue this story; if anything, it reinforced that the parameter was too weak and noisy to keep on the final evaluation surface.
+
+\paragraph{Transfer failed on the reduction-splitting parameter.} On an enlarged matrix multiplication search space that admitted the reduction-splitting parameter, the selector collapsed: a compile-signal baseline reached $1.032\times$ and random search reached $1.043\times$, but the variant that actively explored the reduction-splitting parameter dropped to $0.161\times$. Ablations of that variant — one using only a corrected frontier, one adding profiling — were essentially indistinguishable at around $0.162\times$, all far below the parent at $0.969\times$. The reduction-splitting parameter was interacting badly with the other knobs in the enlarged space, and no correction we tried recovered the earlier gains. This is the most important negative result in the paper and is the direct justification for removing the reduction-splitting parameter from the final matrix multiplication evaluation.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.98\columnwidth]{figures/generated/figure5_transfer_mainline.pdf}
-\caption{Transfer failure is informative, not disposable. The expanded \texttt{split\_k} surface fails badly, but the final non-\texttt{split\_k} mainline still admits a bounded recovery.}
+\caption{Transfer failure (left) and final mainline recovery (right). Both panels report geometric-mean speedup over the default configuration, with a dashed line marking parity. \emph{Left:} on the enlarged matrix multiplication space that includes the reduction-splitting parameter, the parent selector is near parity while the two variants that actively explore the reduction-splitting knob collapse to roughly $0.16\times$. \emph{Right:} on the smaller surface that excludes the reduction-splitting parameter, a conservative correction to the compile-adjacent frontier recovers a modest positive result above parity, with runtime profiling contributing only a small additional increment on top. The contrast between the two panels is why the reduction-splitting parameter is removed from the final evaluation surface.}
 \label{fig:condensed-transfer}
 \end{figure}
 
-The final mainline result is positive, but it is intentionally bounded. On representative GEMM, the guarded \texttt{v5\_mainline\_profiled} selector reaches 1.0286 geometric-mean speedup versus default. It also exceeds \texttt{naive\_random\_search}=1.0011 under the same matched budget and clearly beats the compile-ranked parent at 0.8101. The mainline ablation shows that most of this recovery comes from conservative frontier construction, with profiling adding only a small extra increment once the frontier is already correct.
+The final mainline result is positive, but it is intentionally bounded. On the representative matrix multiplication workload, the conservative selector reaches a geometric-mean speedup of $1.029\times$ over default settings, compared with $0.810\times$ for the earlier compile-signal-ranked parent and $1.001\times$ for a naive random search under the same matched budget. The paired ablation shown in Figure~\ref{fig:condensed-transfer} confirms that most of this recovery comes from the frontier correction itself; runtime profiling then contributes only a small additional increment on top of the already-corrected frontier.
 
-The paper does not strengthen that outcome into a universal success claim. The result is kept at the ``bounded improvement'' tier because the positive mean result is stronger than the seed-level robustness story. That restraint is part of the contribution: the paper only claims what the evidence package clearly supports.
+The paper does not strengthen this outcome into a universal success claim. The positive mean result is kept at the ``bounded improvement'' tier because it is stronger on repeated-run stability than on a cross-seed robustness sweep, and that restraint is part of the contribution: the paper only claims what the evidence package clearly supports.
 
 \begin{table}[t]
 \centering
 \small
-\begin{tabular}{p{0.42\columnwidth}r}
+\begin{tabular}{p{0.55\columnwidth}r}
 \toprule
-Strategy & Geomean speedup vs default \\
+Selector (matched budget) & Speedup vs.\ default \\
 \midrule
-\texttt{prune\_rank} & 0.8101 \\
-\texttt{naive\_random\_search} & 1.0011 \\
-\texttt{v5\_mainline\_frontier} & 1.0272 \\
-\texttt{v5\_mainline\_profiled} & 1.0286 \\
+Compile-signal-only ranking (earlier parent) & $0.81\times$ \\
+Naive random search & $1.00\times$ \\
+Conservative frontier correction only & $1.03\times$ \\
+Conservative frontier correction + profiling & $1.03\times$ \\
 \bottomrule
 \end{tabular}
-\caption{The final representative-GEMM headline is small but credible: the guarded non-\texttt{split\_k} selector beats the compile-ranked parent and slightly exceeds naive random search under the same matched budget.}
+\caption{Final representative matrix multiplication headline: geometric-mean speedup versus the default configuration, under the same measurement budget for every selector. The conservative selector clearly beats the compile-signal-ranked parent and slightly exceeds naive random search; the profiling step on top of the corrected frontier contributes only a small additional increment.}
 \label{tab:condensed-headline}
 \end{table}
 
-Taken together, the evidence makes the project-level interpretation cleaner. `H1` stays strong. `H2` stays mixed and bounded. `H3` remains contextual. `H4` becomes a transfer story rather than a simple success story. `H5` is unsupported on the expanded \texttt{split\_k} surface. The final positive headline matters precisely because it appears after those harsher results rather than instead of them.
+Taken together, the evidence makes the project-level interpretation cleaner. The claim that cheap compile-adjacent signals prune better than they rank is strongly supported. The claim that layer normalization benefits from matched-budget profiling is mixed and bounded. The claim that aligned workloads must be interpreted as context rather than as ground truth stands. The attempt to build a selector around the reduction-splitting parameter was a transfer story rather than a simple success, and the final conservative selector matters precisely because it appears \emph{after} those harsher results rather than instead of them.
 
 \section{Takeaways}
 
 \begin{itemize}
-\item Cheap compile-adjacent signals help most as pruning evidence, not as a complete ranking solution.
-\item Workload realism changes conclusions materially; aligned GEMM is useful context but not the truth source.
-\item Profiling is kernel- and regime-dependent rather than uniformly beneficial.
-\item Negative results matter. The Phase 3 \texttt{split\_k} failure justified retiring unstable knob families and made the final mainline result more credible.
-\item What worked best in the end was not a larger selector family, but a conservative correction on a better-defined mainline surface.
+\item Cheap compile-adjacent signals help primarily as pruning evidence, not as a complete ranking solution.
+\item Workload realism changes conclusions materially; conveniently aligned shapes are useful context but are not the truth source.
+\item Matched-budget runtime profiling is kernel- and regime-dependent rather than uniformly beneficial.
+\item Negative results matter. The transfer failure on the reduction-splitting parameter is what justified retiring unstable knob families and made the final mainline result more credible.
+\item What worked best in the end was not a larger selector family, but a conservative correction on a better-defined evaluation surface.
 \end{itemize}
 
 \section{Conclusion}
 
-This paper asked whether matched-budget Triton tuning can do better than defaults or naive baselines using cheap compile-adjacent signals and bounded profiling. The answer is yes, but only in a narrow and carefully evidenced sense. The most useful lesson is not that the final selector is universally strong. It is that lightweight evidence is valuable in specific ways: for pruning, for exposing workload realism, for showing when profiling helps only conditionally, and for justifying why some schedule families should be retired. Within that disciplined framing, the final non-\texttt{split\_k} selector delivers a small but credible representative-GEMM improvement that is worth reporting precisely because the paper also preserves the limits of the method.
+This paper asked whether matched-budget Triton tuning can do better than default settings or naive baselines using cheap compile-adjacent signals and a small amount of runtime profiling. The answer is yes, but only in a narrow and carefully evidenced sense. The most useful lesson is not that the final selector is universally strong: it is that lightweight evidence is valuable in specific ways — for pruning obviously poor schedules, for exposing workload realism, for showing when profiling helps only conditionally, and for justifying why some schedule families should be retired. Within that disciplined framing, the final conservative selector delivers a small but credible improvement on representative matrix multiplication that is worth reporting precisely because the paper also preserves the limits of the method.
 
-That is the strongest way to read the project as a paper. The final selector matters, but the more durable contribution is the empirical template around it: matched-budget comparisons, realistic workload design, regime-aware interpretation, and a willingness to keep transfer failures in the main story. Those choices turn a modest final speedup into a more convincing systems result.
+That is the strongest way to read the project as a paper. The final selector matters, but the more durable contribution is the empirical template around it: matched-budget comparisons, representative workload design, regime-aware interpretation of profiling, and a willingness to keep transfer failures inside the main story rather than pushing them into an appendix. Those choices turn a modest final speedup into a more convincing systems result.
 
 \bibliographystyle{plainnat}
 \bibliography{refs}

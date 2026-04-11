@@ -1,15 +1,15 @@
 \begin{table}[t]
 \centering
 \small
-\begin{tabular}{p{0.23\columnwidth}p{0.33\columnwidth}p{0.32\columnwidth}}
+\begin{tabular}{p{0.22\columnwidth}p{0.34\columnwidth}p{0.32\columnwidth}}
 \toprule
-Surface & Active knobs & Signals \\
+Evaluation surface & Active tuning knobs & Evidence used by the selector \\
 \midrule
-GEMM final & \texttt{block\_m}, \texttt{block\_n}, \texttt{block\_k}, \texttt{group\_size\_m}, \texttt{num\_warps}, \texttt{num\_stages} & Tier 0 compile signals + reportable \texttt{compute\_lite} \\
-LayerNorm final & \texttt{block\_size}, \texttt{num\_warps}, \texttt{num\_stages} & Tier 0 compile signals + bounded LayerNorm profiling \\
-Retired diagnostic knobs & \texttt{split\_k}, \texttt{rows\_per\_program} & Diagnostic-only retirement evidence \\
+Matrix multiplication (final) & Output tile dimensions (in three axes), thread-block grouping factor, warps per block, pipeline depth & Compile-adjacent signals (register count, shared-memory footprint, occupancy estimate) plus a small, well-attributed runtime profiling tier \\
+Layer normalization (final) & Block size, warps per block, pipeline depth & Compile-adjacent signals plus a small layer-normalization profiling tier \\
+Retired from final surface & Reduction-splitting parameter (matrix multiplication), row-grouping parameter (layer normalization) & Retained only as diagnostic evidence explaining why each parameter was removed from the main evaluation \\
 \bottomrule
 \end{tabular}
-\caption{Final mainline knob surfaces and signal tiers.}
+\caption{Tuning knobs and evidence tiers on the final evaluation surface. The knobs marked ``retired'' were evaluated earlier in the project but are no longer part of the main tuning surface; their retirement is explained in Section~\ref{sec:results}.}
 \label{tab:knobs}
 \end{table}
