@@ -244,7 +244,7 @@ def build_budget_curve(bundle_dir: Path, output_dir: Path) -> None:
             va="bottom",
             fontsize=8,
         )
-    ax.set_ylabel("Geometric-mean speedup vs. default configuration")
+    ax.set_ylabel("Speedup vs. default (geomean)")
     ax.set_ylim(0, max(values) * 1.18)
     ax.set_title(
         f"Representative matrix multiplication, matched budget ({budget_str})",
@@ -286,8 +286,8 @@ def build_aligned_context(bundle_dir: Path, output_dir: Path) -> None:
     ax.axhline(1.0, color="#555555", linewidth=1.0, linestyle="--", label="Default parity")
     ax.set_xticks(x)
     ax.set_xticklabels(strategies)
-    ax.set_ylabel("Geometric-mean speedup vs. default configuration")
-    ax.set_ylim(0, 1.25)
+    ax.set_ylabel("Speedup vs. default (geomean)")
+    ax.set_ylim(0, 1.30)
     ax.set_title(
         "Aligned matrix-mult shapes overstate selector quality",
         fontsize=10,
@@ -331,7 +331,7 @@ def build_layernorm_regimes(bundle_dir: Path, output_dir: Path) -> None:
     ax.axhline(1.0, color="#555555", linewidth=1.0, linestyle="--", label="Default parity")
     ax.set_xticks(x)
     ax.set_xticklabels([label for label, _ in strategies])
-    ax.set_ylabel("Geometric-mean speedup vs. default configuration")
+    ax.set_ylabel("Speedup vs. default (geomean)")
     ax.set_ylim(0.95, 1.03)
     ax.set_title("Layer normalization: profiling helps unevenly across regimes", fontsize=10)
     ax.legend(frameon=False, fontsize=8, loc="lower left")
@@ -343,7 +343,7 @@ def build_transfer_mainline(bundle_dir: Path, output_dir: Path) -> None:
     diagnostic = pd.read_csv(bundle_dir / "figure5_transfer_diagnostic.csv")
     ablation = pd.read_csv(bundle_dir / "figure5_mainline_ablation.csv")
 
-    fig, axes = plt.subplots(1, 2, figsize=(9.0, 3.6))
+    fig, axes = plt.subplots(1, 2, figsize=(9.0, 3.8))
 
     # Left panel: transfer failure on the enlarged search space.
     transfer_labels = [ablation_label(label) for label in transfer["label"].tolist()]
@@ -353,9 +353,19 @@ def build_transfer_mainline(bundle_dir: Path, output_dir: Path) -> None:
         for row in transfer.itertuples()
     ]
     bars0 = axes[0].bar(transfer_labels, transfer_values, color=transfer_colors, edgecolor="#333333", linewidth=0.5)
-    axes[0].axhline(1.0, color="#555555", linewidth=1.0, linestyle="--", label="Default parity")
-    axes[0].set_ylabel("Geometric-mean speedup vs. default")
-    axes[0].set_ylim(0, 1.25)
+    axes[0].axhline(1.0, color="#555555", linewidth=1.0, linestyle="--")
+    axes[0].text(
+        0.99,
+        1.0,
+        "  default parity",
+        transform=axes[0].get_yaxis_transform(),
+        fontsize=7,
+        color="#555555",
+        va="center",
+        ha="right",
+    )
+    axes[0].set_ylabel("Speedup vs. default (geomean)")
+    axes[0].set_ylim(0, 1.55)
     axes[0].set_title(
         "Enlarged search space: reduction-split variants collapse",
         fontsize=9,
@@ -372,22 +382,21 @@ def build_transfer_mainline(bundle_dir: Path, output_dir: Path) -> None:
     if not diagnostic.empty:
         row = diagnostic.iloc[0]
         diag_text = (
-            "Diagnostic (canonical run):\n"
-            f"selected family matches best-scored: {bool(row['selected_matches_best_scored'])}\n"
-            f"reduction split in selected family: {int(row['selected_split_k'])}\n"
-            f"reduction split in best-scored family: {int(row['best_split_k'])}"
+            "Diagnostic run:\n"
+            f"selected family = best-scored: {bool(row['selected_matches_best_scored'])}\n"
+            f"reduction split (selected): {int(row['selected_split_k'])}\n"
+            f"reduction split (best-scored): {int(row['best_split_k'])}"
         )
         axes[0].text(
-            0.02,
+            0.98,
             0.98,
             diag_text,
             transform=axes[0].transAxes,
-            fontsize=7,
+            fontsize=6.5,
             va="top",
-            ha="left",
+            ha="right",
             bbox=dict(boxstyle="round,pad=0.3", facecolor="#f7fafc", edgecolor="#cbd5e0"),
         )
-    axes[0].legend(frameon=False, fontsize=8, loc="lower right")
     plt.setp(axes[0].get_xticklabels(), fontsize=8)
 
     # Right panel: final mainline recovery after the reduction split is retired.
@@ -398,8 +407,19 @@ def build_transfer_mainline(bundle_dir: Path, output_dir: Path) -> None:
         for row in ablation.itertuples()
     ]
     bars1 = axes[1].bar(ablation_labels, ablation_values, color=ablation_colors, edgecolor="#333333", linewidth=0.5)
-    axes[1].axhline(1.0, color="#555555", linewidth=1.0, linestyle="--", label="Default parity")
-    axes[1].set_ylim(0, 1.25)
+    axes[1].axhline(1.0, color="#555555", linewidth=1.0, linestyle="--")
+    axes[1].text(
+        0.99,
+        1.0,
+        "  default parity",
+        transform=axes[1].get_yaxis_transform(),
+        fontsize=7,
+        color="#555555",
+        va="center",
+        ha="right",
+    )
+    axes[1].set_ylabel("Speedup vs. default (geomean)")
+    axes[1].set_ylim(0, 1.55)
     axes[1].set_title(
         "Reduction split removed: conservative selector recovers parity",
         fontsize=9,
@@ -413,7 +433,6 @@ def build_transfer_mainline(bundle_dir: Path, output_dir: Path) -> None:
             va="bottom",
             fontsize=8,
         )
-    axes[1].legend(frameon=False, fontsize=8, loc="lower right")
     plt.setp(axes[1].get_xticklabels(), fontsize=8)
 
     save_figure(fig, output_dir / "figure5_transfer_mainline.pdf")

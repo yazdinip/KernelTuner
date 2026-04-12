@@ -3,7 +3,7 @@
 
 \subsection{Schedules dominate performance}
 
-Since the publication of Halide~\citep{ragankelley2012halide}, it has become standard to treat the \emph{schedule} of a computation — the choices of how it is tiled, parallelized, and pipelined on the hardware — as a first-class optimization object, separate from the \emph{algorithm} that specifies what is computed. A substantial body of subsequent work has shown that these schedule choices can dominate performance: the same computation, compiled from the same source, can run several times faster or slower depending on how it is scheduled. Halide autoschedulers, TVM, AutoTVM, Ansor, TensorIR, and MetaSchedule have developed increasingly sophisticated ways to search this space, using both handcrafted heuristics and learned cost models~\citep{mullapudi2016halide,adams2019halide,chen2018tvm,chen2018learningtensor,zheng2020ansor,zheng2022tensorir,shao2022metaschedule}. The broad lesson behind these systems is that, even when the high-level computation is fixed, a substantial fraction of end-to-end performance is determined by a relatively small set of scheduling decisions.
+Since the publication of Halide~\citep{ragankelley2012halide}, it has become standard to treat the \emph{schedule} of a computation, the choices of how it is tiled, parallelized, and pipelined on the hardware, as a first-class optimization object, separate from the \emph{algorithm} that specifies what is computed. A substantial body of subsequent work has shown that these schedule choices can dominate performance: the same computation, compiled from the same source, can run several times faster or slower depending on how it is scheduled. Halide autoschedulers, TVM, AutoTVM, Ansor, TensorIR, and MetaSchedule have developed increasingly sophisticated ways to search this space, using both handcrafted heuristics and learned cost models~\citep{mullapudi2016halide,adams2019halide,chen2018tvm,chen2018learningtensor,zheng2020ansor,zheng2022tensorir,shao2022metaschedule}. The broad lesson behind these systems is that, even when the high-level computation is fixed, a substantial fraction of end-to-end performance is determined by a relatively small set of scheduling decisions.
 
 \subsection{Triton exposes a bounded tuning surface}
 
@@ -16,7 +16,7 @@ Although this tuning surface is small compared to the full schedule language of 
 
 \subsection{Evidence under a budget}
 
-The core question we study in this paper is not whether a good schedule exists — it almost always does — but whether \emph{cheap evidence} can guide us to it without exhausting the measurement budget. To make the question precise, we distinguish three kinds of evidence that can be gathered about a candidate schedule.
+The core question we study in this paper is not whether a good schedule exists, it almost always does, but whether \emph{cheap evidence} can guide us to it without exhausting the measurement budget. To make the question precise, we distinguish three kinds of evidence that can be gathered about a candidate schedule.
 
 The first is \emph{admissibility}. Some configurations are invalid on their own terms, for example because they would require more shared memory than the device provides, or because their tile dimensions do not divide the input shape in a supported way. Rejecting these candidates is essentially free.
 
@@ -32,6 +32,6 @@ A tuning study is only as informative as the workloads on which it is evaluated.
 
 \input{tables/table_workloads}
 
-\subsection{What this paper does and does not claim}
+\subsection{Scope and boundaries}
 
-This paper is narrower than a full autoscheduling system. We keep the Triton implementation of each kernel fixed and study the effect of tuning only its exposed knobs under an explicit budget. We do not compare against broader compiler-level synthesis, nor against agentic systems that generate or rewrite entire CUDA kernels~\citep{dai2026cudaagent}. Our goal is not to propose yet another autotuner. It is to describe, as cleanly as possible, where cheap evidence helps, where it does not, and what should be removed from the evaluation when a knob family fails to transfer between search spaces.
+This paper is narrower than a full autoscheduling system. We keep the Triton implementation of each kernel fixed and study the effect of tuning only its exposed knobs under an explicit budget. Broader compiler-level synthesis and agentic systems that generate or rewrite entire CUDA kernels~\citep{dai2026cudaagent} are outside our scope. Our goal is to describe, as cleanly as possible, where cheap evidence helps, where it falls short, and what should be removed from the evaluation when a knob family fails to transfer between search spaces.
